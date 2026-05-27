@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useRenziy } from '../state';
 import { Property, Unit, Payment, MaintenanceRequest } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Building2, Users2, CreditCard, ChevronRight, Plus, Wrench, ShieldAlert, CheckCircle2, Clock, Filter, X, ArrowUpRight, DollarSign, ArrowRightLeft } from 'lucide-react';
+import { Building2, Users2, CreditCard, ChevronRight, Plus, Wrench, ShieldAlert, CheckCircle2, Clock, Filter, X, ArrowUpRight, DollarSign, ArrowRightLeft, Lock } from 'lucide-react';
 
 export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: string) => void }) {
   const { 
@@ -12,7 +12,8 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
     maintenanceRequests, 
     recordPayment, 
     addProperty, 
-    addTenantToUnit 
+    addTenantToUnit,
+    tenantBalance
   } = useRenziy();
 
   // Dialog Overlays State
@@ -116,6 +117,30 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
   return (
     <div className="bg-[#E8F4FD] min-h-screen text-[#1b1b1d] pb-24 md:pb-12">
+      {/* Proactive Lock Alerts Banner */}
+      {totalOutstanding > 0 && (
+        <div className="mb-6 p-4 bg-amber-50 rounded-2xl border border-amber-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 text-left">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-amber-100 rounded-xl text-amber-800">
+              <Lock className="h-5 w-5 animate-pulse" />
+            </div>
+            <div className="leading-relaxed">
+              <p className="font-extrabold text-[#002645] text-sm">Actionable Late Rent Detected (KES {totalOutstanding.toLocaleString()} Outstanding)</p>
+              <p className="text-xs text-[#73777f] font-semibold mt-0.5">
+                Some tenants are overdue on their bills. You can restrict door access remotely to prompt immediate settlement.
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={() => onNavigate('locks')}
+            className="self-start md:self-center px-4 py-2 bg-[#002645] hover:bg-[#1a3c5e] text-white text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs"
+          >
+            <span>Configure IoT locks</span>
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Metrics Row */}
       <h2 className="text-lg font-bold uppercase tracking-wider text-[#002645] mb-4">Portfolio Analytics</h2>
       <section className="mb-8 grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -134,13 +159,13 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
         <div className="p-5 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between">
           <span className="text-xs font-bold uppercase text-[#73777f] tracking-wider">Rent Collected</span>
           <span className="text-3xl lg:text-4xl font-extrabold text-[#002645] mt-2 block">
-            ${totalCollected.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+            KES {totalCollected.toLocaleString('en-US', { maximumFractionDigits: 0 })}
           </span>
         </div>
         <div className="p-5 bg-white rounded-2xl shadow-sm border border-red-200 flex flex-col justify-between col-span-2 sm:col-span-1">
           <span className="text-xs font-bold uppercase text-red-600 tracking-wider">Outstanding Rent</span>
           <span className="text-3xl lg:text-4xl font-extrabold text-red-600 mt-2 block">
-            ${totalOutstanding.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+            KES {totalOutstanding.toLocaleString('en-US', { maximumFractionDigits: 0 })}
           </span>
         </div>
       </section>
@@ -148,10 +173,10 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
       {/* Quick Actions Bento Grid */}
       <h2 className="text-lg font-bold uppercase tracking-wider text-[#002645] mb-4">Operations Console</h2>
       <section className="mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <button 
             onClick={() => setShowPropertyModal(true)}
-            className="flex items-center justify-between p-6 bg-[#002645] text-white rounded-2xl text-left hover:opacity-95 active:scale-95 transition-all group shadow-sm"
+            className="flex items-center justify-between p-6 bg-[#002645] text-white rounded-2xl text-left hover:opacity-95 active:scale-95 transition-all group shadow-sm cursor-pointer"
           >
             <div className="flex flex-col items-start">
               <span className="text-[10px] font-bold uppercase text-[#87a7ce] tracking-widest">New Entry</span>
@@ -164,7 +189,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
           
           <button 
             onClick={() => setShowTenantModal(true)}
-            className="flex items-center justify-between p-6 bg-white text-[#002645] rounded-2xl text-left hover:bg-slate-50 active:scale-95 transition-all group border border-[#e4e2e4] shadow-sm"
+            className="flex items-center justify-between p-6 bg-white text-[#002645] rounded-2xl text-left hover:bg-slate-50 active:scale-95 transition-all group border border-[#e4e2e4] shadow-sm cursor-pointer"
           >
             <div className="flex flex-col items-start">
               <span className="text-[10px] font-bold uppercase text-[#73777f] tracking-widest">Tenant Management</span>
@@ -177,7 +202,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
           <button 
             onClick={() => setShowPaymentModal(true)}
-            className="flex items-center justify-between p-6 bg-[#006c45] text-white rounded-2xl text-left hover:brightness-105 active:scale-95 transition-all group shadow-sm"
+            className="flex items-center justify-between p-6 bg-[#006c45] text-white rounded-2xl text-left hover:brightness-105 active:scale-95 transition-all group shadow-sm cursor-pointer"
           >
             <div className="flex flex-col items-start">
               <span className="text-[10px] font-bold uppercase text-emerald-200 tracking-widest">Transaction</span>
@@ -186,6 +211,37 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
             <div className="bg-white/10 p-3 rounded-xl group-hover:bg-white/20 transition-all">
               <CreditCard className="h-6 w-6 text-white" />
             </div>
+          </button>
+
+          <button 
+            onClick={() => onNavigate('locks')}
+            className="flex items-center justify-between p-6 bg-gradient-to-br from-amber-600 to-amber-700 text-white rounded-2xl text-left hover:brightness-105 active:scale-95 transition-all group shadow-sm cursor-pointer"
+          >
+            <div className="flex flex-col items-start">
+              <span className="text-[10px] font-bold uppercase text-amber-100 tracking-widest">Security IoT</span>
+              <span className="text-xl font-bold mt-1 font-sans">Smart Locks</span>
+            </div>
+            <div className="bg-white/10 p-3 rounded-xl group-hover:bg-white/25 transition-all">
+              <Lock className="h-6 w-6 text-white" />
+            </div>
+          </button>
+        </div>
+      </section>
+
+      {/* Payout Gateway Setup Indicator */}
+      <section className="mb-8">
+        <div className="bg-gradient-to-r from-[#002645] to-[#1a3c5e] p-6 rounded-3xl text-left text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#67f9b3]">Instant Settle Setup</span>
+            <h3 className="text-lg font-bold text-white">Landlord Billing & Collections Routing</h3>
+            <p className="text-xs text-slate-300">Set active bank routing codes, M-Pesa Shortcodes, or telephone targets to direct cash immediately.</p>
+          </div>
+          <button 
+            onClick={() => onNavigate('payouts')}
+            className="px-5 py-2.5 bg-[#67f9b3] text-[#002645] hover:brightness-110 active:scale-95 transition-all text-xs font-black rounded-xl cursor-pointer flex items-center gap-1.5 shrink-0 shadow-sm"
+          >
+            <span>Configure payout method</span>
+            <ChevronRight className="h-4 w-4" />
           </button>
         </div>
       </section>
@@ -306,7 +362,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                           {p.date}
                         </td>
                         <td className="py-4 font-bold text-sm text-[#002645]">
-                          ${p.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          KES {p.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                         </td>
                         <td className="py-4 text-right">
                           <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold ${
@@ -470,7 +526,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                     <option value="">-- Choose Unit --</option>
                     {units.filter(u => u.status === 'Vacant').map(u => (
                       <option key={u.id} value={u.id}>
-                        {u.propertyName} - Unit {u.unitNumber} (${u.rentAmount}/mo)
+                        {u.propertyName} - Unit {u.unitNumber} (KES {u.rentAmount.toLocaleString()}/mo)
                       </option>
                     ))}
                   </select>
@@ -570,11 +626,11 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Rent Amount Collected ($)</label>
+                  <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Rent Amount Collected (KES)</label>
                   <input 
                     type="number"
                     className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold"
-                    placeholder="1850"
+                    placeholder="185000"
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(e.target.value)}
                     required

@@ -7,11 +7,18 @@ import TenantDashboard from './components/TenantDashboard';
 import PaymentFlow from './components/PaymentFlow';
 import MaintenanceForm from './components/MaintenanceForm';
 import MaintenanceHistory from './components/MaintenanceHistory';
-import { Building2, LayoutDashboard, Building, Wrench, CreditCard, LogOut, Bell, User, Menu, X, ArrowLeftRight, HelpCircle } from 'lucide-react';
+import SmartLocks from './components/SmartLocks';
+import PayoutSettings from './components/PayoutSettings';
+import { Building2, LayoutDashboard, Building, Wrench, CreditCard, LogOut, Bell, User, Menu, X, ArrowLeftRight, HelpCircle, Lock, Coins } from 'lucide-react';
+import { motion } from 'motion/react';
 
 function AppContent() {
-  const { role, setRole, username, notifications, markNotificationsAsRead } = useRenziy();
+  const { role, setRole, username, notifications, markNotificationsAsRead, units } = useRenziy();
   
+  // Find tenant avatar dynamically
+  const myUnitInfo = units?.find(u => u.tenantName === 'Alex Smith' || u.tenantName === 'Alex');
+  const tenantAvatar = myUnitInfo?.tenantAvatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB';
+
   // Navigation active tab inside dashboards
   const [activeTab, setActiveTab] = useState('dashboard');
   
@@ -75,6 +82,20 @@ function AppContent() {
                 >
                   <Wrench className="h-4 w-4" />
                   <span>Maintenance Orders</span>
+                </button>
+                <button 
+                  onClick={() => { setActiveTab('locks'); setExpressPayMethod(null); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'locks' ? 'bg-[#1a3c5e] text-white shadow-sm' : 'text-[#87a7ce] hover:text-white hover:bg-white/5'}`}
+                >
+                  <Lock className="h-4 w-4" />
+                  <span>IoT Smart Locks</span>
+                </button>
+                <button 
+                  onClick={() => { setActiveTab('payouts'); setExpressPayMethod(null); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'payouts' ? 'bg-[#1a3c5e] text-white shadow-sm' : 'text-[#87a7ce] hover:text-white hover:bg-white/5'}`}
+                >
+                  <Coins className="h-4 w-4" />
+                  <span>Payout Setup</span>
                 </button>
               </>
             ) : (
@@ -143,17 +164,54 @@ function AppContent() {
           </div>
 
           <div className="flex items-center gap-4 relative">
-            {/* Quick Demo Mode switcher (Incredibly helpful for users evaluating both sides!) */}
-            <button 
-              onClick={() => {
-                setRole(role === 'landlord' ? 'tenant' : 'landlord');
-                setActiveTab('dashboard');
-                setExpressPayMethod(null);
-              }}
-              className="text-[10px] uppercase bg-[#67f9b3]/20 hover:bg-[#67f9b3]/30 text-[#007149] px-3 py-1 rounded-full font-black border border-[#67f9b3]/40 tracking-wider transition-all"
-            >
-              Switch target to: {role === 'landlord' ? 'Alex (Tenant)' : 'Admin landlord'}
-            </button>
+            {/* Professional & Gamified Switch Target Controller */}
+            <div className="bg-[#f0edef] p-1 rounded-full flex items-center border border-[#e4e2e4] shadow-inner relative select-none">
+              <button
+                onClick={() => {
+                  if (role !== 'landlord') {
+                    setRole('landlord');
+                    setActiveTab('dashboard');
+                    setExpressPayMethod(null);
+                  }
+                }}
+                className={`relative px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-colors duration-300 flex items-center gap-1.5 cursor-pointer z-10 ${
+                  role === 'landlord' ? 'text-white' : 'text-[#73777f] hover:text-[#002645]'
+                }`}
+              >
+                {role === 'landlord' && (
+                  <motion.div 
+                    layoutId="activeRoleBg"
+                    className="absolute inset-0 bg-[#002645] rounded-full -z-10 shadow-sm"
+                    transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                  />
+                )}
+                <span className={`w-1.5 h-1.5 rounded-full ${role === 'landlord' ? 'bg-[#67f9b3] animate-pulse shadow-[0_0_8px_#67f9b3]' : 'bg-[#73777f]/40'}`} />
+                <span>Landlord Console</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  if (role !== 'tenant') {
+                    setRole('tenant');
+                    setActiveTab('dashboard');
+                    setExpressPayMethod(null);
+                  }
+                }}
+                className={`relative px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-colors duration-300 flex items-center gap-1.5 cursor-pointer z-10 ${
+                  role === 'tenant' ? 'text-white' : 'text-[#73777f] hover:text-[#002645]'
+                }`}
+              >
+                {role === 'tenant' && (
+                  <motion.div 
+                    layoutId="activeRoleBg"
+                    className="absolute inset-0 bg-[#002645] rounded-full -z-10 shadow-sm"
+                    transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                  />
+                )}
+                <span className={`w-1.5 h-1.5 rounded-full ${role === 'tenant' ? 'bg-[#67f9b3] animate-pulse shadow-[0_0_8px_#67f9b3]' : 'bg-[#73777f]/40'}`} />
+                <span>Tenant Portal</span>
+              </button>
+            </div>
 
             {/* Notifications Alert Bell Hub */}
             <div className="relative">
@@ -207,7 +265,7 @@ function AppContent() {
                   className="w-full h-full object-cover" 
                   src={role === 'landlord' 
                     ? 'https://lh3.googleusercontent.com/aida-public/AB6AXuAMwnvNKfivoGNvNC9N5regRXFoTzJgjvygw0djDO-V3kLxr0Hy8prK6Rf3M7eqjVCcsY4Apprti87A1_xX0S9aIJUnk6pTxgqAHsoeDAdjAJ7elxN6Qy-ESwviqRsDX6d6JgEdcqtVRI5xDlnVAeMQTUI_xej9xSBYkSlgfc36PkFJ4ZuitjAA9R5PSRRVX9At_QfcjBLMS_Ux_m71L3CiwKnebuz0RO-Esm93lzAa_uC_pu6gvY1OJGjhmsKN0dNjOdLycbyWgiqE' 
-                    : 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB'
+                    : tenantAvatar
                   } 
                 />
               </div>
@@ -247,12 +305,18 @@ function AppContent() {
                     return <LandlordDashboard onNavigate={(tab) => {
                       if (tab === 'maintenance') {
                         setActiveTab('maintenance');
+                      } else if (tab === 'payouts') {
+                        setActiveTab('payouts');
                       }
                     }} />;
                   case 'properties':
                     return <LandlordProperties />;
                   case 'maintenance':
                     return <MaintenanceHistory />;
+                  case 'locks':
+                    return <SmartLocks />;
+                  case 'payouts':
+                    return <PayoutSettings />;
                   default:
                     return <LandlordDashboard onNavigate={setActiveTab} />;
                 }
@@ -306,6 +370,20 @@ function AppContent() {
               >
                 <Wrench className="h-5 w-5" />
                 <span className="text-[10px] font-bold">Repairs</span>
+              </button>
+              <button 
+                onClick={() => { setActiveTab('locks'); setExpressPayMethod(null); }}
+                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${activeTab === 'locks' ? 'text-[#002645]' : 'text-[#73777f]'}`}
+              >
+                <Lock className="h-4.5 w-4.5" />
+                <span className="text-[9px] font-bold">Locks</span>
+              </button>
+              <button 
+                onClick={() => { setActiveTab('payouts'); setExpressPayMethod(null); }}
+                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${activeTab === 'payouts' ? 'text-[#002645]' : 'text-[#73777f]'}`}
+              >
+                <Coins className="h-4.5 w-4.5" />
+                <span className="text-[9px] font-bold">Payouts</span>
               </button>
             </>
           ) : (

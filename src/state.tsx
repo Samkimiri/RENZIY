@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Property, Unit, Payment, MaintenanceRequest, Notification, AppUserRole } from './types';
+import { Property, Unit, Payment, MaintenanceRequest, Notification, AppUserRole, SettlementConfig } from './types';
 
 interface RenziyContextType {
   role: AppUserRole;
@@ -12,6 +12,7 @@ interface RenziyContextType {
   maintenanceRequests: MaintenanceRequest[];
   notifications: Notification[];
   tenantBalance: number;
+  settlementConfig: SettlementConfig;
   addProperty: (property: Omit<Property, 'id'>) => void;
   addTenantToUnit: (unitId: string, tenantName: string) => void;
   updateUnit: (unitId: string, tenantName?: string, rentAmount?: number, status?: Unit['status']) => void;
@@ -20,6 +21,9 @@ interface RenziyContextType {
   updateRequestStatus: (requestId: string, status: MaintenanceRequest['status']) => void;
   clearBalanceAndRecordPayment: (method: 'M-Pesa' | 'Card') => void;
   markNotificationsAsRead: () => void;
+  toggleUnitLock: (unitId: string, isLocked: boolean, lockReason?: string) => Promise<void>;
+  updateSettlementConfig: (config: Partial<SettlementConfig>) => Promise<void>;
+  updateTenantAvatar: (unitId: string, tenantAvatar: string) => Promise<void>;
 }
 
 const RenziyContext = createContext<RenziyContextType | undefined>(undefined);
@@ -69,19 +73,19 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const saved = localStorage.getItem('renziy_units');
     if (saved) return JSON.parse(saved);
     return [
-      { id: 'unit-1-101', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '101', rentAmount: 2450, status: 'Occupied', tenantName: 'Marcus Holloway', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA9IoAcZLIY0gg8i6wPLcaY3ygBvaVJvW0PmG_h9U1cLAEnC0k1pah2rUmQdxTTwa2PZ2ZtDP8Qbjz2M8PTiLhaD3eXimlHnDekaQo093rGsmlvzC2rSthGOw2zEnPAvVYQsrYRRKAQ9Gbw7B8zo0HOWZaNpGzs2GKDB0DMjAlrYYqWc8XGfrZe7J-31LzJjZLfre2xMwa0HVge2uvWbsZahdZT1ShrALJgRNBMESkjZV3xRa47RCCNOORnjWwDOBmDJCnFaGCi7do5' },
-      { id: 'unit-1-102', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '102', rentAmount: 2450, status: 'Vacant' },
-      { id: 'unit-1-201', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '201', rentAmount: 2800, status: 'Occupied', tenantName: 'Sarah Jenkins', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAeMCNZyBiv-uiHtktmPVRPIpRrze2myHUqEyGKigO5LZgeu3-EP7_Ty-m4mB5GIZTneHA6G-KXG6hVHQz1wC3Gb-bT7Q82sDQKB583GkhdMFG5ZclHw4rl4_BK6sYi_QlxOSprJxAcqXMjWz41BAsUl0DXfLpJUZzgtVSzWKgHFpIf-UO6uiopeFa1h7QMxeZudiyqMMy-3IfrzO_ApWV77rRsYhROsYt2He4hGzWEBLPhQqKpdKovJWb_O96JJmbHQQbiK7HkM2bH' },
-      { id: 'unit-1-202', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '202', rentAmount: 2800, status: 'Occupied', tenantName: 'Liam Carter', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBY1CTvj3PmtB3-LR_p1s4FNqaP67e_JoWovsuzRp3hatwF4Yg7LrghoPHFR3QODAlxjD9QQF_sIEDYVU0fbJWPhNa9W2QSz2JRCYA5eMWJxLkMcl5HZUURA8kXnfeVXbb8RDc4AW9wvm_SmqyHEv3RQTjcPXHaNL0e2CgaBh6Y4LbLxHaykUfOjEK0DWINHnO5M6EI-CV5VHBoeBuiVQ-kXneHEpi0m6_MM0suuhUZbRzMc1qz4fBdIKQaFE10mTnPsr6OA7lENt6E' },
-      { id: 'unit-1-4b', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: 'Apt 4B', rentAmount: 1450, status: 'Occupied', tenantName: 'Alex Smith', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB' },
+      { id: 'unit-1-101', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '101', rentAmount: 245000, status: 'Occupied', tenantName: 'Marcus Holloway', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA9IoAcZLIY0gg8i6wPLcaY3ygBvaVJvW0PmG_h9U1cLAEnC0k1pah2rUmQdxTTwa2PZ2ZtDP8Qbjz2M8PTiLhaD3eXimlHnDekaQo093rGsmlvzC2rSthGOw2zEnPAvVYQsrYRRKAQ9Gbw7B8zo0HOWZaNpGzs2GKDB0DMjAlrYYqWc8XGfrZe7J-31LzJjZLfre2xMwa0HVge2uvWbsZahdZT1ShrALJgRNBMESkjZV3xRa47RCCNOORnjWwDOBmDJCnFaGCi7do5' },
+      { id: 'unit-1-102', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '102', rentAmount: 245000, status: 'Vacant' },
+      { id: 'unit-1-201', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '201', rentAmount: 280000, status: 'Occupied', tenantName: 'Sarah Jenkins', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAeMCNZyBiv-uiHtktmPVRPIpRrze2myHUqEyGKigO5LZgeu3-EP7_Ty-m4mB5GIZTneHA6G-KXG6hVHQz1wC3Gb-bT7Q82sDQKB583GkhdMFG5ZclHw4rl4_BK6sYi_QlxOSprJxAcqXMjWz41BAsUl0DXfLpJUZzgtVSzWKgHFpIf-UO6uiopeFa1h7QMxeZudiyqMMy-3IfrzO_ApWV77rRsYhROsYt2He4hGzWEBLPhQqKpdKovJWb_O96JJmbHQQbiK7HkM2bH' },
+      { id: 'unit-1-202', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '202', rentAmount: 280000, status: 'Occupied', tenantName: 'Liam Carter', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBY1CTvj3PmtB3-LR_p1s4FNqaP67e_JoWovsuzRp3hatwF4Yg7LrghoPHFR3QODAlxjD9QQF_sIEDYVU0fbJWPhNa9W2QSz2JRCYA5eMWJxLkMcl5HZUURA8kXnfeVXbb8RDc4AW9wvm_SmqyHEv3RQTjcPXHaNL0e2CgaBh6Y4LbLxHaykUfOjEK0DWINHnO5M6EI-CV5VHBoeBuiVQ-kXneHEpi0m6_MM0suuhUZbRzMc1qz4fBdIKQaFE10mTnPsr6OA7lENt6E' },
+      { id: 'unit-1-4b', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: 'Apt 4B', rentAmount: 145000, status: 'Occupied', tenantName: 'Alex Smith', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB' },
       
-      { id: 'unit-2-1', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 1', rentAmount: 1950, status: 'Occupied', tenantName: 'Jane Doe' },
-      { id: 'unit-2-2', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 2', rentAmount: 1950, status: 'Occupied', tenantName: 'Mark Smith' },
-      { id: 'unit-2-3', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 3', rentAmount: 2100, status: 'Occupied', tenantName: 'Lucia Rivera' },
-      { id: 'unit-2-4', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 4', rentAmount: 2100, status: 'Vacant' },
+      { id: 'unit-2-1', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 1', rentAmount: 195000, status: 'Occupied', tenantName: 'Jane Doe' },
+      { id: 'unit-2-2', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 2', rentAmount: 195000, status: 'Occupied', tenantName: 'Mark Smith' },
+      { id: 'unit-2-3', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 3', rentAmount: 210000, status: 'Occupied', tenantName: 'Lucia Rivera' },
+      { id: 'unit-2-4', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 4', rentAmount: 210000, status: 'Vacant' },
       
-      { id: 'unit-3-1', propertyId: 'prop-3', propertyName: 'The Landmark Plaza', unitNumber: 'Suite A', rentAmount: 4500, status: 'Occupied', tenantName: 'Tom Brown' },
-      { id: 'unit-3-2', propertyId: 'prop-3', propertyName: 'The Landmark Plaza', unitNumber: 'Suite B', rentAmount: 4500, status: 'Vacant' }
+      { id: 'unit-3-1', propertyId: 'prop-3', propertyName: 'The Landmark Plaza', unitNumber: 'Suite A', rentAmount: 450000, status: 'Occupied', tenantName: 'Tom Brown' },
+      { id: 'unit-3-2', propertyId: 'prop-3', propertyName: 'The Landmark Plaza', unitNumber: 'Suite B', rentAmount: 450000, status: 'Vacant' }
     ];
   });
 
@@ -96,7 +100,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         unitNumber: 'Unit 1',
         propertyName: 'Harbor View Villas',
         date: 'Oct 12, 2023',
-        amount: 1850.00,
+        amount: 185000.00,
         status: 'Paid',
         paymentMethod: 'M-Pesa',
         code: 'MPESA-OCT-JD88'
@@ -107,7 +111,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         unitNumber: 'Unit 2',
         propertyName: 'Harbor View Villas',
         date: 'Oct 11, 2023',
-        amount: 2400.00,
+        amount: 240000.00,
         status: 'Paid',
         paymentMethod: 'Card',
         code: 'CARD-OCT-MS22'
@@ -118,7 +122,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         unitNumber: 'Unit 3',
         propertyName: 'Harbor View Villas',
         date: 'Oct 10, 2023',
-        amount: 1600.00,
+        amount: 160000.00,
         status: 'Pending',
         paymentMethod: 'M-Pesa',
         code: 'MPESA-OCT-LR33'
@@ -129,7 +133,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         unitNumber: 'Suite A',
         propertyName: 'The Landmark Plaza',
         date: 'Oct 09, 2023',
-        amount: 1250.00,
+        amount: 125000.00,
         status: 'Paid',
         paymentMethod: 'Card',
         code: 'CARD-OCT-TB05'
@@ -195,6 +199,14 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (saved) return JSON.parse(saved);
     return [
       {
+        id: 'notif-lockout-alert',
+        title: '⚠️ CRITICAL: Door Lockout Warning',
+        message: 'Your rent payment of KES 145,000 is now overdue. Continued failure to settle this balance will result in your unit smart lock being engaged remotely.',
+        date: 'Just now',
+        type: 'payment',
+        unread: true
+      },
+      {
         id: 'notif-1',
         title: 'Maintenance Update',
         message: 'A technician (Mark S.) has been assigned to your sink repair.',
@@ -216,7 +228,23 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Tenant Balance
   const [tenantBalance, setTenantBalance] = useState<number>(() => {
     const saved = localStorage.getItem('renziy_balance');
-    return saved ? Number(saved) : 1450.00;
+    return saved ? Number(saved) : 145000;
+  });
+
+  // Landlord Settlement Config
+  const [settlementConfig, setSettlementConfig] = useState<SettlementConfig>(() => {
+    const saved = localStorage.getItem('renziy_settlement');
+    if (saved) return JSON.parse(saved);
+    return {
+      mpesaType: 'Paybill',
+      mpesaDetails: '174379',
+      mpesaAccountName: 'RENZIY APP MANAGEMENT',
+      paybillAccount: 'RENT',
+      bankName: 'Equity Bank',
+      bankAccountName: 'Renziy Real Estate Ltd',
+      bankAccountNumber: '1234567890123',
+      bankRoutingCode: 'EQTYKE'
+    };
   });
 
   // Fetch all initial states from physical server storage
@@ -243,6 +271,9 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const balData = await balRes.json();
           setTenantBalance(balData.tenantBalance);
         }
+
+        const settRes = await fetch('/api/settlement');
+        if (settRes.ok) setSettlementConfig(await settRes.json());
       } catch (err) {
         console.error("API backend not reachable yet, operating off local fallback arrays:", err);
       }
@@ -260,7 +291,8 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem('renziy_maintenance', JSON.stringify(maintenanceRequests));
     localStorage.setItem('renziy_notifications', JSON.stringify(notifications));
     localStorage.setItem('renziy_balance', tenantBalance.toString());
-  }, [role, username, properties, units, payments, maintenanceRequests, notifications, tenantBalance]);
+    localStorage.setItem('renziy_settlement', JSON.stringify(settlementConfig));
+  }, [role, username, properties, units, payments, maintenanceRequests, notifications, tenantBalance, settlementConfig]);
 
   // Set Role Context
   const setRole = (newRole: AppUserRole) => {
@@ -526,6 +558,54 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const toggleUnitLock = async (unitId: string, isLocked: boolean, lockReason?: string) => {
+    // Optimistic UI update
+    setUnits(prev => prev.map(u => {
+      if (u.id === unitId) {
+        return {
+          ...u,
+          isLocked,
+          lockReason: isLocked ? (lockReason || "Rent payment overdue") : undefined
+        };
+      }
+      return u;
+    }));
+
+    // Trigger a live notification
+    const matchedUnit = units.find(u => u.id === unitId);
+    if (matchedUnit && matchedUnit.tenantName) {
+      setNotifications(prev => [
+        {
+          id: `notif-${Date.now()}`,
+          title: isLocked ? '🚫 Smart Lock Engaged' : '🔑 Smart Lock Released',
+          message: isLocked
+            ? `Your unit ${matchedUnit.unitNumber} at ${matchedUnit.propertyName} has been locked. Reason: ${lockReason || "Rent payment overdue"}.`
+            : `Your unit ${matchedUnit.unitNumber} at ${matchedUnit.propertyName} has been unlocked.`,
+          date: 'Just now',
+          type: 'payment',
+          unread: true
+        },
+        ...prev
+      ]);
+    }
+
+    try {
+      const res = await fetch('/api/units/lock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unitId, isLocked, lockReason })
+      });
+      if (res.ok) {
+        const unitsRes = await fetch('/api/units');
+        if (unitsRes.ok) setUnits(await unitsRes.json());
+        const notifsRes = await fetch('/api/notifications');
+        if (notifsRes.ok) setNotifications(await notifsRes.json());
+      }
+    } catch (err) {
+      console.warn("Express API smart lock sync failed, using fallback:", err);
+    }
+  };
+
   const markNotificationsAsRead = async () => {
     setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
 
@@ -542,6 +622,54 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const updateSettlementConfig = async (newConfig: Partial<SettlementConfig>) => {
+    let finalConfig: SettlementConfig | null = null;
+    setSettlementConfig(prev => {
+      finalConfig = { ...prev, ...newConfig };
+      return finalConfig;
+    });
+
+    try {
+      const res = await fetch('/api/settlement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newConfig)
+      });
+      if (res.ok) {
+        setSettlementConfig(await res.json());
+      }
+    } catch (err) {
+      console.warn("Express API unreachable:", err);
+    }
+  };
+
+  const updateTenantAvatar = async (unitId: string, tenantAvatar: string) => {
+    // Optimistic UI update
+    setUnits(prev => prev.map(u => {
+      if (u.id === unitId) {
+        return {
+          ...u,
+          tenantAvatar
+        };
+      }
+      return u;
+    }));
+
+    try {
+      const res = await fetch('/api/units/update-avatar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unitId, tenantAvatar })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setUnits(prev => prev.map(u => u.id === unitId ? updated : u));
+      }
+    } catch (err) {
+      console.warn("Express API unit avatar update failed:", err);
+    }
+  };
+
   return (
     <RenziyContext.Provider
       value={{
@@ -555,6 +683,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         maintenanceRequests,
         notifications,
         tenantBalance,
+        settlementConfig,
         addProperty,
         addTenantToUnit,
         updateUnit,
@@ -562,7 +691,10 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addMaintenanceRequest,
         updateRequestStatus,
         clearBalanceAndRecordPayment,
-        markNotificationsAsRead
+        markNotificationsAsRead,
+        toggleUnitLock,
+        updateSettlementConfig,
+        updateTenantAvatar
       }}
     >
       {children}

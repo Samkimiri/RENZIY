@@ -10,7 +10,7 @@ export default function PaymentFlow({
   initialMethod: 'M-Pesa' | 'Card';
   onClose: () => void;
 }) {
-  const { tenantBalance, clearBalanceAndRecordPayment } = useRenziy();
+  const { tenantBalance, clearBalanceAndRecordPayment, settlementConfig } = useRenziy();
   const [method, setMethod] = useState<'M-Pesa' | 'Card'>(initialMethod);
   const [step, setStep] = useState<'form' | 'processing' | 'success'>('form');
 
@@ -115,8 +115,8 @@ export default function PaymentFlow({
             <div className="bg-[#f0edef]/50 border border-[#e4e2e4] p-4 rounded-2xl mb-6 flex justify-between items-center">
               <div>
                 <p className="text-[10px] uppercase font-bold text-[#73777f] tracking-wider">Due rent amount</p>
-                <p className="text-xl font-black text-[#002645] mt-0.5">KES {(tenantBalance * 100).toLocaleString()}</p>
-                <p className="text-[10px] text-[#73777f] font-semibold">Equivalent of USD ${tenantBalance.toLocaleString()}</p>
+                <p className="text-xl font-black text-[#002645] mt-0.5">KES {tenantBalance.toLocaleString()}</p>
+                <p className="text-[10px] text-[#73777f] font-semibold">Immediate M-Pesa or card processing.</p>
               </div>
               <span className="text-xs font-black uppercase px-2.5 py-1 bg-amber-100 text-amber-800 border border-amber-200 rounded-lg">
                 Pending
@@ -147,8 +147,14 @@ export default function PaymentFlow({
             {method === 'M-Pesa' ? (
               /* M-Pesa Form View (Screen 5) */
               <form onSubmit={triggerPaymentProcessing} className="space-y-5">
-                <div className="p-4 bg-emerald-50 text-[11px] text-[#007149] font-semibold rounded-2xl border border-emerald-100/50">
-                  ⚡ Smart Pay: Dial your registered Safaricom M-Pesa number. You will receive an instant push notification directly on your smartphone requesting your secret M-Pesa Transaction PIN.
+                <div className="p-4 bg-emerald-50 text-[11px] text-[#007149] rounded-2xl border border-[#67f9b3]/20 space-y-1.5 font-semibold text-left">
+                  <div className="flex items-center gap-1.5 text-emerald-800 font-bold uppercase tracking-wide">
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+                    <span>Dynamic Checkout Active</span>
+                  </div>
+                  <p>
+                    You will receive an instant Lipa Na M-Pesa STK push prompt on your smartphone to settle rent due directly to the landlord's account: <span className="underline font-bold text-[#002645]">{settlementConfig.mpesaAccountName}</span> ({settlementConfig.mpesaType === 'Paybill' ? `Paybill ${settlementConfig.mpesaDetails}, A/C: ${settlementConfig.paybillAccount || 'RENT'}` : settlementConfig.mpesaType === 'BuyGoods' ? `Till Number ${settlementConfig.mpesaDetails}` : `Business Number ${settlementConfig.mpesaDetails}`}).
+                  </p>
                 </div>
 
                 <div className="space-y-1">
@@ -244,6 +250,11 @@ export default function PaymentFlow({
                       required
                     />
                   </div>
+                </div>
+
+                <div className="p-3 bg-blue-50 text-[10px] text-[#002645] rounded-xl border border-blue-200/50 text-left space-y-1 font-semibold">
+                  <span className="font-extrabold uppercase tracking-widest text-blue-800 block text-[9px]">Direct Merchant Settlement</span>
+                  <span>Funds are settled safely to <span className="underline font-bold text-[#002645]">{settlementConfig.bankAccountName}</span> at <span className="font-bold text-[#002645]">{settlementConfig.bankName}</span> (A/C: {settlementConfig.bankAccountNumber.slice(0, 4) + '••••' + settlementConfig.bankAccountNumber.slice(-3)}).</span>
                 </div>
 
                 <button 
@@ -349,7 +360,7 @@ export default function PaymentFlow({
                 </div>
                 <div>
                   <p className="text-[#73777f] font-semibold uppercase text-[9px]">Receipt Total</p>
-                  <p className="font-extrabold text-[#002645] mt-0.5">KES {(finalPaidAmount * 100).toLocaleString()}</p>
+                  <p className="font-extrabold text-[#002645] mt-0.5">KES {finalPaidAmount.toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-[#73777f] font-semibold uppercase text-[9px]">Payment Mode</p>
@@ -363,7 +374,7 @@ export default function PaymentFlow({
 
               <div className="pt-3 border-t border-dashed border-[#e4e2e4] flex items-center justify-between text-[11px] font-bold">
                 <span className="text-[#73777f]">Account Balance Remaining:</span>
-                <span className="text-[#007149]">$0.00 (Fully Settled)</span>
+                <span className="text-[#007149]">KES 0.00 (Fully Settled)</span>
               </div>
             </div>
 

@@ -167,7 +167,7 @@ export default function LandlordProperties() {
                   </div>
                   <div>
                     <p className="text-[9px] font-bold text-[#73777f] uppercase leading-none">Portfolio yield</p>
-                    <p className="text-base font-extrabold text-[#002645] mt-1">${totalPropertyYield.toLocaleString()}/mo</p>
+                    <p className="text-base font-extrabold text-[#002645] mt-1">KES {totalPropertyYield.toLocaleString()}/mo</p>
                   </div>
                 </div>
               </div>
@@ -219,7 +219,7 @@ export default function LandlordProperties() {
                           <td className="px-6 py-4 font-semibold text-xs text-[#1b1b1d]">
                             {isEditing ? (
                               <div className="flex items-center border border-[#c3c6cf] rounded-lg bg-white px-2 max-w-[90px]">
-                                <span className="text-xs text-[#73777f] font-bold mr-1">$</span>
+                                <span className="text-xs text-[#73777f] font-bold mr-1">KES</span>
                                 <input 
                                   type="number"
                                   className="w-full bg-transparent border-none p-1 text-xs font-bold text-[#002645] focus:outline-none"
@@ -228,7 +228,7 @@ export default function LandlordProperties() {
                                 />
                               </div>
                             ) : (
-                              `$${u.rentAmount.toLocaleString()}/mo`
+                              `KES ${u.rentAmount.toLocaleString()}/mo`
                             )}
                           </td>
 

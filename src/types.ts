@@ -19,6 +19,8 @@ export interface Unit {
   status: 'Occupied' | 'Vacant';
   tenantName?: string;
   tenantAvatar?: string;
+  isLocked?: boolean;
+  lockReason?: string;
 }
 
 export interface Tenant {
@@ -73,3 +75,15 @@ export interface Notification {
 }
 
 export type AppUserRole = 'landlord' | 'tenant' | 'anonymous';
+
+export interface SettlementConfig {
+  mpesaType: 'Paybill' | 'BuyGoods' | 'PhoneNumber';
+  mpesaDetails: string;
+  mpesaAccountName: string;
+  paybillAccount?: string;
+  bankName: string;
+  bankAccountName: string;
+  bankAccountNumber: string;
+  bankRoutingCode: string;
+}
+
