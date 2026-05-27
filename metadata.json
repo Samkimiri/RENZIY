@@ -1,0 +1,6 @@
+{
+  "name": "Renziy",
+  "description": "The modern operating system for African real estate. Seamless payments, automated maintenance, and verified tenant matching with Renziy.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
