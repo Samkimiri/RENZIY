@@ -16,7 +16,7 @@ function AppContent() {
   const { role, setRole, username, notifications, markNotificationsAsRead, units } = useRenziy();
   
   // Find tenant avatar dynamically
-  const myUnitInfo = units?.find(u => u.tenantName === 'Alex Smith' || u.tenantName === 'Alex');
+  const myUnitInfo = units?.find(u => u.tenantName === username || u.tenantName === 'Alex Smith' || u.tenantName === 'Alex') || units?.find(u => u.id === 'unit-1-4b');
   const tenantAvatar = myUnitInfo?.tenantAvatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB';
 
   // Navigation active tab inside dashboards
@@ -49,7 +49,7 @@ function AppContent() {
         <div className="space-y-8">
           {/* Logo */}
           <div className="flex items-center gap-2 pb-6 border-b border-white/10">
-            <Building2 className="text-[#67f9b3] h-6 w-6" />
+            <Building2 className="text-orange-400 h-6 w-6" />
             <span className="font-extrabold text-2xl tracking-tight text-white">Renziy</span>
           </div>
 
@@ -157,7 +157,7 @@ function AppContent() {
 
           {/* Desktop Left status indicator */}
           <div className="hidden md:flex items-center gap-2">
-            <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
+            <span className="w-2.5 h-2.5 bg-orange-500 rounded-full animate-pulse"></span>
             <span className="text-xs font-extrabold text-[#73777f] uppercase tracking-wider">
               Secure {role === 'landlord' ? 'Landlord Control' : 'Alex Tenant'} Ledger Active
             </span>
@@ -185,7 +185,7 @@ function AppContent() {
                     transition={{ type: "spring", stiffness: 350, damping: 28 }}
                   />
                 )}
-                <span className={`w-1.5 h-1.5 rounded-full ${role === 'landlord' ? 'bg-[#67f9b3] animate-pulse shadow-[0_0_8px_#67f9b3]' : 'bg-[#73777f]/40'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${role === 'landlord' ? 'bg-orange-500 animate-pulse shadow-[0_0_8px_#f97316]' : 'bg-[#73777f]/40'}`} />
                 <span>Landlord Console</span>
               </button>
               
@@ -208,7 +208,7 @@ function AppContent() {
                     transition={{ type: "spring", stiffness: 350, damping: 28 }}
                   />
                 )}
-                <span className={`w-1.5 h-1.5 rounded-full ${role === 'tenant' ? 'bg-[#67f9b3] animate-pulse shadow-[0_0_8px_#67f9b3]' : 'bg-[#73777f]/40'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${role === 'tenant' ? 'bg-orange-500 animate-pulse shadow-[0_0_8px_#f97316]' : 'bg-[#73777f]/40'}`} />
                 <span>Tenant Portal</span>
               </button>
             </div>

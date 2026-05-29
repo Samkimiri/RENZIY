@@ -58,8 +58,8 @@ export default function PayoutSettings() {
         {/* Intro Banner */}
         <div className="bg-white rounded-3xl p-6 md:p-8 border border-[#e4e2e4] shadow-sm relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-2 text-left flex-1">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 rounded-full text-[10px] font-bold uppercase tracking-wide border border-emerald-100">
-              <Sparkles className="h-3.5 w-3.5 text-emerald-600" /> Settled Directly To You
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-50/50 text-orange-950 rounded-full text-[10px] font-bold uppercase tracking-wide border border-orange-200/50">
+              <Sparkles className="h-3.5 w-3.5 text-orange-500" /> Settled Directly To You
             </div>
             <h1 className="text-2xl font-black text-[#002645] mt-1">Payment Setup Preferences</h1>
             <p className="text-xs text-[#73777f] leading-relaxed max-w-xl">
@@ -78,7 +78,7 @@ export default function PayoutSettings() {
           <form onSubmit={handleSave} className="lg:col-span-8 bg-white rounded-3xl p-6 border border-[#e4e2e4] shadow-sm space-y-6 text-left">
             <div>
               <h2 className="text-sm font-black uppercase text-[#002645] tracking-wider mb-1 flex items-center gap-2">
-                <Smartphone className="h-4 w-4 text-[#006c45]" /> M-Pesa Checkout Routing
+                <Smartphone className="h-4 w-4 text-orange-500" /> M-Pesa Checkout Routing
               </h2>
               <p className="text-[11px] text-[#73777f]">Choose how M-Pesa STK push or till transactions are handled.</p>
             </div>
@@ -237,13 +237,13 @@ export default function PayoutSettings() {
             {/* Simulated Checkout Box */}
             <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-4">
               <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-emerald-700">M-Pesa STK Trigger</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] uppercase font-bold text-orange-850">M-Pesa STK Trigger</span>
+                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
               </div>
 
               <div className="space-y-3">
-                <div className="p-3 bg-[#67f9b3]/10 rounded-xl border border-[#67f9b3]/30">
-                  <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Method Context</p>
+                <div className="p-3 bg-orange-500/10 rounded-xl border border-orange-500/30">
+                  <p className="text-[10px] font-bold text-orange-900 uppercase tracking-wider">Method Context</p>
                   <h4 className="text-xs font-bold mt-1 text-[#002645]">{mpesaType === 'Paybill' ? 'LIPA NA M-PESA PAYBILL' : mpesaType === 'BuyGoods' ? 'LIPA NA M-PESA BUY GOODS' : 'STK PHONE PAYMENT'}</h4>
                 </div>
 
@@ -258,8 +258,8 @@ export default function PayoutSettings() {
                   </div>
                   {mpesaType === 'Paybill' && (
                     <div className="col-span-2">
-                      <span className="text-[9px] text-slate-400 block font-semibold uppercase">Account No</span>
-                      <span className="font-extrabold text-emerald-700 block">{paybillAccount || 'RENT'}</span>
+                       <span className="text-[9px] text-slate-400 block font-semibold uppercase">Account No</span>
+                      <span className="font-extrabold text-orange-700 block">{paybillAccount || 'RENT'}</span>
                     </div>
                   )}
                 </div>

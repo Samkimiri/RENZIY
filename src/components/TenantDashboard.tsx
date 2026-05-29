@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useRenziy } from '../state';
-import { ArrowRight, Smartphone, CreditCard, Wrench, ShieldAlert, Sparkles, CheckCircle2, ChevronRight, Bell, Calendar, HelpCircle, Clock, Lock, Unlock, AlertTriangle, Camera, X } from 'lucide-react';
+import { ArrowRight, Smartphone, CreditCard, Wrench, ShieldAlert, Sparkles, CheckCircle2, ChevronRight, Bell, Calendar, HelpCircle, Clock, Lock, Unlock, AlertTriangle, Camera, X, Coins, Award, Gamepad2, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function TenantDashboard({ 
@@ -20,13 +20,21 @@ export default function TenantDashboard({
     updateTenantAvatar
   } = useRenziy();
 
-  // Find Alex's unit
-  const myUnit = units?.find(u => u.tenantName === 'Alex Smith' || u.tenantName === 'Alex');
+  const [gameStats, setGameStats] = useState(() => {
+    try {
+      const saved = localStorage.getItem('renziy_game_stats');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+
+  // Find active unit (matched by custom username, defaults to Apt 4B)
+  const myUnit = units?.find(u => u.tenantName === username || u.tenantName === 'Alex Smith' || u.tenantName === 'Alex') || units?.find(u => u.id === 'unit-1-4b');
   const isLocked = myUnit?.isLocked;
 
-  // Filter Alex's tickets
+  // Filter tickets dynamically matched by custom username or default tenant names
   const alexTickets = maintenanceRequests.filter(
-    r => r.tenantName === 'Alex Smith' || r.tenantName === 'Alex'
+    r => r.tenantName === username || r.tenantName === 'Alex Smith' || r.tenantName === 'Alex'
   );
 
   // Unread count
@@ -116,14 +124,14 @@ export default function TenantDashboard({
             <div className="space-y-2 w-full sm:w-auto self-stretch flex flex-col justify-center">
               <button 
                 onClick={() => onPayRent('M-Pesa')}
-                className="w-full sm:w-auto bg-[#006c45] text-white px-5 py-2.5 rounded-xl text-xs font-extrabold hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                className="w-full sm:w-auto bg-[#002645] text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <span>Pay via M-Pesa</span>
                 <ArrowRight className="h-4 w-4" />
               </button>
               <button 
                 onClick={() => onPayRent('Card')}
-                className="w-full sm:w-auto bg-[#002645] text-white px-5 py-2.5 rounded-xl text-xs font-extrabold hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                className="w-full sm:w-auto bg-orange-500 text-black px-5 py-2.5 rounded-xl text-xs font-black hover:bg-orange-600 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <span>Pay via Card</span>
                 <CreditCard className="h-4 w-4" />
@@ -141,6 +149,51 @@ export default function TenantDashboard({
 
   return (
     <div className="bg-[#E8F4FD] min-h-screen text-[#1b1b1d] pb-24 md:pb-12">
+      {/* Gamified Gamer Status Banner */}
+      {gameStats && (
+        <div className="mb-6 bg-slate-900 text-white p-5 rounded-3xl border border-slate-800 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4 text-left w-full sm:w-auto">
+            <div className="w-12 h-12 rounded-full border-2 border-orange-500 bg-slate-800 overflow-hidden shrink-0 relative shadow-[0_0_12px_rgba(249,115,22,0.3)]">
+              <img 
+                src={localStorage.getItem('renziy_custom_avatar') || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB'} 
+                alt="Avatar" 
+                className="w-full h-full object-cover" 
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-black tracking-tight text-[#ffa14a] uppercase">{gameStats.badge || 'Sovereign Resident'}</span>
+                <span className="text-[9px] font-black px-2 py-0.5 bg-slate-800 text-slate-300 rounded-md uppercase border border-slate-700">LVL {gameStats.level || 1}</span>
+              </div>
+              <p className="text-[10px] text-slate-400 font-medium">
+                Distributed RPG Stats: <span className="text-white font-bold">M-Pesa Buffer {gameStats.stats?.statA || 4}</span> • <span className="text-white font-bold">Fixer Speed {gameStats.stats?.statB || 3}</span> • <span className="text-white font-bold">IoT Grace {gameStats.stats?.statC || 3}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <div className="bg-slate-950 px-4 py-2 rounded-2xl flex items-center gap-2 border border-slate-800">
+              <Coins className="h-4 w-4 text-[#ffa14a]" />
+              <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Balance:</span>
+              <span className="text-xs font-black text-[#ffa14a]">{gameStats.rpBalance || 150} RP</span>
+            </div>
+
+            <button 
+              onClick={() => {
+                localStorage.removeItem('renziy_game_stats');
+                localStorage.removeItem('renziy_role');
+                localStorage.removeItem('renziy_username');
+                window.location.reload();
+              }}
+              className="text-[10px] font-black tracking-wider uppercase text-rose-400 hover:text-rose-300 px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl cursor-pointer hover:underline transition-all"
+            >
+              Reset Class
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Greeting */}
       <div className="mb-6 bg-white p-6 rounded-3xl border border-[#e4e2e4] shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="flex items-center gap-5">
@@ -225,7 +278,7 @@ export default function TenantDashboard({
               <p className="text-xs text-slate-300">Choose M-Pesa STK push or Credit Card for instant receipt delivery.</p>
               <button 
                 onClick={() => onPayRent('M-Pesa')}
-                className="w-full sm:w-auto bg-[#006c45] text-white px-6 py-3 rounded-xl font-bold hover:brightness-110 active:scale-95 transition-all text-sm shrink-0 flex items-center justify-center gap-2 shadow-sm"
+                className="w-full sm:w-auto bg-orange-500 text-black px-6 py-3 rounded-xl font-black hover:bg-orange-600 active:scale-95 transition-all text-sm shrink-0 flex items-center justify-center gap-2 shadow-sm cursor-pointer"
               >
                 <span>Pay Rent</span>
                 <ArrowRight className="h-4 w-4" />
@@ -350,7 +403,7 @@ export default function TenantDashboard({
                 {unreadCount > 0 && (
                   <button 
                     onClick={markNotificationsAsRead}
-                    className="text-[10px] font-bold text-blue-600 hover:underline"
+                    className="text-[10px] font-bold text-orange-500 hover:underline"
                   >
                     Mark read ({unreadCount})
                   </button>
@@ -365,7 +418,7 @@ export default function TenantDashboard({
                       key={n.id} 
                       className={`flex gap-3 items-start border-b border-[#f0edef] pb-3 last:border-0 last:pb-3 ${isLockWarning ? 'bg-red-50/70 p-3.5 rounded-2xl border border-red-100/60' : ''}`}
                     >
-                      <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${n.unread ? 'bg-blue-600' : 'bg-transparent'}`} />
+                      <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${n.unread ? 'bg-orange-500' : 'bg-transparent'}`} />
                       <div className="flex-1">
                         <div className="flex items-center gap-1.5">
                           {isLockWarning && <ShieldAlert className="h-4 w-4 text-red-600 animate-pulse shrink-0" />}
@@ -393,7 +446,7 @@ export default function TenantDashboard({
               <div className="space-y-3">
                 <button 
                   onClick={() => onPayRent('M-Pesa')}
-                  className="w-full flex items-center justify-between p-4 bg-[#67f9b3]/15 hover:bg-[#67f9b3]/25 text-[#007149] rounded-2xl cursor-pointer border border-[#67f9b3]/40 transition-all font-bold text-xs"
+                  className="w-full flex items-center justify-between p-4 bg-orange-500/10 hover:bg-orange-500/25 text-orange-950 rounded-2xl cursor-pointer border border-orange-500/30 transition-all font-black text-xs"
                 >
                   <div className="flex items-center gap-3">
                     <Smartphone className="h-5 w-5" />
@@ -447,7 +500,7 @@ export default function TenantDashboard({
                                 ? 'bg-red-100 text-red-800' 
                                 : r.urgency === 'Med' 
                                   ? 'bg-amber-100 text-amber-800' 
-                                  : 'bg-blue-100 text-blue-800'
+                                  : 'bg-orange-100 text-orange-850'
                             }`}>
                               ● {r.urgency} Urgency
                             </span>

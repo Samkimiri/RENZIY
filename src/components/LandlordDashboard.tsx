@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useRenziy } from '../state';
 import { Property, Unit, Payment, MaintenanceRequest } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Building2, Users2, CreditCard, ChevronRight, Plus, Wrench, ShieldAlert, CheckCircle2, Clock, Filter, X, ArrowUpRight, DollarSign, ArrowRightLeft, Lock } from 'lucide-react';
+import { Building2, Users2, CreditCard, ChevronRight, Plus, Wrench, ShieldAlert, CheckCircle2, Clock, Filter, X, ArrowUpRight, DollarSign, ArrowRightLeft, Lock, Coins, Award, Gamepad2, Star } from 'lucide-react';
 
 export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: string) => void }) {
   const { 
@@ -15,6 +15,15 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
     addTenantToUnit,
     tenantBalance
   } = useRenziy();
+
+  const [gameStats, setGameStats] = useState(() => {
+    try {
+      const saved = localStorage.getItem('renziy_game_stats');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+
 
   // Dialog Overlays State
   const [showPropertyModal, setShowPropertyModal] = useState(false);
@@ -116,7 +125,52 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
   };
 
   return (
-    <div className="bg-[#E8F4FD] min-h-screen text-[#1b1b1d] pb-24 md:pb-12">
+    <div className="bg-[#fcf8fb] min-h-screen text-[#1b1b1d] pb-24 md:pb-12">
+      {/* Gamified Gamer Status Banner */}
+      {gameStats && (
+        <div className="mb-6 bg-slate-900 text-white p-5 rounded-3xl border border-slate-800 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4 text-left w-full sm:w-auto">
+            <div className="w-12 h-12 rounded-full border-2 border-orange-500 bg-slate-800 overflow-hidden shrink-0 relative shadow-[0_0_12px_rgba(249,115,22,0.3)]">
+              <img 
+                src={localStorage.getItem('renziy_custom_avatar') || 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRxmlZiyPxhMA9KhxxEY-ZornwU45XOarKthi5rZwjaUXVYAzK1Rptwz3XSUMih-aX7N40cr2Ki-5KZvD7pUHT8xTTKjuQMyyucNGma4FaFJirfRO8Nmxdo7wvHhgJnJDxwkPMa5NOJdwGCIEP9IoZoEnvk7HAYZ8jfseOFIDZ7L5DKDb2LTYFaZymzBJ-SYm2ragI8Q_dxp6yzf6AjtEmLdC6yZGqnU2ZCun5dcEqufGWVNNfnsQoC1JyHXHZfKXLK1rfwMLmEMPm'} 
+                alt="Avatar" 
+                className="w-full h-full object-cover" 
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-black tracking-tight text-orange-400 uppercase">{gameStats.badge || 'Executive Landlord'}</span>
+                <span className="text-[9px] font-black px-2 py-0.5 bg-slate-800 text-slate-300 rounded-md uppercase border border-slate-700">LVL {gameStats.level || 1}</span>
+              </div>
+              <p className="text-[10px] text-slate-400 font-medium">
+                Distributed RPG Stats: <span className="text-white font-bold">Revenue Focus {gameStats.stats?.statA || 4}</span> • <span className="text-white font-bold">Automation Level {gameStats.stats?.statB || 3}</span> • <span className="text-white font-bold">IoT Authority {gameStats.stats?.statC || 3}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <div className="bg-slate-950 px-4 py-2 rounded-2xl flex items-center gap-2 border border-slate-800">
+              <Coins className="h-4 w-4 text-orange-400" />
+              <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Balance:</span>
+              <span className="text-xs font-black text-orange-400">{gameStats.rpBalance || 150} RP</span>
+            </div>
+
+            <button 
+              onClick={() => {
+                localStorage.removeItem('renziy_game_stats');
+                localStorage.removeItem('renziy_role');
+                localStorage.removeItem('renziy_username');
+                window.location.reload();
+              }}
+              className="text-[10px] font-black tracking-wider uppercase text-rose-400 hover:text-rose-300 px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl cursor-pointer hover:underline transition-all"
+            >
+              Reset Class
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Proactive Lock Alerts Banner */}
       {totalOutstanding > 0 && (
         <div className="mb-6 p-4 bg-amber-50 rounded-2xl border border-amber-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 text-left">
@@ -154,7 +208,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
         </div>
         <div className="p-5 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between">
           <span className="text-xs font-bold uppercase text-[#73777f] tracking-wider">Occupancy Rate</span>
-          <span className="text-3xl lg:text-4xl font-extrabold text-[#006c45] mt-2 block">{occupancyRate}%</span>
+          <span className="text-3xl lg:text-4xl font-extrabold text-orange-600 mt-2 block">{occupancyRate}%</span>
         </div>
         <div className="p-5 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between">
           <span className="text-xs font-bold uppercase text-[#73777f] tracking-wider">Rent Collected</span>
@@ -202,10 +256,10 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
           <button 
             onClick={() => setShowPaymentModal(true)}
-            className="flex items-center justify-between p-6 bg-[#006c45] text-white rounded-2xl text-left hover:brightness-105 active:scale-95 transition-all group shadow-sm cursor-pointer"
+            className="flex items-center justify-between p-6 bg-gradient-to-br from-[#1a3c5e] to-[#25527a] text-white rounded-2xl text-left hover:brightness-105 active:scale-95 transition-all group shadow-sm cursor-pointer"
           >
             <div className="flex flex-col items-start">
-              <span className="text-[10px] font-bold uppercase text-emerald-200 tracking-widest">Transaction</span>
+              <span className="text-[10px] font-bold uppercase text-slate-200 tracking-widest">Transaction</span>
               <span className="text-xl font-bold mt-1">Record Payment</span>
             </div>
             <div className="bg-white/10 p-3 rounded-xl group-hover:bg-white/20 transition-all">
@@ -232,13 +286,13 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
       <section className="mb-8">
         <div className="bg-gradient-to-r from-[#002645] to-[#1a3c5e] p-6 rounded-3xl text-left text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#67f9b3]">Instant Settle Setup</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400">Instant Settle Setup</span>
             <h3 className="text-lg font-bold text-white">Landlord Billing & Collections Routing</h3>
             <p className="text-xs text-slate-300">Set active bank routing codes, M-Pesa Shortcodes, or telephone targets to direct cash immediately.</p>
           </div>
           <button 
             onClick={() => onNavigate('payouts')}
-            className="px-5 py-2.5 bg-[#67f9b3] text-[#002645] hover:brightness-110 active:scale-95 transition-all text-xs font-black rounded-xl cursor-pointer flex items-center gap-1.5 shrink-0 shadow-sm"
+            className="px-5 py-2.5 bg-orange-600 text-white font-bold hover:bg-orange-700 active:scale-95 transition-all text-xs rounded-xl cursor-pointer flex items-center gap-1.5 shrink-0 shadow-sm"
           >
             <span>Configure payout method</span>
             <ChevronRight className="h-4 w-4" />
@@ -314,7 +368,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
             <div>
               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
                 <h3 className="text-lg font-bold text-[#002645] flex items-center gap-2">
-                  <ArrowRightLeft className="h-5 w-5 text-[#006c45]" />
+                  <ArrowRightLeft className="h-5 w-5 text-orange-500" />
                   <span>Recent Payment Ledgers</span>
                 </h3>
                 
@@ -582,7 +636,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
               
               <div className="mb-4">
                 <h3 className="text-xl font-bold text-[#002645] flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-[#006c45]" />
+                  <CreditCard className="h-5 w-5 text-orange-500" />
                   <span>Manual Rent Logging</span>
                 </h3>
                 <p className="text-xs text-[#73777f] mt-1">Record manual cash, wire, or card collections offline.</p>
@@ -659,7 +713,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
                 <button 
                   type="submit"
-                  className="w-full bg-[#006c45] text-white py-3.5 rounded-xl font-bold hover:brightness-110 active:scale-95 transition-all text-sm mt-4 shadow-sm"
+                  className="w-full bg-orange-600 text-white py-3.5 rounded-xl font-bold hover:bg-orange-700 active:scale-95 transition-all text-sm mt-4 shadow-sm cursor-pointer"
                 >
                   Commit Rent Payment
                 </button>

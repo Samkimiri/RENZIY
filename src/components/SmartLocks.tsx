@@ -192,11 +192,11 @@ export default function SmartLocks() {
         <div className="p-5 bg-[#002645] text-white rounded-2xl shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[10px] font-bold text-[#87a7ce] uppercase tracking-wider">System Status</span>
-            <span className="text-md font-bold mt-1.5 block text-green-400 flex items-center gap-1.5">
+            <span className="text-md font-bold mt-1.5 block text-emerald-400 flex items-center gap-1.5">
               <Signal className="h-4 w-4" /> Ready & Armed
             </span>
           </div>
-          <div className="p-2.5 bg-white/10 rounded-xl text-[#67f9b3]">
+          <div className="p-2.5 bg-white/10 rounded-xl text-emerald-400">
             <CheckCircle2 className="h-5 w-5" />
           </div>
         </div>
@@ -266,7 +266,7 @@ export default function SmartLocks() {
                   ? 'bg-amber-500/10 text-amber-800' 
                   : isOverdue 
                     ? 'bg-red-50 text-red-700' 
-                    : 'bg-emerald-50 text-emerald-800'
+                    : 'bg-orange-50 text-orange-800'
               }`}>
                 <div className="flex items-center gap-1">
                   <Signal className="h-3.5 w-3.5" />

@@ -200,7 +200,7 @@ export default function MaintenanceForm({ onClose }: { onClose: () => void }) {
         {/* Security / Technician Promises footer */}
         <div className="mt-6 pt-5 border-t border-[#f0edef] grid grid-cols-3 gap-2 text-center">
           <div className="p-2.5 bg-slate-50 rounded-xl">
-            <Shield className="h-4 w-4 text-[#006c45] mx-auto mb-1" />
+            <Shield className="h-4 w-4 text-orange-500 mx-auto mb-1" />
             <p className="text-[9px] font-black text-[#002645] leading-none uppercase">Certified Techs</p>
             <p className="text-[8px] text-[#73777f] mt-1">Background checked Only</p>
           </div>
@@ -210,7 +210,7 @@ export default function MaintenanceForm({ onClose }: { onClose: () => void }) {
             <p className="text-[8px] text-[#73777f] mt-1">Under 24 hour dispatch</p>
           </div>
           <div className="p-2.5 bg-slate-50 rounded-xl">
-            <Sparkles className="h-4 w-4 text-[#006c45] mx-auto mb-1" />
+            <Sparkles className="h-4 w-4 text-orange-500 mx-auto mb-1" />
             <p className="text-[9px] font-black text-[#002645] leading-none uppercase">Full Protect</p>
             <p className="text-[8px] text-[#73777f] mt-1">Free resident coverage</p>
           </div>

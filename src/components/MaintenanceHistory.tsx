@@ -114,7 +114,7 @@ export default function MaintenanceHistory() {
                         ? 'bg-red-100 text-red-800' 
                         : ticket.urgency === 'Med' 
                           ? 'bg-amber-100 text-amber-800' 
-                          : 'bg-blue-100 text-blue-800'
+                          : 'bg-orange-100 text-orange-850'
                     }`}>
                       ● {ticket.urgency} Urgency
                     </span>
@@ -138,7 +138,7 @@ export default function MaintenanceHistory() {
                       : ticket.status === 'In Progress' 
                         ? 'bg-indigo-100 text-indigo-800 border-indigo-200' 
                         : ticket.status === 'Acknowledged'
-                          ? 'bg-blue-100 text-blue-800 border-blue-200'
+                          ? 'bg-orange-100 text-orange-850 border-orange-200'
                           : 'bg-amber-50 text-amber-800 border-amber-200'
                   }`}>
                     {ticket.status}
