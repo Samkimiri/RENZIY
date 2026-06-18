@@ -49,7 +49,7 @@ function AppContent() {
         <div className="space-y-8">
           {/* Logo */}
           <div className="flex items-center gap-2 pb-6 border-b border-white/10">
-            <Building2 className="text-orange-400 h-6 w-6" />
+            <Building2 className="text-emerald-400 h-6 w-6" />
             <span className="font-extrabold text-2xl tracking-tight text-white">Renziy</span>
           </div>
 
@@ -157,7 +157,7 @@ function AppContent() {
 
           {/* Desktop Left status indicator */}
           <div className="hidden md:flex items-center gap-2">
-            <span className="w-2.5 h-2.5 bg-orange-500 rounded-full animate-pulse"></span>
+            <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
             <span className="text-xs font-extrabold text-[#73777f] uppercase tracking-wider">
               Secure {role === 'landlord' ? 'Landlord Control' : 'Alex Tenant'} Ledger Active
             </span>
@@ -185,7 +185,7 @@ function AppContent() {
                     transition={{ type: "spring", stiffness: 350, damping: 28 }}
                   />
                 )}
-                <span className={`w-1.5 h-1.5 rounded-full ${role === 'landlord' ? 'bg-orange-500 animate-pulse shadow-[0_0_8px_#f97316]' : 'bg-[#73777f]/40'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${role === 'landlord' ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#059669]' : 'bg-[#73777f]/40'}`} />
                 <span>Landlord Console</span>
               </button>
               
@@ -208,7 +208,7 @@ function AppContent() {
                     transition={{ type: "spring", stiffness: 350, damping: 28 }}
                   />
                 )}
-                <span className={`w-1.5 h-1.5 rounded-full ${role === 'tenant' ? 'bg-orange-500 animate-pulse shadow-[0_0_8px_#f97316]' : 'bg-[#73777f]/40'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${role === 'tenant' ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#059669]' : 'bg-[#73777f]/40'}`} />
                 <span>Tenant Portal</span>
               </button>
             </div>

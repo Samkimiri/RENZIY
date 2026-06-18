@@ -266,7 +266,7 @@ export default function SmartLocks() {
                   ? 'bg-amber-500/10 text-amber-800' 
                   : isOverdue 
                     ? 'bg-red-50 text-red-700' 
-                    : 'bg-orange-50 text-orange-800'
+                    : 'bg-emerald-50 text-emerald-800'
               }`}>
                 <div className="flex items-center gap-1">
                   <Signal className="h-3.5 w-3.5" />

@@ -51,7 +51,7 @@ export default function LandingPage() {
       {/* Top Navbar */}
       <nav className="flex justify-between items-center px-4 md:px-10 h-16 w-full fixed top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 shadow-lg">
         <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-          <div className="bg-orange-500/15 p-1.5 rounded-lg border border-orange-500/20 text-orange-400">
+          <div className="bg-emerald-500/15 p-1.5 rounded-lg border border-emerald-500/20 text-emerald-400">
             <Building2 className="h-5 w-5" />
           </div>
           <span className="font-extrabold text-2xl text-white tracking-tight">Renziy</span>
@@ -63,7 +63,7 @@ export default function LandingPage() {
           
           <button 
             onClick={() => selectSocialLogin('landlord')}
-            className="text-xs bg-orange-600 hover:brightness-110 active:scale-95 px-4 py-2 rounded-xl text-white font-black flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+            className="text-xs bg-emerald-600 hover:brightness-110 active:scale-95 px-4 py-2 rounded-xl text-white font-black flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
             <span>Landlord Executive</span>
@@ -71,7 +71,7 @@ export default function LandingPage() {
  
           <button 
             onClick={() => selectSocialLogin('tenant')}
-            className="text-xs bg-orange-600 hover:brightness-110 active:scale-95 px-4 py-2 rounded-xl text-white font-black flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+            className="text-xs bg-emerald-600 hover:brightness-110 active:scale-95 px-4 py-2 rounded-xl text-white font-black flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
             <span>Tenant Resident</span>
@@ -87,7 +87,7 @@ export default function LandingPage() {
             className="bg-white/10 hover:bg-white/20 text-white border border-white/15 px-4 py-2 rounded-xl font-bold text-xs active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
           >
             <span>Credentials Log In</span>
-            <ArrowRight className="h-3 w-3 text-orange-400" />
+            <ArrowRight className="h-3 w-3 text-emerald-400" />
           </button>
         </div>
       </nav>
@@ -97,17 +97,17 @@ export default function LandingPage() {
         <section className="relative min-h-[660px] flex flex-col lg:flex-row items-center justify-center px-4 md:px-10 max-w-7xl mx-auto gap-12 pt-8 lg:pt-16 pb-12">
           {/* Left Hero Content with Prominent App Name & Gorgeous Typography */}
           <div className="w-full lg:w-1/2 space-y-6 text-center lg:text-left z-10">
-            <div className="inline-flex items-center gap-2 bg-orange-400/15 text-orange-400 border border-orange-400/25 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2">
+            <div className="inline-flex items-center gap-2 bg-emerald-400/15 text-emerald-400 border border-emerald-400/25 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2">
               <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-400"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
               </span>
               <span>Smart African Real Estate Operating System</span>
             </div>
             
             <div className="space-y-3">
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-white leading-tight tracking-tight drop-shadow-md">
-                Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-500 drop-shadow-[0_2px_15px_rgba(249,115,22,0.35)]">Renziy</span>
+                Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 drop-shadow-[0_2px_15px_rgba(5,150,105,0.35)]">Renziy</span>
               </h1>
               <h2 className="text-2xl md:text-3xl font-extrabold text-slate-150 tracking-tight leading-none drop-shadow-sm">
                 Rent, fully managed.
@@ -121,8 +121,8 @@ export default function LandingPage() {
             {/* Professional Gateway Console Card (Single-Click Bypass Access) */}
             <div className="bg-slate-950/75 backdrop-blur-md rounded-3xl p-5 border border-slate-800/80 shadow-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-dashed border-slate-800 pb-2.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-orange-400 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                   Quick Bypass Gateways (Select to enter)
                 </span>
                 <span className="text-[9px] font-bold text-slate-400">No Password Required</span>
@@ -132,21 +132,21 @@ export default function LandingPage() {
                 {/* Landlord Entry Option */}
                 <div 
                   onClick={() => selectSocialLogin('landlord')}
-                  className="group bg-gradient-to-br from-slate-900 to-slate-950 hover:from-slate-850 hover:to-slate-900 border border-slate-800 hover:border-orange-400/45 text-white p-4.5 rounded-2xl cursor-pointer hover:shadow-[0_0_20px_rgba(249,115,22,0.1)] hover:scale-[1.02] transition-all relative overflow-hidden flex flex-col justify-between"
+                  className="group bg-gradient-to-br from-slate-900 to-slate-950 hover:from-slate-850 hover:to-slate-900 border border-slate-800 hover:border-emerald-400/45 text-white p-4.5 rounded-2xl cursor-pointer hover:shadow-[0_0_20px_rgba(5,150,105,0.1)] hover:scale-[1.02] transition-all relative overflow-hidden flex flex-col justify-between"
                   style={{ minHeight: '145px' }}
                 >
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <div className="bg-orange-500/10 p-2 rounded-xl text-orange-400 border border-orange-500/20 group-hover:scale-110 transition-transform duration-300">
+                      <div className="bg-emerald-500/10 p-2 rounded-xl text-emerald-400 border border-emerald-500/20 group-hover:scale-110 transition-transform duration-300">
                         <Building2 className="h-5 w-5" />
                       </div>
-                      <span className="text-[9px] font-bold bg-orange-500/20 text-[#ffa14a] px-2 py-0.5 rounded-full uppercase tracking-wide">john doe</span>
+                      <span className="text-[9px] font-bold bg-emerald-500/20 text-[#6ee7b7] px-2 py-0.5 rounded-full uppercase tracking-wide">john doe</span>
                     </div>
                     <h3 className="font-extrabold text-sm tracking-tight text-white block">Landlord Console</h3>
                     <p className="text-[10px] text-slate-300 leading-snug">Manage properties, view annual yield indicators, and authorize Smart Locks.</p>
                   </div>
                   
-                  <div className="mt-3 flex items-center gap-1 text-[11px] font-bold text-orange-400 group-hover:translate-x-1 transition-transform">
+                  <div className="mt-3 flex items-center gap-1 text-[11px] font-bold text-emerald-400 group-hover:translate-x-1 transition-transform">
                     <span>Enter Portal</span>
                     <ArrowRight className="h-3 w-3" />
                   </div>
@@ -155,21 +155,21 @@ export default function LandingPage() {
                 {/* Tenant Entry Option */}
                 <div 
                   onClick={() => selectSocialLogin('tenant')}
-                  className="group bg-gradient-to-br from-slate-900 to-slate-950 hover:from-slate-850 hover:to-slate-900 border border-slate-800 hover:border-orange-400/40 text-white p-4.5 rounded-2xl cursor-pointer hover:shadow-[0_0_20px_rgba(249,115,22,0.1)] hover:scale-[1.02] transition-all relative overflow-hidden flex flex-col justify-between"
+                  className="group bg-gradient-to-br from-slate-900 to-slate-950 hover:from-slate-850 hover:to-slate-900 border border-slate-800 hover:border-emerald-400/40 text-white p-4.5 rounded-2xl cursor-pointer hover:shadow-[0_0_20px_rgba(5,150,105,0.1)] hover:scale-[1.02] transition-all relative overflow-hidden flex flex-col justify-between"
                   style={{ minHeight: '145px' }}
                 >
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <div className="bg-orange-500/10 p-2 rounded-xl text-orange-400 border border-orange-500/20 group-hover:scale-110 transition-transform duration-300">
+                      <div className="bg-emerald-500/10 p-2 rounded-xl text-emerald-400 border border-emerald-500/20 group-hover:scale-110 transition-transform duration-300">
                         <Home className="h-5 w-5" />
                       </div>
-                      <span className="text-[9px] font-bold bg-orange-500/20 text-[#ffa14a] px-2 py-0.5 rounded-full uppercase tracking-wide">alex smith</span>
+                      <span className="text-[9px] font-bold bg-emerald-500/20 text-[#6ee7b7] px-2 py-0.5 rounded-full uppercase tracking-wide">alex smith</span>
                     </div>
                     <h3 className="font-extrabold text-sm tracking-tight text-white">Tenant Portal</h3>
                     <p className="text-[10px] text-slate-300 leading-snug">Process direct M-Pesa STK, submit repair photos, or view IoT locks.</p>
                   </div>
                   
-                  <div className="mt-3 flex items-center gap-1 text-[11px] font-bold text-orange-400 group-hover:translate-x-1 transition-transform">
+                  <div className="mt-3 flex items-center gap-1 text-[11px] font-bold text-emerald-400 group-hover:translate-x-1 transition-transform">
                     <span>Enter Portal</span>
                     <ArrowRight className="h-3 w-3" />
                   </div>
@@ -178,7 +178,7 @@ export default function LandingPage() {
 
               {/* Extra professional helper */}
               <p className="text-[10px] text-slate-400 text-center leading-relaxed">
-                Want to register a custom dashboard? Scroll to the <a href="#auth-section" className="underline font-bold text-orange-400 hover:brightness-110">credentials form below</a>.
+                Want to register a custom dashboard? Scroll to the <a href="#auth-section" className="underline font-bold text-emerald-400 hover:brightness-110">credentials form below</a>.
               </p>
             </div>
           </div>
@@ -213,7 +213,7 @@ export default function LandingPage() {
                   <Star className="h-3 w-3 fill-current" />
                   <Star className="h-3 w-3 fill-current" />
                   <Star className="h-3 w-3 fill-current" />
-                  <span className="text-xs font-bold text-orange-400 ml-2">5.0 Star Rating</span>
+                  <span className="text-xs font-bold text-emerald-400 ml-2">5.0 Star Rating</span>
                 </div>
               </div>
             </div>
@@ -229,13 +229,13 @@ export default function LandingPage() {
                 <div className="flex gap-2 p-1 bg-slate-950/90 rounded-xl border border-slate-800">
                   <button 
                     onClick={() => setUserRoleSelection('landlord')}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${userRoleSelection === 'landlord' ? 'bg-orange-500 text-black shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${userRoleSelection === 'landlord' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
                   >
                     I am a Landlord
                   </button>
                   <button 
                     onClick={() => setUserRoleSelection('tenant')}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${userRoleSelection === 'tenant' ? 'bg-orange-500 text-black shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${userRoleSelection === 'tenant' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
                   >
                     I am a Tenant
                   </button>
@@ -255,9 +255,9 @@ export default function LandingPage() {
                 <form className="space-y-4 pt-2 text-left" onSubmit={handleAuthSubmit}>
                   {authMode === 'signup' && (
                     <div className="space-y-1 bg-transparent">
-                      <label className="text-[10px] font-bold uppercase text-orange-400 tracking-widest px-1">KE Phone Number</label>
-                      <div className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-505 bg-slate-950 transition-all">
-                        <span className="text-xs font-bold text-[#ffa14a] pr-3 border-r border-slate-850 mr-3">+254</span>
+                      <label className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">KE Phone Number</label>
+                      <div className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 bg-slate-950 transition-all">
+                        <span className="text-xs font-bold text-[#6ee7b7] pr-3 border-r border-slate-850 mr-3">+254</span>
                         <input 
                           className="w-full bg-transparent border-none p-0 focus:ring-0 text-xs focus:outline-none text-white font-bold" 
                           placeholder="712 345 678" 
@@ -271,8 +271,8 @@ export default function LandingPage() {
                   )}
 
                   <div className="space-y-1 bg-transparent">
-                  <label className="text-[10px] font-bold uppercase text-orange-400 tracking-widest px-1">Email address</label>
-                    <div className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-505 bg-slate-950 transition-all">
+                  <label className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">Email address</label>
+                    <div className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 bg-slate-950 transition-all">
                       <Mail className="h-4 w-4 text-slate-500 mr-3" />
                       <input 
                         className="w-full bg-transparent border-none p-0 focus:ring-0 text-xs focus:outline-none text-white font-bold" 
@@ -286,8 +286,8 @@ export default function LandingPage() {
                   </div>
 
                   <div className="space-y-1 bg-transparent">
-                    <label className="text-[10px] font-bold uppercase text-orange-400 tracking-widest px-1">Password</label>
-                    <div className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-505 bg-slate-950 transition-all">
+                    <label className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">Password</label>
+                    <div className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 bg-slate-950 transition-all">
                       <Lock className="h-4 w-4 text-slate-500 mr-3" />
                       <input 
                         className="w-full bg-transparent border-none p-0 focus:ring-0 text-xs focus:outline-none text-white font-bold" 
@@ -303,7 +303,7 @@ export default function LandingPage() {
                   <button 
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-orange-500 hover:bg-orange-600 text-black py-3 rounded-xl font-black active:scale-95 transition-all flex items-center justify-center gap-2 mt-2 shadow-lg cursor-pointer animate-pulse"
+                    className="w-full bg-emerald-500 hover:bg-emerald-700 text-black py-3 rounded-xl font-black active:scale-95 transition-all flex items-center justify-center gap-2 mt-2 shadow-lg cursor-pointer animate-pulse"
                   >
                     {loading ? (
                       <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
@@ -326,7 +326,7 @@ export default function LandingPage() {
                     onClick={() => selectSocialLogin(userRoleSelection)}
                     className="w-full border border-slate-800 bg-slate-950 py-3 rounded-xl flex items-center justify-center gap-3 hover:bg-slate-900 active:scale-95 transition-all text-xs text-white font-bold cursor-pointer"
                   >
-                    <Gamepad2 className="h-4 w-4 text-orange-400 animate-pulse" />
+                    <Gamepad2 className="h-4 w-4 text-emerald-400 animate-pulse" />
                     <span>Launch Onboarding Quest</span>
                   </button>
                 </div>
@@ -337,7 +337,7 @@ export default function LandingPage() {
                   {authMode === 'signin' ? "Don't have an account? " : "Already registered? "}
                   <button 
                     onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')}
-                    className="text-orange-400 font-bold hover:underline"
+                    className="text-emerald-400 font-bold hover:underline"
                   >
                     {authMode === 'signin' ? 'Sign up' : 'Log in'}
                   </button>
@@ -348,27 +348,27 @@ export default function LandingPage() {
             {/* Right Side: Bento Info Grid with Dark Theme Adjustments */}
             <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4" id="features">
               {/* Feature 1: M-Pesa */}
-              <div className="bg-gradient-to-br from-slate-900 to-slate-950 p-6 rounded-3xl flex flex-col justify-between overflow-hidden relative group border border-slate-800 hover:border-orange-500/30 transition-all">
+              <div className="bg-gradient-to-br from-slate-900 to-slate-950 p-6 rounded-3xl flex flex-col justify-between overflow-hidden relative group border border-slate-800 hover:border-emerald-500/30 transition-all">
                 <div className="z-10 space-y-3 text-left">
-                  <div className="bg-orange-500/10 w-fit p-2.5 rounded-xl border border-orange-500/20">
-                    <Smartphone className="h-5 w-5 text-orange-400" />
+                  <div className="bg-emerald-500/10 w-fit p-2.5 rounded-xl border border-emerald-500/20">
+                    <Smartphone className="h-5 w-5 text-emerald-400" />
                   </div>
                   <h3 className="text-lg font-bold text-white">M-Pesa Core STK</h3>
                   <p className="text-xs text-slate-400 leading-relaxed">
                     Instantly trigger live STK pushes to tenant smart devices. Fast reconciliation directly connected to mobile money infrastructure.
                   </p>
                 </div>
-                <div className="mt-4 flex items-center text-xs text-orange-400 font-bold gap-1 cursor-pointer">
+                <div className="mt-4 flex items-center text-xs text-emerald-400 font-bold gap-1 cursor-pointer">
                   <span>Learn mechanics</span>
                   <ChevronRight className="h-3 w-3" />
                 </div>
               </div>
 
               {/* Feature 2: Smart Maintenance */}
-              <div className="bg-gradient-to-br from-slate-900 to-slate-950 p-6 rounded-3xl flex flex-col justify-between group border border-slate-800 hover:border-orange-500/30 transition-all">
+              <div className="bg-gradient-to-br from-slate-900 to-slate-950 p-6 rounded-3xl flex flex-col justify-between group border border-slate-800 hover:border-emerald-500/30 transition-all">
                 <div className="space-y-3 text-left">
-                  <div className="bg-orange-500/10 w-fit p-2.5 rounded-xl border border-orange-500/20">
-                    <Settings2 className="h-5 w-5 text-orange-400" />
+                  <div className="bg-emerald-500/10 w-fit p-2.5 rounded-xl border border-emerald-500/20">
+                    <Settings2 className="h-5 w-5 text-emerald-400" />
                   </div>
                   <h3 className="text-lg font-bold text-white">Rapid Technicians</h3>
                   <p className="text-xs text-slate-400 leading-relaxed">
@@ -376,9 +376,9 @@ export default function LandingPage() {
                   </p>
                 </div>
                 <div className="mt-4 flex -space-x-2">
-                  <div className="w-7 h-7 rounded-full bg-orange-600 border-2 border-slate-900 flex items-center justify-center text-[10px] text-white font-bold">JD</div>
-                  <div className="w-7 h-7 rounded-full bg-orange-550 border-2 border-slate-900 flex items-center justify-center text-[10px] text-white font-bold">MS</div>
-                  <div className="w-7 h-7 bg-orange-500 rounded-full border-2 border-slate-900 flex items-center justify-center text-[8px] text-white font-bold">+12</div>
+                  <div className="w-7 h-7 rounded-full bg-emerald-600 border-2 border-slate-900 flex items-center justify-center text-[10px] text-white font-bold">JD</div>
+                  <div className="w-7 h-7 rounded-full bg-emerald-600 border-2 border-slate-900 flex items-center justify-center text-[10px] text-white font-bold">MS</div>
+                  <div className="w-7 h-7 bg-emerald-500 rounded-full border-2 border-slate-900 flex items-center justify-center text-[8px] text-white font-bold">+12</div>
                 </div>
               </div>
 
@@ -392,7 +392,7 @@ export default function LandingPage() {
                   />
                 </div>
                 <div className="w-full md:w-2/3 space-y-2 text-left">
-                  <div className="inline-flex items-center gap-1 text-[10px] uppercase font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded-full">
+                  <div className="inline-flex items-center gap-1 text-[10px] uppercase font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
                     <BarChart3 className="h-3 w-3" /> Real-time Operating Logs
                   </div>
                   <h3 className="text-lg font-bold text-white">Visual Performance Panels</h3>
@@ -413,18 +413,18 @@ export default function LandingPage() {
         <section className="py-16 px-4 md:px-10 max-w-7xl mx-auto flex flex-col md:flex-row gap-6" id="solutions">
           <div className="flex-1 bg-slate-900/60 backdrop-blur-md p-8 md:p-10 rounded-[2rem] space-y-6 flex flex-col justify-between border border-slate-800">
             <div className="space-y-4 text-left">
-              <span className="text-orange-400 text-xs font-black uppercase tracking-wider">Passive Multipliers</span>
+              <span className="text-emerald-400 text-xs font-black uppercase tracking-wider">Passive Multipliers</span>
               <h2 className="text-3xl font-extrabold text-white">Rent Control: Landlords</h2>
               <p className="text-xs text-slate-300 leading-relaxed">
                 Log and monitor historic rental cycles, draft legal lock terms, find premium residents and manage high-yield assets with automated payouts.
               </p>
               <ul className="space-y-2.5 pt-2">
                 <li className="flex items-center gap-2.5 text-xs font-semibold text-slate-200">
-                  <CheckCircle2 className="h-4 w-4 text-orange-400 shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
                   <span>Verified Financial Ledgers</span>
                 </li>
                 <li className="flex items-center gap-2.5 text-xs font-semibold text-slate-200">
-                  <CheckCircle2 className="h-4 w-4 text-orange-400 shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
                   <span>IoT Cloud Permissions Config</span>
                 </li>
               </ul>
@@ -435,7 +435,7 @@ export default function LandingPage() {
                 setAuthMode('signup');
                 document.getElementById('auth-card')?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="bg-orange-500 text-black px-6 py-3.5 rounded-xl font-black hover:bg-orange-600 active:scale-95 transition-all text-center text-xs uppercase tracking-wider cursor-pointer shadow-lg"
+              className="bg-emerald-600 text-white px-6 py-3.5 rounded-xl font-black hover:bg-emerald-700 active:scale-95 transition-all text-center text-xs uppercase tracking-wider cursor-pointer shadow-lg"
             >
               Configure Asset Portfolio
             </button>
@@ -443,18 +443,18 @@ export default function LandingPage() {
 
           <div className="flex-1 bg-slate-900/60 backdrop-blur-md p-8 md:p-10 rounded-[2rem] space-y-6 flex flex-col justify-between border border-slate-800">
             <div className="space-y-4 text-left">
-              <span className="text-orange-400 text-xs font-black uppercase tracking-wider">Convenience Engine</span>
+              <span className="text-emerald-400 text-xs font-black uppercase tracking-wider">Convenience Engine</span>
               <h2 className="text-3xl font-extrabold text-white">Seamless Living: Tenants</h2>
               <p className="text-xs text-slate-300 leading-relaxed">
                 Pay direct rent bills in 4 seconds with M-Pesa STK push. Generate dynamic IoT smart locks logs and fast maintenance dispatches with visual indicators.
               </p>
               <ul className="space-y-2.5 pt-2">
                 <li className="flex items-center gap-2.5 text-xs font-semibold text-slate-200">
-                  <CheckCircle2 className="h-4 w-4 text-orange-400 shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
                   <span>One-Click Checkout (Phone Money)</span>
                 </li>
                 <li className="flex items-center gap-2.5 text-xs font-semibold text-slate-200">
-                  <CheckCircle2 className="h-4 w-4 text-orange-400 shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
                   <span>Mobile Keyless Access Triggers</span>
                 </li>
               </ul>
@@ -465,7 +465,7 @@ export default function LandingPage() {
                 setAuthMode('signup');
                 document.getElementById('auth-card')?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="border border-orange-500/20 bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 px-6 py-3.5 rounded-xl font-extrabold active:scale-95 transition-all text-center text-xs uppercase tracking-wider cursor-pointer"
+              className="border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 px-6 py-3.5 rounded-xl font-extrabold active:scale-95 transition-all text-center text-xs uppercase tracking-wider cursor-pointer"
             >
               Sign Up Resident Account
             </button>
@@ -478,7 +478,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 text-left">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <Building2 className="text-orange-500 h-6 w-6" />
+              <Building2 className="text-emerald-500 h-6 w-6" />
               <span className="font-extrabold text-2xl tracking-tight text-white">Renziy</span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">
@@ -487,21 +487,21 @@ export default function LandingPage() {
           </div>
           
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-orange-500">Product</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-500">Product</h4>
             <a href="#" className="block text-xs text-slate-400 hover:text-white transition-colors">Properties</a>
             <a href="#" className="block text-xs text-slate-400 hover:text-white transition-colors">For Landlords</a>
             <a href="#" className="block text-xs text-slate-400 hover:text-white transition-colors">For Tenants</a>
           </div>
  
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-orange-500">Company</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-500">Company</h4>
             <a href="#" className="block text-xs text-slate-400 hover:text-white transition-colors">About Us</a>
             <a href="#" className="block text-xs text-slate-400 hover:text-white transition-colors">Contact</a>
             <a href="#" className="block text-xs text-slate-400 hover:text-white transition-colors">Privacy Policy</a>
           </div>
  
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-orange-500">Safety & Compliance</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-500">Safety & Compliance</h4>
             <p className="text-xs text-slate-405 leading-relaxed">
               Renziy encrypts financial details using AES-256 secure vaults. PCI-DSS and M-Pesa verified.
             </p>

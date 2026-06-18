@@ -132,7 +132,7 @@ export default function LandlordProperties() {
                       </div>
                       
                       <div className="flex items-center justify-between mt-2 pt-1 border-t border-dashed border-[#e4e2e4]">
-                        <span className="text-[10px] font-bold px-2 py-0.5 bg-orange-100 text-[#5a2c00] rounded-full">
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-[#064e3b] rounded-full">
                           {occUnits} / {p.unitsCount} Units Occupied
                         </span>
                         <ChevronRight className={`h-4 w-4 transition-transform duration-300 ${isSelected ? 'text-[#002645] translate-x-1' : 'text-[#73777f]'}`} />
@@ -162,8 +162,8 @@ export default function LandlordProperties() {
                   <h2 className="text-xl font-bold text-[#002645] mt-1">{activeProperty.name} Units</h2>
                 </div>
                 <div className="text-left sm:text-right bg-white p-3 rounded-xl border border-[#e4e2e4] shadow-xs shrink-0 flex items-center gap-3">
-                  <div className="bg-orange-500/10 p-2 rounded-lg">
-                    <Sparkles className="h-4 w-4 text-orange-500" />
+                  <div className="bg-emerald-500/10 p-2 rounded-lg">
+                    <Sparkles className="h-4 w-4 text-emerald-500" />
                   </div>
                   <div>
                     <p className="text-[9px] font-bold text-[#73777f] uppercase leading-none">Portfolio yield</p>
@@ -209,7 +209,7 @@ export default function LandlordProperties() {
                                 <option value="Vacant">Vacant</option>
                               </select>
                             ) : (
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold ${u.status === 'Occupied' ? 'bg-orange-100 text-orange-950' : 'bg-red-50 text-red-750'}`}>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold ${u.status === 'Occupied' ? 'bg-emerald-100 text-emerald-950' : 'bg-red-50 text-red-750'}`}>
                                 {u.status}
                               </span>
                             )}
@@ -265,7 +265,7 @@ export default function LandlordProperties() {
                               <div className="flex gap-2 justify-end">
                                 <button 
                                   onClick={() => saveEditUnit(u.id)}
-                                  className="p-1 rounded bg-orange-100 text-orange-950 hover:bg-orange-200"
+                                  className="p-1 rounded bg-emerald-100 text-emerald-950 hover:bg-emerald-200"
                                   title="Save alterations"
                                 >
                                   <Check className="h-3.5 w-3.5" />

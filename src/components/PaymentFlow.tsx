@@ -147,9 +147,9 @@ export default function PaymentFlow({
             {method === 'M-Pesa' ? (
               /* M-Pesa Form View (Screen 5) */
               <form onSubmit={triggerPaymentProcessing} className="space-y-5">
-                <div className="p-4 bg-orange-50 text-[11px] text-[#002645] rounded-2xl border border-orange-500/20 space-y-1.5 font-semibold text-left">
-                  <div className="flex items-center gap-1.5 text-orange-800 font-bold uppercase tracking-wide">
-                    <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-ping" />
+                <div className="p-4 bg-emerald-50 text-[11px] text-[#002645] rounded-2xl border border-emerald-500/20 space-y-1.5 font-semibold text-left">
+                  <div className="flex items-center gap-1.5 text-emerald-800 font-bold uppercase tracking-wide">
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
                     <span>Dynamic Checkout Active</span>
                   </div>
                   <p>
@@ -174,7 +174,7 @@ export default function PaymentFlow({
 
                 <button 
                   type="submit"
-                  className="w-full bg-orange-500 text-black py-4 rounded-xl font-black hover:bg-orange-600 active:scale-95 transition-all text-sm mt-4 shadow-sm cursor-pointer"
+                  className="w-full bg-emerald-600 text-white py-4 rounded-xl font-black hover:bg-emerald-700 active:scale-95 transition-all text-sm mt-4 shadow-sm cursor-pointer"
                 >
                   Send STK Push
                 </button>
@@ -252,8 +252,8 @@ export default function PaymentFlow({
                   </div>
                 </div>
 
-                <div className="p-3 bg-orange-55/40 text-[10px] text-orange-850 rounded-xl border border-orange-200 text-left space-y-1 font-semibold">
-                  <span className="font-extrabold uppercase tracking-widest text-orange-750 block text-[9px]">Direct Merchant Settlement</span>
+                <div className="p-3 bg-emerald-50/40 text-[10px] text-emerald-800 rounded-xl border border-emerald-200 text-left space-y-1 font-semibold">
+                  <span className="font-extrabold uppercase tracking-widest text-emerald-700 block text-[9px]">Direct Merchant Settlement</span>
                   <span>Funds are settled safely to <span className="underline font-bold text-[#002645]">{settlementConfig.bankAccountName}</span> at <span className="font-bold text-[#002645]">{settlementConfig.bankName}</span> (A/C: {settlementConfig.bankAccountNumber.slice(0, 4) + '••••' + settlementConfig.bankAccountNumber.slice(-3)}).</span>
                 </div>
 
@@ -286,9 +286,9 @@ export default function PaymentFlow({
           >
             {/* Spinning Rings (Screen 6 style) */}
             <div className="relative w-36 h-36 mx-auto mb-6 flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full border-1 border-dashed border-orange-500/20 animate-spin" style={{ animationDuration: '24s' }} />
+              <div className="absolute inset-0 rounded-full border-1 border-dashed border-emerald-500/20 animate-spin" style={{ animationDuration: '24s' }} />
               <div className="absolute w-28 h-28 rounded-full border-2 border-[#002645] border-t-transparent animate-spin" />
-              <div className="absolute w-20 h-20 rounded-full border-4 border-orange-500 border-b-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '2s' }} />
+              <div className="absolute w-20 h-20 rounded-full border-4 border-emerald-500 border-b-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '2s' }} />
               <div className="w-12 h-12 bg-[#002645] text-white rounded-full flex items-center justify-center">
                 <Smartphone className="h-6 w-6 animate-pulse" />
               </div>
@@ -307,10 +307,10 @@ export default function PaymentFlow({
 
             {/* Simulated processing dynamic bars */}
             <div className="w-full bg-[#f0edef] h-1.5 rounded-full overflow-hidden mt-6 mb-2">
-              <div className="bg-orange-500 h-full rounded-full animate-pulse w-2/3" />
+              <div className="bg-emerald-500 h-full rounded-full animate-pulse w-2/3" />
             </div>
 
-            <span className="text-[9px] font-bold text-orange-600 tracking-wider inline-flex items-center gap-1">
+            <span className="text-[9px] font-bold text-emerald-600 tracking-wider inline-flex items-center gap-1">
               🔒 SECURE TRANSACTION IN PROGRESS
             </span>
 
@@ -336,17 +336,17 @@ export default function PaymentFlow({
           >
             {/* Simple confetti celebration layout */}
             <div className="absolute inset-0 pointer-events-none opacity-25 overflow-hidden">
-              <div className="absolute w-2 h-2 bg-orange-500 rounded-full top-1/4 left-1/4 animate-ping" style={{ animationDelay: '0.2s' }} />
+              <div className="absolute w-2 h-2 bg-emerald-500 rounded-full top-1/4 left-1/4 animate-ping" style={{ animationDelay: '0.2s' }} />
               <div className="absolute w-2 h-2 bg-yellow-500 rounded-full top-1/3 right-1/4 animate-ping" style={{ animationDelay: '0.6s' }} />
-              <div className="absolute w-3 h-3 bg-orange-500 rounded-full bottom-1/3 left-1/3 animate-ping" style={{ animationDelay: '0.8s' }} />
+              <div className="absolute w-3 h-3 bg-emerald-500 rounded-full bottom-1/3 left-1/3 animate-ping" style={{ animationDelay: '0.8s' }} />
             </div>
 
             <div className="text-center pt-6 mb-6">
-              <div className="w-16 h-16 bg-orange-500/10 border border-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="h-10 w-10 text-orange-500" />
+              <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="h-10 w-10 text-emerald-500" />
               </div>
               <h2 className="text-2xl font-black text-[#002645]">Payment Received!</h2>
-              <p className="text-xs text-orange-500 font-bold mt-1">Transaction Completed Successfully</p>
+              <p className="text-xs text-emerald-500 font-bold mt-1">Transaction Completed Successfully</p>
             </div>
 
             {/* Checkout Invoice Card (Screen 7 style) */}

@@ -604,7 +604,18 @@ app.use(express.json());
   async function bootstrap() {
     if (!process.env.VERCEL) {
       if (process.env.NODE_ENV !== "production") {
+        const [{ default: react }, { default: tailwindcss }] = await Promise.all([
+          import("@vitejs/plugin-react"),
+          import("@tailwindcss/vite"),
+        ]);
         const vite = await createViteServer({
+          configFile: false,
+          plugins: [react(), tailwindcss()],
+          resolve: {
+            alias: {
+              '@': path.resolve(process.cwd(), '.'),
+            },
+          },
           server: { middlewareMode: true },
           appType: "spa",
         });

@@ -131,7 +131,7 @@ export default function TenantDashboard({
               </button>
               <button 
                 onClick={() => onPayRent('Card')}
-                className="w-full sm:w-auto bg-orange-500 text-black px-5 py-2.5 rounded-xl text-xs font-black hover:bg-orange-600 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                className="w-full sm:w-auto bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-xs font-black hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <span>Pay via Card</span>
                 <CreditCard className="h-4 w-4" />
@@ -153,7 +153,7 @@ export default function TenantDashboard({
       {gameStats && (
         <div className="mb-6 bg-slate-900 text-white p-5 rounded-3xl border border-slate-800 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4 text-left w-full sm:w-auto">
-            <div className="w-12 h-12 rounded-full border-2 border-orange-500 bg-slate-800 overflow-hidden shrink-0 relative shadow-[0_0_12px_rgba(249,115,22,0.3)]">
+            <div className="w-12 h-12 rounded-full border-2 border-emerald-500 bg-slate-800 overflow-hidden shrink-0 relative shadow-[0_0_12px_rgba(5,150,105,0.3)]">
               <img 
                 src={localStorage.getItem('renziy_custom_avatar') || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB'} 
                 alt="Avatar" 
@@ -163,7 +163,7 @@ export default function TenantDashboard({
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-black tracking-tight text-[#ffa14a] uppercase">{gameStats.badge || 'Sovereign Resident'}</span>
+                <span className="text-sm font-black tracking-tight text-[#6ee7b7] uppercase">{gameStats.badge || 'Sovereign Resident'}</span>
                 <span className="text-[9px] font-black px-2 py-0.5 bg-slate-800 text-slate-300 rounded-md uppercase border border-slate-700">LVL {gameStats.level || 1}</span>
               </div>
               <p className="text-[10px] text-slate-400 font-medium">
@@ -174,9 +174,9 @@ export default function TenantDashboard({
 
           <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
             <div className="bg-slate-950 px-4 py-2 rounded-2xl flex items-center gap-2 border border-slate-800">
-              <Coins className="h-4 w-4 text-[#ffa14a]" />
+              <Coins className="h-4 w-4 text-[#6ee7b7]" />
               <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Balance:</span>
-              <span className="text-xs font-black text-[#ffa14a]">{gameStats.rpBalance || 150} RP</span>
+              <span className="text-xs font-black text-[#6ee7b7]">{gameStats.rpBalance || 150} RP</span>
             </div>
 
             <button 
@@ -278,7 +278,7 @@ export default function TenantDashboard({
               <p className="text-xs text-slate-300">Choose M-Pesa STK push or Credit Card for instant receipt delivery.</p>
               <button 
                 onClick={() => onPayRent('M-Pesa')}
-                className="w-full sm:w-auto bg-orange-500 text-black px-6 py-3 rounded-xl font-black hover:bg-orange-600 active:scale-95 transition-all text-sm shrink-0 flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                className="w-full sm:w-auto bg-emerald-600 text-white px-6 py-3 rounded-xl font-black hover:bg-emerald-700 active:scale-95 transition-all text-sm shrink-0 flex items-center justify-center gap-2 shadow-sm cursor-pointer"
               >
                 <span>Pay Rent</span>
                 <ArrowRight className="h-4 w-4" />
@@ -403,7 +403,7 @@ export default function TenantDashboard({
                 {unreadCount > 0 && (
                   <button 
                     onClick={markNotificationsAsRead}
-                    className="text-[10px] font-bold text-orange-500 hover:underline"
+                    className="text-[10px] font-bold text-emerald-500 hover:underline"
                   >
                     Mark read ({unreadCount})
                   </button>
@@ -418,7 +418,7 @@ export default function TenantDashboard({
                       key={n.id} 
                       className={`flex gap-3 items-start border-b border-[#f0edef] pb-3 last:border-0 last:pb-3 ${isLockWarning ? 'bg-red-50/70 p-3.5 rounded-2xl border border-red-100/60' : ''}`}
                     >
-                      <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${n.unread ? 'bg-orange-500' : 'bg-transparent'}`} />
+                      <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${n.unread ? 'bg-emerald-500' : 'bg-transparent'}`} />
                       <div className="flex-1">
                         <div className="flex items-center gap-1.5">
                           {isLockWarning && <ShieldAlert className="h-4 w-4 text-red-600 animate-pulse shrink-0" />}
@@ -446,7 +446,7 @@ export default function TenantDashboard({
               <div className="space-y-3">
                 <button 
                   onClick={() => onPayRent('M-Pesa')}
-                  className="w-full flex items-center justify-between p-4 bg-orange-500/10 hover:bg-orange-500/25 text-orange-950 rounded-2xl cursor-pointer border border-orange-500/30 transition-all font-black text-xs"
+                  className="w-full flex items-center justify-between p-4 bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-950 rounded-2xl cursor-pointer border border-emerald-500/30 transition-all font-black text-xs"
                 >
                   <div className="flex items-center gap-3">
                     <Smartphone className="h-5 w-5" />
@@ -500,7 +500,7 @@ export default function TenantDashboard({
                                 ? 'bg-red-100 text-red-800' 
                                 : r.urgency === 'Med' 
                                   ? 'bg-amber-100 text-amber-800' 
-                                  : 'bg-orange-100 text-orange-850'
+                                  : 'bg-emerald-100 text-emerald-800'
                             }`}>
                               ● {r.urgency} Urgency
                             </span>

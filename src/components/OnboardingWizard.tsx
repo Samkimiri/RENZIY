@@ -169,7 +169,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
   };
 
   return (
-    <div id="gamified-onboarding-wrapper" className="fixed inset-0 z-50 overflow-y-auto bg-[#030b14] text-slate-100 flex items-center justify-center font-sans p-2 md:p-6 select-none selection:bg-orange-500 selection:text-black">
+    <div id="gamified-onboarding-wrapper" className="fixed inset-0 z-50 overflow-y-auto bg-[#030b14] text-slate-100 flex items-center justify-center font-sans p-2 md:p-6 select-none selection:bg-emerald-500 selection:text-white">
       {/* Dynamic Ambient Blur Backgrounds */}
       <div className="absolute top-10 left-1/4 w-80 h-80 rounded-full bg-emerald-500/10 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-10 right-1/4 w-96 h-96 rounded-full bg-[#002645]/40 blur-[130px] pointer-events-none" />
@@ -180,8 +180,8 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
         {/* Dynamic header / progress indicators */}
         <div className="p-6 md:p-8 pb-3 flex justify-between items-center border-b border-slate-800/60 shrink-0">
           <div className="flex items-center gap-2">
-            <Gamepad2 className="h-5 w-5 text-orange-400 animate-pulse" />
-            <span className="text-xs font-black uppercase tracking-widest text-orange-400">
+            <Gamepad2 className="h-5 w-5 text-emerald-400 animate-pulse" />
+            <span className="text-xs font-black uppercase tracking-widest text-emerald-400">
               Renziy Character Portal
             </span>
           </div>
@@ -192,9 +192,9 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                 key={i} 
                 className={`h-1.5 rounded-full transition-all duration-300 ${
                   i < step 
-                    ? 'w-4 bg-orange-500' 
+                    ? 'w-4 bg-emerald-500' 
                     : i === step 
-                      ? 'w-8 bg-orange-500 shadow-[0_0_8px_#f97316]' 
+                      ? 'w-8 bg-emerald-500 shadow-[0_0_8px_#059669]' 
                       : 'w-2 bg-slate-800'
                 }`}
               />
@@ -226,7 +226,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
               >
                 <div className="space-y-1">
                   <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight flex items-center justify-center md:justify-start gap-2">
-                    Choose Your <span className="text-orange-450 text-orange-400">Real Estate Class</span>
+                    Choose Your <span className="text-emerald-400">Real Estate Class</span>
                   </h2>
                   <p className="text-xs text-slate-400">
                     Select your class path inside the Renziy operating system. This defines your starting workflow and interface views.
@@ -240,20 +240,20 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                     onClick={() => setSelectedClass('landlord')}
                     className={`p-5 rounded-2xl cursor-pointer transition-all border-2 flex flex-col justify-between group relative overflow-hidden ${
                        selectedClass === 'landlord' 
-                        ? 'border-orange-500 bg-orange-950/20 shadow-[0_0_30px_rgba(249,115,22,0.15)]' 
+                        ? 'border-emerald-500 bg-emerald-950/20 shadow-[0_0_30px_rgba(5,150,105,0.15)]' 
                         : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
                     }`}
                     style={{ minHeight: '230px' }}
                   >
                     {/* Glow badge */}
                     {selectedClass === 'landlord' && (
-                      <div className="absolute top-2 right-2 bg-orange-500 text-black text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow">
+                      <div className="absolute top-2 right-2 bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow">
                         Selected Role
                       </div>
                     )}
                     
                     <div className="space-y-3 text-left">
-                      <div className={`p-3 rounded-xl w-fit ${selectedClass === 'landlord' ? 'bg-orange-500 text-black' : 'bg-slate-800 text-slate-400'}`}>
+                      <div className={`p-3 rounded-xl w-fit ${selectedClass === 'landlord' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
                         <Building2 className="h-6 w-6" />
                       </div>
                       <div className="space-y-1">
@@ -267,10 +267,10 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                     <div className="border-t border-slate-800/80 pt-3 mt-3 text-left">
                        <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block mb-1.5">Class Buffs & Perks</span>
                       <div className="flex gap-2 flex-wrap">
-                        <span className="text-[9px] font-black px-2 py-0.5 bg-orange-950 text-orange-400 border border-orange-500/20 rounded-md">
+                        <span className="text-[9px] font-black px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-500/20 rounded-md">
                           💥 Passive Yield +15%
                         </span>
-                        <span className="text-[9px] font-black px-2 py-0.5 bg-orange-950 text-orange-400 border border-orange-500/20 rounded-md">
+                        <span className="text-[9px] font-black px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-500/20 rounded-md">
                           🔑 Lock Control
                         </span>
                       </div>
@@ -282,20 +282,20 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                     onClick={() => setSelectedClass('tenant')}
                     className={`p-5 rounded-2xl cursor-pointer transition-all border-2 flex flex-col justify-between group relative overflow-hidden ${
                       selectedClass === 'tenant' 
-                        ? 'border-orange-500 bg-orange-950/20 shadow-[0_0_30px_rgba(249,115,22,0.15)]' 
+                        ? 'border-emerald-500 bg-emerald-950/20 shadow-[0_0_30px_rgba(5,150,105,0.15)]' 
                         : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
                     }`}
                     style={{ minHeight: '230px' }}
                   >
                     {/* Glow badge */}
                     {selectedClass === 'tenant' && (
-                      <div className="absolute top-2 right-2 bg-orange-500 text-black text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow">
+                      <div className="absolute top-2 right-2 bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow">
                         Selected Role
                       </div>
                     )}
 
                     <div className="space-y-3 text-left">
-                      <div className={`p-3 rounded-xl w-fit ${selectedClass === 'tenant' ? 'bg-orange-500 text-black' : 'bg-slate-800 text-slate-400'}`}>
+                      <div className={`p-3 rounded-xl w-fit ${selectedClass === 'tenant' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
                         <Home className="h-6 w-6" />
                       </div>
                       <div className="space-y-1">
@@ -309,10 +309,10 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                     <div className="border-t border-slate-800/80 pt-3 mt-3 text-left">
                       <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block mb-1.5">Class Perks & Buffs</span>
                       <div className="flex gap-2 flex-wrap">
-                        <span className="text-[9px] font-black px-2 py-0.5 bg-orange-950 text-orange-400 border border-orange-500/20 rounded-md">
+                        <span className="text-[9px] font-black px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-500/20 rounded-md">
                           ⚡ M-Pesa STK +25% Spd
                         </span>
-                        <span className="text-[9px] font-black px-2 py-0.5 bg-orange-950 text-orange-400 border border-orange-500/20 rounded-md">
+                        <span className="text-[9px] font-black px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-500/20 rounded-md">
                           🛡️ Tech Dispatch
                         </span>
                       </div>
@@ -334,7 +334,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
               >
                 <div className="space-y-1">
                   <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight flex items-center gap-1.5">
-                    <Sparkles className="h-5 w-5 text-orange-400" />
+                    <Sparkles className="h-5 w-5 text-emerald-400" />
                     <span>Configure Character Identity</span>
                   </h2>
                   <p className="text-xs text-slate-400">
@@ -346,7 +346,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                   {/* Personal specifications */}
                   <div className="space-y-3.5">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-orange-400 px-1 block">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 px-1 block">
                         Character Codename / Full Name
                       </label>
                       <input 
@@ -354,16 +354,16 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                         placeholder={selectedClass === 'tenant' ? 'Alex Smith' : 'John Doe'}
                         value={charName}
                         onChange={(e) => setCharName(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs font-bold text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs font-bold text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-orange-400 px-1 block">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 px-1 block">
                         Kenyan Contact Line (M-Pesa STK link)
                       </label>
-                      <div className="flex bg-slate-950 border border-slate-800 rounded-xl focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500 overflow-hidden transition-all">
-                        <span className="bg-slate-900 border-r border-slate-850 px-3.5 py-3 text-xs font-bold text-orange-400">
+                      <div className="flex bg-slate-950 border border-slate-800 rounded-xl focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 overflow-hidden transition-all">
+                        <span className="bg-slate-900 border-r border-slate-850 px-3.5 py-3 text-xs font-bold text-emerald-400">
                           +254
                         </span>
                         <input 
@@ -387,7 +387,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
 
                   {/* Avatar Picker & Drop Zone */}
                   <div className="space-y-2.5">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-orange-400 block">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 block">
                       Choose Avatar Style
                     </label>
 
@@ -402,7 +402,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                           }}
                           className={`w-10 h-10 rounded-full shrink-0 overflow-hidden border-2 cursor-pointer transition-all ${
                             selectedAvatarUrl === av.url && !customAvatarUploaded
-                              ? 'border-orange-500 scale-110 shadow-[0_0_8px_#f97316]' 
+                              ? 'border-emerald-500 scale-110 shadow-[0_0_8px_#059669]' 
                               : 'border-slate-800 opacity-60 hover:opacity-100'
                           }`}
                           title={av.name}
@@ -420,9 +420,9 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                       onClick={() => fileInputRef.current?.click()}
                       className={`border border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${
                         isDragging 
-                          ? 'border-orange-500 bg-orange-950/20' 
+                          ? 'border-emerald-500 bg-emerald-950/20' 
                           : customAvatarUploaded 
-                            ? 'border-orange-500/30 bg-orange-950/5' 
+                            ? 'border-emerald-500/30 bg-emerald-950/5' 
                             : 'border-slate-800 hover:border-slate-700 bg-slate-950/50 hover:bg-slate-950'
                       }`}
                       style={{ minHeight: '105px' }}
@@ -444,7 +444,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                         </div>
                         <div className="text-left text-[10px] leading-relaxed">
                           <p className="font-bold text-white flex items-center gap-1">
-                            <Camera className="h-3 w-3 text-orange-400" />
+                            <Camera className="h-3 w-3 text-emerald-400" />
                             <span>Upload Avatar Photo</span>
                           </p>
                           <p className="text-slate-500 mt-0.5">Drag &amp; drop profile picture file (Drag-and-Drop / Browse)</p>
@@ -486,7 +486,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                   <div className="bg-slate-950/80 border border-slate-850 p-4.5 rounded-2xl relative flex flex-col justify-between text-left space-y-3">
                     <div className="space-y-1">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] uppercase font-black text-orange-400 tracking-wider">
+                        <span className="text-[10px] uppercase font-black text-emerald-400 tracking-wider">
                           {selectedClass === 'landlord' ? '🛡️ Revenue Yield' : '🛡️ Rent Buffer'}
                         </span>
                         <span className="text-lg font-black text-white">{stats.statA}</span>
@@ -511,7 +511,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                       <button 
                         onClick={() => adjustStat('statA', 1)}
                         disabled={availablePoints <= 0}
-                        className="px-3.5 py-1.5 font-black bg-slate-900 border border-slate-800 text-orange-400 hover:bg-slate-850 rounded-xl text-xs active:scale-95 disabled:opacity-40 transition-all cursor-pointer"
+                        className="px-3.5 py-1.5 font-black bg-slate-900 border border-slate-800 text-emerald-400 hover:bg-slate-850 rounded-xl text-xs active:scale-95 disabled:opacity-40 transition-all cursor-pointer"
                         style={{ minWidth: '36px', minHeight: '36px' }}
                       >
                         +
@@ -523,7 +523,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                   <div className="bg-slate-950/80 border border-slate-850 p-4.5 rounded-2xl relative flex flex-col justify-between text-left space-y-3">
                     <div className="space-y-1">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] uppercase font-black text-orange-400 tracking-wider">
+                        <span className="text-[10px] uppercase font-black text-emerald-400 tracking-wider">
                           {selectedClass === 'landlord' ? '⚡ Automation Spd' : '⚡ Fixer Speed'}
                         </span>
                         <span className="text-lg font-black text-white">{stats.statB}</span>
@@ -548,7 +548,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                       <button 
                         onClick={() => adjustStat('statB', 1)}
                         disabled={availablePoints <= 0}
-                        className="px-3.5 py-1.5 font-black bg-slate-900 border border-slate-800 text-orange-400 hover:bg-slate-850 rounded-xl text-xs active:scale-95 disabled:opacity-40 transition-all cursor-pointer"
+                        className="px-3.5 py-1.5 font-black bg-slate-900 border border-slate-800 text-emerald-400 hover:bg-slate-850 rounded-xl text-xs active:scale-95 disabled:opacity-40 transition-all cursor-pointer"
                         style={{ minWidth: '36px', minHeight: '36px' }}
                       >
                         +
@@ -560,7 +560,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                   <div className="bg-slate-950/80 border border-slate-850 p-4.5 rounded-2xl relative flex flex-col justify-between text-left space-y-3">
                     <div className="space-y-1">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] uppercase font-black text-orange-400 tracking-wider">
+                        <span className="text-[10px] uppercase font-black text-emerald-400 tracking-wider">
                           {selectedClass === 'landlord' ? '🔮 IoT Authority' : '🔮 IoT Privilege'}
                         </span>
                         <span className="text-lg font-black text-white">{stats.statC}</span>
@@ -585,7 +585,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                       <button 
                         onClick={() => adjustStat('statC', 1)}
                         disabled={availablePoints <= 0}
-                        className="px-3.5 py-1.5 font-black bg-slate-900 border border-slate-800 text-orange-400 hover:bg-slate-850 rounded-xl text-xs active:scale-95 disabled:opacity-40 transition-all cursor-pointer"
+                        className="px-3.5 py-1.5 font-black bg-slate-900 border border-slate-800 text-emerald-400 hover:bg-slate-850 rounded-xl text-xs active:scale-95 disabled:opacity-40 transition-all cursor-pointer"
                         style={{ minWidth: '36px', minHeight: '36px' }}
                       >
                         +
@@ -619,7 +619,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
               >
                 <div className="space-y-1 max-w-md">
                   <h2 className="text-2xl font-extrabold text-white tracking-tight">
-                    Claim Your <span className="text-orange-400 font-black">Pioneer Level 1 Box</span>!
+                    Claim Your <span className="text-emerald-400 font-black">Pioneer Level 1 Box</span>!
                   </h2>
                   <p className="text-xs text-slate-400 leading-normal">
                     Open your starter box to claim exclusive Pioneer RP (Renziy Points) and unlock database integration.
@@ -636,13 +636,13 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                       className="cursor-pointer relative group"
                     >
                       {/* Radiating highlight shadow */}
-                      <div className="absolute inset-0 bg-orange-500/20 rounded-full blur-2xl group-hover:bg-orange-500/30 transition-all animate-pulse" />
+                      <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-2xl group-hover:bg-emerald-500/30 transition-all animate-pulse" />
                       
-                      <div className="w-28 h-28 bg-[#1e2d40] border-4 border-orange-500 rounded-3xl flex items-center justify-center text-orange-400 shadow-[0_0_30px_#f97316] relative z-10 animate-bounce">
-                        <Award className="h-16 w-16 text-orange-400" />
+                      <div className="w-28 h-28 bg-[#1e2d40] border-4 border-emerald-500 rounded-3xl flex items-center justify-center text-emerald-400 shadow-[0_0_30px_#059669] relative z-10 animate-bounce">
+                        <Award className="h-16 w-16 text-emerald-400" />
                       </div>
                       
-                      <span className="absolute bottom-[-16px] left-1/2 -translate-x-1/2 text-[10px] font-black uppercase text-orange-400 tracking-widest bg-[#030b14] border border-orange-500/40 px-3 py-1 rounded-full shrink-0 group-hover:brightness-110">
+                      <span className="absolute bottom-[-16px] left-1/2 -translate-x-1/2 text-[10px] font-black uppercase text-emerald-400 tracking-widest bg-[#030b14] border border-emerald-500/40 px-3 py-1 rounded-full shrink-0 group-hover:brightness-110">
                         Click to Open Chest
                       </span>
                     </motion.div>
@@ -703,7 +703,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
             <button 
               onClick={() => setStep(step + 1)}
               disabled={step === 2 && (!charName.trim() || !isPhoneValid)}
-              className="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 active:scale-95 disabled:bg-slate-800 disabled:text-slate-500 disabled:pointer-events-none text-black font-black uppercase text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+              className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-700 active:scale-95 disabled:bg-slate-800 disabled:text-slate-500 disabled:pointer-events-none text-black font-black uppercase text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
               style={{ minHeight: '40px' }}
             >
               <span>Continue Journey</span>
@@ -726,7 +726,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                 disabled={!isChestOpen}
                 className={`px-8 py-3 font-black uppercase text-xs rounded-xl shadow-xl transition-all cursor-pointer flex items-center gap-2 ${
                   isChestOpen 
-                    ? 'bg-orange-500 text-black hover:bg-orange-600 active:scale-95' 
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95' 
                     : 'bg-slate-800 text-slate-500 pointer-events-none'
                 }`}
                 style={{ minHeight: '44px' }}
