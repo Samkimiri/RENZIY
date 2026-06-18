@@ -13,7 +13,9 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
     recordPayment, 
     addProperty, 
     addTenantToUnit,
-    tenantBalance
+    tenantBalance,
+    members,
+    registerMember
   } = useRenziy();
 
   const [gameStats, setGameStats] = useState(() => {
@@ -37,6 +39,8 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [newTenantName, setNewTenantName] = useState('');
+  const [newTenantPhone, setNewTenantPhone] = useState('');
+  const [newTenantEmail, setNewTenantEmail] = useState('');
 
   const [paymentUnitId, setPaymentUnitId] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -49,6 +53,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
   // Compute live Landlord Metrics
   const totalProperties = properties.length;
   const totalUnits = units.length;
+  const totalMembers = members.length;
   const occupiedUnits = units.filter(u => u.status === 'Occupied').length;
   const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
   
@@ -89,12 +94,24 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
     setShowPropertyModal(false);
   };
 
-  const handleRegisterTenant = (e: React.FormEvent) => {
+  const handleRegisterTenant = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedUnitId || !newTenantName) return;
+    if (!selectedUnitId || !newTenantName || !newTenantPhone || !newTenantEmail) return;
+    const selectedUnit = units.find(u => u.id === selectedUnitId);
     addTenantToUnit(selectedUnitId, newTenantName);
+    await registerMember({
+      role: 'tenant',
+      name: newTenantName,
+      phone: newTenantPhone,
+      email: newTenantEmail.toLowerCase(),
+      propertyName: selectedUnit?.propertyName,
+      unitNumber: selectedUnit?.unitNumber,
+      rentAmount: selectedUnit?.rentAmount
+    });
     setSelectedUnitId('');
     setNewTenantName('');
+    setNewTenantPhone('');
+    setNewTenantEmail('');
     setShowTenantModal(false);
   };
 
@@ -197,7 +214,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
       {/* Metrics Row */}
       <h2 className="text-lg font-bold uppercase tracking-wider text-[#002645] mb-4">Portfolio Analytics</h2>
-      <section className="mb-8 grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <section className="mb-8 grid grid-cols-2 lg:grid-cols-6 gap-4">
         <div className="p-5 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between">
           <span className="text-xs font-bold uppercase text-[#73777f] tracking-wider">Total Properties</span>
           <span className="text-3xl lg:text-4xl font-extrabold text-[#002645] mt-2 block">{totalProperties}</span>
@@ -209,6 +226,10 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
         <div className="p-5 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between">
           <span className="text-xs font-bold uppercase text-[#73777f] tracking-wider">Occupancy Rate</span>
           <span className="text-3xl lg:text-4xl font-extrabold text-emerald-600 mt-2 block">{occupancyRate}%</span>
+        </div>
+        <div className="p-5 bg-white rounded-2xl shadow-sm border border-emerald-200 flex flex-col justify-between">
+          <span className="text-xs font-bold uppercase text-emerald-700 tracking-wider">Platform Members</span>
+          <span className="text-3xl lg:text-4xl font-extrabold text-emerald-700 mt-2 block">{totalMembers}</span>
         </div>
         <div className="p-5 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between">
           <span className="text-xs font-bold uppercase text-[#73777f] tracking-wider">Rent Collected</span>
@@ -297,6 +318,56 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
             <span>Configure payout method</span>
             <ChevronRight className="h-4 w-4" />
           </button>
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <div className="bg-white rounded-3xl border border-[#e4e2e4] shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-[#e4e2e4] flex flex-col md:flex-row md:items-end justify-between gap-3">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Live Member Registry</span>
+              <h3 className="text-xl font-extrabold text-[#002645] mt-1">People joining the platform</h3>
+              <p className="text-xs text-[#73777f] mt-1">Every completed portal onboarding is stored here with contact and apartment context.</p>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-wider">
+              {totalMembers} saved profiles
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
+            {members.slice(0, 4).map(member => (
+              <div key={member.id} className="p-4 rounded-2xl border border-[#e4e2e4] bg-[#fcf8fb] flex gap-4 items-start">
+                <div className="w-12 h-12 rounded-2xl bg-[#002645]/10 overflow-hidden flex items-center justify-center text-[#002645] font-black shrink-0 border border-white shadow-sm">
+                  {member.avatarUrl ? (
+                    <img src={member.avatarUrl} alt={member.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    member.name.substring(0, 2).toUpperCase()
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-extrabold text-[#002645] truncate">{member.name}</h4>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide ${
+                      member.role === 'landlord' ? 'bg-[#002645] text-white' : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {member.role}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#43474e] font-semibold mt-1 truncate">{member.email} • {member.phone}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="bg-white rounded-xl p-2 border border-[#e4e2e4]">
+                      <span className="block uppercase tracking-wider text-[#73777f] font-bold">Apartment</span>
+                      <span className="block text-[#002645] font-black mt-0.5 truncate">{member.unitNumber || member.propertyName || 'Portfolio owner'}</span>
+                    </div>
+                    <div className="bg-white rounded-xl p-2 border border-[#e4e2e4]">
+                      <span className="block uppercase tracking-wider text-[#73777f] font-bold">Joined</span>
+                      <span className="block text-[#002645] font-black mt-0.5">{member.joinDate}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -595,6 +666,31 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                     onChange={(e) => setNewTenantName(e.target.value)}
                     required
                   />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Phone</label>
+                    <input 
+                      className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold"
+                      placeholder="0712345678"
+                      value={newTenantPhone}
+                      onChange={(e) => setNewTenantPhone(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Email</label>
+                    <input 
+                      type="email"
+                      className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold"
+                      placeholder="tenant@example.com"
+                      value={newTenantEmail}
+                      onChange={(e) => setNewTenantEmail(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
 
                 <button 

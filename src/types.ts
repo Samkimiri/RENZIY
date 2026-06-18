@@ -36,6 +36,20 @@ export interface Tenant {
   joinDate: string;
 }
 
+export interface PlatformMember {
+  id: string;
+  role: 'landlord' | 'tenant';
+  name: string;
+  phone: string;
+  email: string;
+  avatarUrl?: string;
+  propertyName?: string;
+  unitNumber?: string;
+  rentAmount?: number;
+  joinDate: string;
+  status: 'Active' | 'Pending Review';
+}
+
 export interface Payment {
   id: string;
   tenantName: string;
@@ -86,4 +100,3 @@ export interface SettlementConfig {
   bankAccountNumber: string;
   bankRoutingCode: string;
 }
-

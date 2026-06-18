@@ -12,6 +12,7 @@ export default function LandingPage() {
   const [loading, setLoading] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [userRoleSelection, setUserRoleSelection] = useState<'landlord' | 'tenant'>('landlord');
+  const [onboardingRole, setOnboardingRole] = useState<'landlord' | 'tenant'>('tenant');
   
   // Immersive step-by-step onboarding trigger (launches on first layout visit)
   const [showOnboarding, setShowOnboarding] = useState(() => {
@@ -29,16 +30,18 @@ export default function LandingPage() {
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Rather than bypass, trigger the onboarding wizard for custom specs
+    setOnboardingRole(userRoleSelection);
     setShowOnboarding(true);
   };
 
   const selectSocialLogin = (roleSel: 'landlord' | 'tenant') => {
     // Open onboarding custom stats wizard pre-selected to their choice
+    setOnboardingRole(roleSel);
     setShowOnboarding(true);
   };
 
   if (showOnboarding) {
-    return <OnboardingWizard onClose={() => setShowOnboarding(false)} />;
+    return <OnboardingWizard initialRole={onboardingRole} onClose={() => setShowOnboarding(false)} />;
   }
 
   return (

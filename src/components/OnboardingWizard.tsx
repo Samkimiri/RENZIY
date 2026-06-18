@@ -26,6 +26,7 @@ import {
 
 interface OnboardingWizardProps {
   onClose?: () => void;
+  initialRole?: 'landlord' | 'tenant';
 }
 
 const PRESET_AVATARS = [
@@ -36,16 +37,17 @@ const PRESET_AVATARS = [
   { id: 'av-5', name: 'The Horizon Voyager', url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCJHVo0ItxDNtrPxpJuxF999eQZucYzjmp0FkGpIYOanfo6M9-A4ZOJA5WDXwl3BJercA3TJr8HMQkC8qclrIRXsfWq9vQzKlZdn4H2RnsJMW-LvnTIi1V3Fb8LBlHwPSSqo4081zjw-TzQh7BUvrgMTA9Mtiz4FrjXNpgFKC_-sKBl3GcZ6SQhn2r72tpsFvWeu_lHBz6EmHHBcVpZ0k3ZCEE7I2yt_X3nz4ZUt4T1WZejTYSTS-UCBLF2frZjOSESxO1iWRb2BTnR' },
 ];
 
-export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
-  const { setRole, setUsername, updateTenantAvatar, units } = useRenziy();
+export default function OnboardingWizard({ onClose, initialRole = 'tenant' }: OnboardingWizardProps) {
+  const { setRole, setUsername, updateTenantAvatar, registerMember, units } = useRenziy();
 
   // Wizard active step: 1 (Class Selection), 2 (Character Stats/Inputs), 3 (RPG Stat Allocation), 4 (Loot Claim), 5 (Portal Entry)
   const [step, setStep] = useState(1);
-  const [selectedClass, setSelectedClass] = useState<'landlord' | 'tenant'>('tenant');
+  const [selectedClass, setSelectedClass] = useState<'landlord' | 'tenant'>(initialRole);
   
   // Custom inputs
   const [charName, setCharName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState(PRESET_AVATARS[3].url);
   const [customAvatarUploaded, setCustomAvatarUploaded] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -65,6 +67,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
 
   // Validation
   const isPhoneValid = /^(07|01|7|1)\d{8}$/.test(phone.replace(/\s/g, ''));
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   const handlePhoneInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '');
@@ -134,8 +137,11 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
   // Complete onboarding
   const handleFinalLaunch = async () => {
     const finalName = charName.trim() || (selectedClass === 'tenant' ? 'Alex Smith' : 'John Doe');
-    setUsername(finalName);
     setRole(selectedClass);
+    setUsername(finalName);
+
+    const defaultTenantUnit = units?.find(u => u.id === 'unit-1-4b' || u.unitNumber === 'Apt 4B');
+    const memberEmail = email.trim().toLowerCase();
 
     // Save stats & RP to local storage for display inside the dashboards
     localStorage.setItem('renziy_game_stats', JSON.stringify({
@@ -144,13 +150,13 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
       rpBalance: 150,
       level: 1,
       badge: selectedClass === 'tenant' ? 'Legendary Resident' : 'High-Rise Arch-Mogul',
-      phone: phone || '0712345678'
+      phone: phone || '0712345678',
+      email: memberEmail
     }));
 
     // If it's a tenant, also auto-update the default occupied unit (Apt 4B) to hold this custom avatar & name!
     if (selectedClass === 'tenant') {
       try {
-        const defaultTenantUnit = units?.find(u => u.id === 'unit-1-4b' || u.unitNumber === 'Apt 4B');
         if (defaultTenantUnit) {
           // Keep it on sync with global server State if possible
           await updateTenantAvatar(defaultTenantUnit.id, selectedAvatarUrl);
@@ -163,19 +169,39 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
       localStorage.setItem('renziy_custom_avatar', selectedAvatarUrl);
     }
 
+    await registerMember({
+      role: selectedClass,
+      name: finalName,
+      phone: phone || '0712345678',
+      email: memberEmail || `${finalName.toLowerCase().replace(/\s+/g, '.')}@renziy.app`,
+      avatarUrl: selectedAvatarUrl,
+      propertyName: selectedClass === 'tenant' ? defaultTenantUnit?.propertyName || 'Oakwood Heights' : 'Portfolio Owner',
+      unitNumber: selectedClass === 'tenant' ? defaultTenantUnit?.unitNumber || 'Apt 4B' : undefined,
+      rentAmount: selectedClass === 'tenant' ? defaultTenantUnit?.rentAmount || 145000 : undefined
+    });
+
     if (onClose) {
       onClose();
     }
   };
 
   return (
-    <div id="gamified-onboarding-wrapper" className="fixed inset-0 z-50 overflow-y-auto bg-[#030b14] text-slate-100 flex items-center justify-center font-sans p-2 md:p-6 select-none selection:bg-emerald-500 selection:text-white">
+    <div 
+      id="gamified-onboarding-wrapper" 
+      className="fixed inset-0 z-50 overflow-y-auto bg-[#030b14] text-slate-100 flex items-center justify-center font-sans p-2 md:p-6 select-none selection:bg-emerald-500 selection:text-white bg-cover bg-center"
+      style={{ 
+        backgroundImage: "linear-gradient(135deg, rgba(3, 11, 20, 0.86), rgba(0, 38, 69, 0.78)), url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1800&q=85')"
+      }}
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(to_bottom,rgba(3,11,20,0.18),rgba(3,11,20,0.78))] pointer-events-none" />
       {/* Dynamic Ambient Blur Backgrounds */}
-      <div className="absolute top-10 left-1/4 w-80 h-80 rounded-full bg-emerald-500/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-10 right-1/4 w-96 h-96 rounded-full bg-[#002645]/40 blur-[130px] pointer-events-none" />
+      <div className="absolute top-8 left-4 md:left-10 rounded-2xl border border-white/10 bg-white/10 backdrop-blur-md px-4 py-3 text-left shadow-2xl hidden sm:block">
+        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Apartment Portal</p>
+        <p className="text-xs text-white/85 font-semibold mt-1">Smart rent, access, repairs, and onboarding in one place.</p>
+      </div>
 
       {/* Main Glassmorphic Panel */}
-      <div className="w-full max-w-2xl bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-800 shadow-[0_0_60px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col justify-between" style={{ minHeight: '620px' }}>
+      <div className="w-full max-w-2xl bg-slate-900/82 backdrop-blur-xl rounded-[32px] border border-white/10 shadow-[0_0_60px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col justify-between" style={{ minHeight: '620px' }}>
         
         {/* Dynamic header / progress indicators */}
         <div className="p-6 md:p-8 pb-3 flex justify-between items-center border-b border-slate-800/60 shrink-0">
@@ -382,6 +408,22 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                           </span>
                         )}
                       </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 px-1 block">
+                        Email Address
+                      </label>
+                      <input 
+                        type="email"
+                        placeholder={selectedClass === 'tenant' ? 'alex@renziy.app' : 'owner@renziy.app'}
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs font-bold text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                      />
+                      <span className={`text-[9px] font-bold px-1 ${email && !isEmailValid ? 'text-rose-400' : 'text-slate-500'}`}>
+                        {email && !isEmailValid ? 'Enter a valid email for the member registry' : 'Used for account lookup and landlord records'}
+                      </span>
                     </div>
                   </div>
 
@@ -702,7 +744,7 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
           {step < 3 ? (
             <button 
               onClick={() => setStep(step + 1)}
-              disabled={step === 2 && (!charName.trim() || !isPhoneValid)}
+              disabled={step === 2 && (!charName.trim() || !isPhoneValid || !isEmailValid)}
               className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-700 active:scale-95 disabled:bg-slate-800 disabled:text-slate-500 disabled:pointer-events-none text-black font-black uppercase text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
               style={{ minHeight: '40px' }}
             >

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Property, Unit, Payment, MaintenanceRequest, Notification, AppUserRole, SettlementConfig } from './types';
+import { Property, Unit, Payment, MaintenanceRequest, Notification, AppUserRole, SettlementConfig, PlatformMember } from './types';
 
 interface RenziyContextType {
   role: AppUserRole;
@@ -11,6 +11,7 @@ interface RenziyContextType {
   payments: Payment[];
   maintenanceRequests: MaintenanceRequest[];
   notifications: Notification[];
+  members: PlatformMember[];
   tenantBalance: number;
   settlementConfig: SettlementConfig;
   addProperty: (property: Omit<Property, 'id'>) => void;
@@ -24,6 +25,7 @@ interface RenziyContextType {
   toggleUnitLock: (unitId: string, isLocked: boolean, lockReason?: string) => Promise<void>;
   updateSettlementConfig: (config: Partial<SettlementConfig>) => Promise<void>;
   updateTenantAvatar: (unitId: string, tenantAvatar: string) => Promise<void>;
+  registerMember: (member: Omit<PlatformMember, 'id' | 'joinDate' | 'status'>) => Promise<PlatformMember>;
 }
 
 const RenziyContext = createContext<RenziyContextType | undefined>(undefined);
@@ -225,6 +227,37 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     ];
   });
 
+  const [members, setMembers] = useState<PlatformMember[]>(() => {
+    const saved = localStorage.getItem('renziy_members');
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: 'member-landlord-demo',
+        role: 'landlord',
+        name: 'John Doe',
+        phone: '0712345678',
+        email: 'john@renziy.app',
+        avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRxmlZiyPxhMA9KhxxEY-ZornwU45XOarKthi5rZwjaUXVYAzK1Rptwz3XSUMih-aX7N40cr2Ki-5KZvD7pUHT8xTTKjuQMyyucNGma4FaFJirfRO8Nmxdo7wvHhgJnJDxwkPMa5NOJdwGCIEP9IoZoEnvk7HAYZ8jfseOFIDZ7L5DKDb2LTYFaZymzBJ-SYm2ragI8Q_dxp6yzf6AjtEmLdC6yZGqnU2ZCun5dcEqufGWVNNfnsQoC1JyHXHZfKXLK1rfwMLmEMPm',
+        propertyName: 'Oakwood Heights',
+        joinDate: '2026-05-20',
+        status: 'Active'
+      },
+      {
+        id: 'member-tenant-demo',
+        role: 'tenant',
+        name: 'Alex Smith',
+        phone: '0712456789',
+        email: 'alex@renziy.app',
+        avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB',
+        propertyName: 'Oakwood Heights',
+        unitNumber: 'Apt 4B',
+        rentAmount: 145000,
+        joinDate: '2026-05-22',
+        status: 'Active'
+      }
+    ];
+  });
+
   // Tenant Balance
   const [tenantBalance, setTenantBalance] = useState<number>(() => {
     const saved = localStorage.getItem('renziy_balance');
@@ -266,6 +299,9 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const notifsRes = await fetch('/api/notifications');
         if (notifsRes.ok) setNotifications(await notifsRes.json());
 
+        const membersRes = await fetch('/api/members');
+        if (membersRes.ok) setMembers(await membersRes.json());
+
         const balRes = await fetch('/api/balance');
         if (balRes.ok) {
           const balData = await balRes.json();
@@ -290,9 +326,10 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem('renziy_payments', JSON.stringify(payments));
     localStorage.setItem('renziy_maintenance', JSON.stringify(maintenanceRequests));
     localStorage.setItem('renziy_notifications', JSON.stringify(notifications));
+    localStorage.setItem('renziy_members', JSON.stringify(members));
     localStorage.setItem('renziy_balance', tenantBalance.toString());
     localStorage.setItem('renziy_settlement', JSON.stringify(settlementConfig));
-  }, [role, username, properties, units, payments, maintenanceRequests, notifications, tenantBalance, settlementConfig]);
+  }, [role, username, properties, units, payments, maintenanceRequests, notifications, members, tenantBalance, settlementConfig]);
 
   // Set Role Context
   const setRole = (newRole: AppUserRole) => {
@@ -670,6 +707,45 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const registerMember = async (member: Omit<PlatformMember, 'id' | 'joinDate' | 'status'>) => {
+    const newMember: PlatformMember = {
+      ...member,
+      id: `member-${Date.now()}`,
+      joinDate: new Date().toISOString().split('T')[0],
+      status: 'Active'
+    };
+
+    setMembers(prev => [newMember, ...prev.filter(m => m.email !== member.email || m.role !== member.role)]);
+    setNotifications(prev => [
+      {
+        id: `notif-member-${Date.now()}`,
+        title: 'New Platform Member',
+        message: `${member.name} joined Renziy as a ${member.role}.`,
+        date: 'Just now',
+        type: 'lease',
+        unread: true
+      },
+      ...prev
+    ]);
+
+    try {
+      const res = await fetch('/api/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newMember)
+      });
+      if (res.ok) {
+        const savedMember = await res.json();
+        setMembers(prev => [savedMember, ...prev.filter(m => m.id !== newMember.id && (m.email !== member.email || m.role !== member.role))]);
+        return savedMember;
+      }
+    } catch (err) {
+      console.warn("Express API member registry unavailable, using local durable registry:", err);
+    }
+
+    return newMember;
+  };
+
   return (
     <RenziyContext.Provider
       value={{
@@ -682,6 +758,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         payments,
         maintenanceRequests,
         notifications,
+        members,
         tenantBalance,
         settlementConfig,
         addProperty,
@@ -694,7 +771,8 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         markNotificationsAsRead,
         toggleUnitLock,
         updateSettlementConfig,
-        updateTenantAvatar
+        updateTenantAvatar,
+        registerMember
       }}
     >
       {children}

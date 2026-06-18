@@ -61,6 +61,20 @@ interface Notification {
   unread: boolean;
 }
 
+interface PlatformMember {
+  id: string;
+  role: 'landlord' | 'tenant';
+  name: string;
+  phone: string;
+  email: string;
+  avatarUrl?: string;
+  propertyName?: string;
+  unitNumber?: string;
+  rentAmount?: number;
+  joinDate: string;
+  status: 'Active' | 'Pending Review';
+}
+
 interface SettlementConfig {
   mpesaType: 'Paybill' | 'BuyGoods' | 'PhoneNumber';
   mpesaDetails: string;
@@ -231,6 +245,33 @@ let notifications: Notification[] = [
     date: 'Yesterday',
     type: 'lease',
     unread: true
+  }
+];
+
+let members: PlatformMember[] = [
+  {
+    id: 'member-landlord-demo',
+    role: 'landlord',
+    name: 'John Doe',
+    phone: '0712345678',
+    email: 'john@renziy.app',
+    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRxmlZiyPxhMA9KhxxEY-ZornwU45XOarKthi5rZwjaUXVYAzK1Rptwz3XSUMih-aX7N40cr2Ki-5KZvD7pUHT8xTTKjuQMyyucNGma4FaFJirfRO8Nmxdo7wvHhgJnJDxwkPMa5NOJdwGCIEP9IoZoEnvk7HAYZ8jfseOFIDZ7L5DKDb2LTYFaZymzBJ-SYm2ragI8Q_dxp6yzf6AjtEmLdC6yZGqnU2ZCun5dcEqufGWVNNfnsQoC1JyHXHZfKXLK1rfwMLmEMPm',
+    propertyName: 'Oakwood Heights',
+    joinDate: '2026-05-20',
+    status: 'Active'
+  },
+  {
+    id: 'member-tenant-demo',
+    role: 'tenant',
+    name: 'Alex Smith',
+    phone: '0712456789',
+    email: 'alex@renziy.app',
+    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB',
+    propertyName: 'Oakwood Heights',
+    unitNumber: 'Apt 4B',
+    rentAmount: 145000,
+    joinDate: '2026-05-22',
+    status: 'Active'
   }
 ];
 
@@ -546,6 +587,36 @@ app.use(express.json());
   app.post("/api/notifications/read", (req, res) => {
     notifications = notifications.map(n => ({ ...n, unread: false }));
     res.json({ success: true });
+  });
+
+  app.get("/api/members", (req, res) => {
+    res.json(members);
+  });
+
+  app.post("/api/members", (req, res) => {
+    const { role, name, phone, email } = req.body;
+    if (!role || !name || !phone || !email) {
+      return res.status(400).json({ error: "Missing required member fields" });
+    }
+
+    const member: PlatformMember = {
+      ...req.body,
+      id: req.body.id || `member-${Date.now()}`,
+      joinDate: req.body.joinDate || new Date().toISOString().split('T')[0],
+      status: req.body.status || 'Active'
+    };
+
+    members = [member, ...members.filter(m => m.email !== member.email || m.role !== member.role)];
+    notifications.unshift({
+      id: `notif-member-${Date.now()}`,
+      title: 'New Platform Member',
+      message: `${member.name} joined Renziy as a ${member.role}.`,
+      date: 'Just now',
+      type: 'lease',
+      unread: true
+    });
+
+    res.json(member);
   });
 
   app.get("/api/balance", (req, res) => {
