@@ -1,9 +1,24 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRenziy } from '../state';
 import { ArrowRight, BarChart3, Building2, CheckCircle2, Home, Lock, Mail, MapPin, Phone, ShieldCheck, Smartphone, UserRound } from 'lucide-react';
 
 type AccountMode = 'signin' | 'signup';
 type AccountRole = 'landlord' | 'tenant';
+type GoogleCredentialResponse = { credential?: string };
+type GoogleProfile = { email?: string; name?: string; picture?: string };
+
+declare global {
+  interface Window {
+    google?: {
+      accounts?: {
+        id?: {
+          initialize: (options: { client_id: string; callback: (response: GoogleCredentialResponse) => void }) => void;
+          prompt: () => void;
+        };
+      };
+    };
+  }
+}
 
 const defaultAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB';
 
@@ -20,7 +35,12 @@ export default function LandingPage() {
   const [propertyName, setPropertyName] = useState('');
   const [unitNumber, setUnitNumber] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [showGooglePanel, setShowGooglePanel] = useState(false);
+  const [googleName, setGoogleName] = useState('');
+  const [googleEmail, setGoogleEmail] = useState('');
   const [formMessage, setFormMessage] = useState('');
+  const googleClientId = (import.meta as unknown as { env?: { VITE_GOOGLE_CLIENT_ID?: string } }).env?.VITE_GOOGLE_CLIENT_ID;
 
   const accountsForRole = useMemo(
     () => members.filter(member => member.role === selectedRole),
@@ -38,6 +58,107 @@ export default function LandingPage() {
     localStorage.removeItem('renziy_custom_avatar');
     setUsername(name);
     setRole(role);
+  };
+
+  const createStarterPortfolio = (ownerEmail: string, ownerName: string) => {
+    addProperty({
+      name: propertyName.trim() || `${ownerName}'s Portfolio`,
+      address: 'Address pending verification',
+      unitsCount: 1,
+      imageUrl: 'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=1200&q=80',
+      county: 'Nairobi',
+      town: 'Pending update',
+      neighborhood: 'Pending update',
+      description: 'New landlord portfolio pending property details.',
+      amenities: ['Security', 'Water', 'Parking'],
+      contactPhone: phone || 'Pending',
+      mapQuery: propertyName.trim() || ownerName,
+      availableForMarketplace: false,
+      ownerEmail
+    });
+  };
+
+  const continueWithGoogleProfile = async (profile: GoogleProfile) => {
+    const cleanEmail = normalizeEmail(profile.email || googleEmail);
+    const cleanName = (profile.name || googleName || cleanEmail.split('@')[0] || 'Google User').trim();
+
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setFormMessage('Enter a valid Google email address to continue.');
+      return;
+    }
+
+    setGoogleLoading(true);
+    setFormMessage('');
+
+    try {
+      const existingAccount = members.find(member => member.email.toLowerCase() === cleanEmail && member.role === selectedRole);
+      if (existingAccount) {
+        enterAccount(existingAccount.role, existingAccount.name, existingAccount.email);
+        return;
+      }
+
+      const created = await registerMember({
+        role: selectedRole,
+        name: cleanName,
+        phone: phone || 'Google account',
+        email: cleanEmail,
+        password: 'google-account',
+        avatarUrl: profile.picture || defaultAvatar,
+        propertyName: selectedRole === 'landlord' ? propertyName.trim() || 'New landlord portfolio' : propertyName.trim() || 'Pending assignment',
+        unitNumber: selectedRole === 'tenant' ? unitNumber.trim() || 'Pending assignment' : undefined,
+        rentAmount: selectedRole === 'tenant' ? 0 : undefined
+      });
+
+      if (selectedRole === 'landlord') {
+        createStarterPortfolio(cleanEmail, cleanName);
+      }
+
+      enterAccount(created.role, created.name, created.email);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const decodeGoogleCredential = (credential: string): GoogleProfile => {
+    try {
+      const payload = credential.split('.')[1];
+      return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    } catch {
+      return {};
+    }
+  };
+
+  useEffect(() => {
+    if (!googleClientId || window.google?.accounts?.id) return;
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  }, [googleClientId]);
+
+  const handleGoogleContinue = () => {
+    if (!googleClientId || !window.google?.accounts?.id) {
+      setShowGooglePanel(true);
+      setFormMessage('Google sign-in is available. Enter your Google account details to continue in this preview build.');
+      return;
+    }
+
+    setGoogleLoading(true);
+    window.google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: async (response) => {
+        if (!response.credential) {
+          setGoogleLoading(false);
+          setFormMessage('Google did not return account details. Please try again.');
+          return;
+        }
+        await continueWithGoogleProfile(decodeGoogleCredential(response.credential));
+      }
+    });
+    window.google.accounts.id.prompt();
+    setGoogleLoading(false);
   };
 
   const handleAuthSubmit = async (event: React.FormEvent) => {
@@ -87,21 +208,7 @@ export default function LandingPage() {
       });
 
       if (selectedRole === 'landlord') {
-        addProperty({
-          name: propertyName.trim() || `${fullName.trim()}'s Portfolio`,
-          address: 'Address pending verification',
-          unitsCount: 1,
-          imageUrl: 'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=1200&q=80',
-          county: 'Nairobi',
-          town: 'Pending update',
-          neighborhood: 'Pending update',
-          description: 'New landlord portfolio pending property details.',
-          amenities: ['Security', 'Water', 'Parking'],
-          contactPhone: phone || 'Pending',
-          mapQuery: propertyName.trim() || fullName.trim(),
-          availableForMarketplace: false,
-          ownerEmail: cleanEmail
-        });
+        createStarterPortfolio(cleanEmail, fullName.trim());
       }
 
       enterAccount(created.role, created.name, created.email);
@@ -260,6 +367,58 @@ export default function LandingPage() {
                   {!loading && <ArrowRight className="h-4 w-4" />}
                 </button>
               </form>
+
+              <div className="my-5 flex items-center gap-3">
+                <div className="h-px flex-1 bg-slate-800" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">or</span>
+                <div className="h-px flex-1 bg-slate-800" />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleGoogleContinue}
+                disabled={googleLoading}
+                className="w-full bg-white hover:bg-slate-100 disabled:bg-slate-300 text-slate-900 py-3 rounded-xl font-black active:scale-95 transition-all flex items-center justify-center gap-3 shadow-lg cursor-pointer"
+              >
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white border border-slate-200 text-sm font-black">
+                  G
+                </span>
+                <span>{googleLoading ? 'Connecting Google...' : `Continue with Google as ${selectedRole}`}</span>
+              </button>
+
+              {showGooglePanel && (
+                <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900 p-4 space-y-3">
+                  <div>
+                    <h3 className="text-sm font-black text-white">Google account details</h3>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      This preview stores your Google email in Renziy so you can access the selected {selectedRole} workspace.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                      value={googleName}
+                      onChange={event => setGoogleName(event.target.value)}
+                      placeholder="Google account name"
+                    />
+                    <input
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                      value={googleEmail}
+                      onChange={event => setGoogleEmail(event.target.value)}
+                      placeholder="name@gmail.com"
+                      type="email"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => continueWithGoogleProfile({ name: googleName, email: googleEmail })}
+                    disabled={googleLoading}
+                    className="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-black text-white hover:bg-emerald-700 disabled:bg-slate-700 disabled:text-slate-400 transition-all"
+                  >
+                    Continue with this Google account
+                  </button>
+                </div>
+              )}
 
               <div className="mt-5 pt-5 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <button onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')} className="text-xs text-emerald-400 font-bold hover:underline text-left">
