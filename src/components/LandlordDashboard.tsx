@@ -822,7 +822,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
       {/* FAB Floating action button for landlord dashboard */}
       <button 
         onClick={() => setShowPropertyModal(true)}
-        className="fixed bottom-6 right-6 bg-[#002645] text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform z-40"
+        className="fixed bottom-24 md:bottom-6 right-4 md:right-6 bg-[#002645] text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform z-40"
       >
         <Plus className="h-6 w-6 text-white" />
       </button>

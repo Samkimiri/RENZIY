@@ -30,6 +30,7 @@ function AppContent() {
   const [showNotifMenu, setShowNotifMenu] = useState(false);
 
   const unreadNotifCount = notifications.filter(n => n.unread).length;
+  const mobileNavButtonClass = (active: boolean) => `min-w-[68px] flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 cursor-pointer transition-all ${active ? 'bg-[#E8F4FD] text-[#002645]' : 'text-[#73777f] hover:bg-[#f6f3f5]'}`;
 
   const handleSignOut = () => {
     setRole('anonymous');
@@ -163,7 +164,7 @@ function AppContent() {
       <div className="flex-1 flex flex-col min-w-0">
         
         {/* TOP STATUS NAVIGATION BAR (Universal) */}
-        <header className="h-16 bg-white border-b border-[#e4e2e4] px-4 md:px-10 flex items-center justify-between z-30 shrink-0 sticky top-0 shadow-sm">
+        <header className="min-h-16 bg-white border-b border-[#e4e2e4] px-3 sm:px-4 md:px-10 flex items-center justify-between gap-2 z-30 shrink-0 sticky top-0 shadow-sm">
           {/* Mobile logo description (Hidden on Desktop Sidebar) */}
           <div className="flex items-center gap-2 md:hidden">
             <Building2 className="text-[#002645] h-5 w-5" />
@@ -178,9 +179,9 @@ function AppContent() {
             </span>
           </div>
 
-          <div className="flex items-center gap-4 relative">
+          <div className="flex items-center gap-2 sm:gap-4 relative">
             {/* Professional & Gamified Switch Target Controller */}
-            <div className="bg-[#f0edef] p-1 rounded-full flex items-center border border-[#e4e2e4] shadow-inner relative select-none">
+            <div className="hidden sm:flex bg-[#f0edef] p-1 rounded-full items-center border border-[#e4e2e4] shadow-inner relative select-none">
               <button
                 onClick={() => {
                   if (role !== 'landlord') {
@@ -272,7 +273,7 @@ function AppContent() {
             </div>
 
             {/* User Profile Info Card */}
-            <div className="flex items-center gap-2.5 pr-1 pl-2.5 border-l border-[#e4e2e4]">
+            <div className="hidden sm:flex items-center gap-2.5 pr-1 pl-2.5 border-l border-[#e4e2e4]">
               {/* Profile Avatar Image depending on role */}
               <div className="w-8 h-8 rounded-full bg-[#002645]/10 overflow-hidden flex items-center justify-center shrink-0 border border-[#e4e2e4]">
                 <img 
@@ -304,7 +305,7 @@ function AppContent() {
         </header>
 
         {/* WORKSPACE AREA CONTAINER SCREEN ROUTING */}
-        <main className="p-4 md:p-10 flex-1 overflow-y-auto max-w-7xl w-full mx-auto">
+        <main className="p-3 sm:p-4 md:p-10 pb-28 md:pb-10 flex-1 overflow-y-auto max-w-7xl w-full mx-auto">
           {/* If tenant requested quick payment, show payment flow checkouts */}
           {expressPayMethod !== null ? (
             <PaymentFlow 
@@ -365,48 +366,48 @@ function AppContent() {
         </main>
 
         {/* MOBILE NAVIGATION BAR TABS (Visible only on SM/XS screens, hidden on MD+) */}
-        <nav className="md:hidden border-t border-[#e4e2e4] bg-white h-16 fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around px-2 shadow-lg">
+        <nav className="md:hidden border-t border-[#e4e2e4] bg-white h-[76px] fixed bottom-0 left-0 right-0 z-40 flex items-center gap-1 overflow-x-auto px-2 pt-1 pb-2 shadow-lg">
           {role === 'landlord' ? (
             /* Landlord links */
             <>
               <button 
                 onClick={() => { setActiveTab('dashboard'); setExpressPayMethod(null); }}
-                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${activeTab === 'dashboard' ? 'text-[#002645]' : 'text-[#73777f]'}`}
+                className={mobileNavButtonClass(activeTab === 'dashboard')}
               >
                 <LayoutDashboard className="h-5 w-5" />
                 <span className="text-[10px] font-bold">Home</span>
               </button>
               <button 
                 onClick={() => { setActiveTab('properties'); setExpressPayMethod(null); }}
-                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${activeTab === 'properties' ? 'text-[#002645]' : 'text-[#73777f]'}`}
+                className={mobileNavButtonClass(activeTab === 'properties')}
               >
                 <Building className="h-5 w-5" />
                 <span className="text-[10px] font-bold">Portfolio</span>
               </button>
               <button 
                 onClick={() => { setActiveTab('marketplace'); setExpressPayMethod(null); }}
-                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${activeTab === 'marketplace' ? 'text-[#002645]' : 'text-[#73777f]'}`}
+                className={mobileNavButtonClass(activeTab === 'marketplace')}
               >
                 <MapPin className="h-5 w-5" />
                 <span className="text-[10px] font-bold">Market</span>
               </button>
               <button 
                 onClick={() => { setActiveTab('maintenance'); setExpressPayMethod(null); }}
-                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${activeTab === 'maintenance' ? 'text-[#002645]' : 'text-[#73777f]'}`}
+                className={mobileNavButtonClass(activeTab === 'maintenance')}
               >
                 <Wrench className="h-5 w-5" />
                 <span className="text-[10px] font-bold">Repairs</span>
               </button>
               <button 
                 onClick={() => { setActiveTab('locks'); setExpressPayMethod(null); }}
-                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${activeTab === 'locks' ? 'text-[#002645]' : 'text-[#73777f]'}`}
+                className={mobileNavButtonClass(activeTab === 'locks')}
               >
                 <Lock className="h-4.5 w-4.5" />
                 <span className="text-[9px] font-bold">Locks</span>
               </button>
               <button 
                 onClick={() => { setActiveTab('payouts'); setExpressPayMethod(null); }}
-                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${activeTab === 'payouts' ? 'text-[#002645]' : 'text-[#73777f]'}`}
+                className={mobileNavButtonClass(activeTab === 'payouts')}
               >
                 <Coins className="h-4.5 w-4.5" />
                 <span className="text-[9px] font-bold">Payouts</span>
@@ -417,35 +418,35 @@ function AppContent() {
             <>
               <button 
                 onClick={() => { setActiveTab('dashboard'); setExpressPayMethod(null); }}
-                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${activeTab === 'dashboard' ? 'text-[#002645]' : 'text-[#73777f]'}`}
+                className={mobileNavButtonClass(activeTab === 'dashboard')}
               >
                 <LayoutDashboard className="h-5 w-5" />
                 <span className="text-[10px] font-bold">Apartment</span>
               </button>
               <button 
                 onClick={() => { setExpressPayMethod('M-Pesa'); }}
-                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${expressPayMethod !== null ? 'text-[#002645]' : 'text-[#73777f]'}`}
+                className={mobileNavButtonClass(expressPayMethod !== null)}
               >
                 <CreditCard className="h-5 w-5" />
                 <span className="text-[10px] font-bold">Pay Rent</span>
               </button>
               <button 
                 onClick={() => { setActiveTab('marketplace'); setExpressPayMethod(null); }}
-                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${activeTab === 'marketplace' ? 'text-[#002645]' : 'text-[#73777f]'}`}
+                className={mobileNavButtonClass(activeTab === 'marketplace')}
               >
                 <MapPin className="h-5 w-5" />
                 <span className="text-[10px] font-bold">Houses</span>
               </button>
               <button 
                 onClick={() => { setActiveTab('request_repair'); setExpressPayMethod(null); }}
-                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${activeTab === 'request_repair' ? 'text-[#002645]' : 'text-[#73777f]'}`}
+                className={mobileNavButtonClass(activeTab === 'request_repair')}
               >
                 <Wrench className="h-5 w-5" />
                 <span className="text-[10px] font-bold">Repair</span>
               </button>
               <button 
                 onClick={() => { setActiveTab('maintenance_list'); setExpressPayMethod(null); }}
-                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${activeTab === 'maintenance_list' ? 'text-[#002645]' : 'text-[#73777f]'}`}
+                className={mobileNavButtonClass(activeTab === 'maintenance_list')}
               >
                 <ArrowLeftRight className="h-5 w-5" />
                 <span className="text-[10px] font-bold">History</span>

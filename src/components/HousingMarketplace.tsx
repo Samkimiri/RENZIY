@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useRenziy } from '../state';
 import { Property } from '../types';
-import { Building2, CheckCircle2, ExternalLink, Home, MapPin, Navigation, Phone, Search, SlidersHorizontal } from 'lucide-react';
+import { Building2, CheckCircle2, Home, MapPin, Navigation, Phone, Search, SlidersHorizontal } from 'lucide-react';
 
 const KENYA_COUNTIES = [
   'Nairobi', 'Mombasa', 'Kiambu', 'Kajiado', 'Machakos', 'Nakuru', 'Kisumu', 'Uasin Gishu',
@@ -89,21 +89,21 @@ export default function HousingMarketplace() {
   };
 
   return (
-    <div className="bg-[#fcf8fb] min-h-screen text-[#1b1b1d] pb-24 md:pb-12">
-      <section className="mb-6 overflow-hidden rounded-3xl bg-[#002645] text-white border border-[#1a3c5e] shadow-sm">
+    <div className="bg-[#fcf8fb] min-h-screen text-[#1b1b1d] pb-28 md:pb-12">
+      <section className="mb-5 md:mb-6 overflow-hidden rounded-2xl md:rounded-3xl bg-[#002645] text-white border border-[#1a3c5e] shadow-sm">
         <div className="grid grid-cols-1 lg:grid-cols-2">
-          <div className="p-6 md:p-8 space-y-4">
+          <div className="p-4 sm:p-5 md:p-8 space-y-4">
             <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-400/25 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-300">
               <Home className="h-3.5 w-3.5" />
               Kenya Housing Finder
             </span>
             <div>
-              <h1 className="text-2xl md:text-3xl font-black tracking-tight">Find rental homes by county, town, and live map location.</h1>
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Find rental homes by county, town, and live map location.</h1>
               <p className="text-sm text-[#b7cee8] mt-2 leading-relaxed">
                 Tenants can discover vacant houses across Kenya while landlords publish apartment details, amenities, contacts, and map locations from the same Renziy workspace.
               </p>
             </div>
-            <div className="grid grid-cols-3 gap-3 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
               <div className="rounded-2xl bg-white/8 border border-white/10 p-3">
                 <span className="block text-2xl font-black">{marketplaceListings.length}</span>
                 <span className="text-[10px] uppercase tracking-wider text-[#b7cee8] font-bold">Active areas</span>
@@ -118,15 +118,15 @@ export default function HousingMarketplace() {
               </div>
             </div>
           </div>
-          <div className="min-h-[260px] bg-cover bg-center" style={{ backgroundImage: "linear-gradient(90deg, rgba(0,38,69,0.35), rgba(0,38,69,0.05)), url('https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=1400&q=80')" }} />
+          <div className="min-h-[180px] sm:min-h-[220px] lg:min-h-[260px] bg-cover bg-center" style={{ backgroundImage: "linear-gradient(90deg, rgba(0,38,69,0.35), rgba(0,38,69,0.05)), url('https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=1400&q=80')" }} />
         </div>
       </section>
 
       {role === 'landlord' && (
-        <section className="mb-8 grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-4 bg-white rounded-3xl border border-[#e4e2e4] p-4 shadow-sm">
+        <section className="mb-8 grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
+          <div className="lg:col-span-4 bg-white rounded-2xl md:rounded-3xl border border-[#e4e2e4] p-4 shadow-sm">
             <h2 className="text-xs font-black uppercase tracking-widest text-[#73777f] mb-3">Select Apartment Asset</h2>
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
               {properties.map(property => (
                 <button
                   key={property.id}
@@ -135,7 +135,7 @@ export default function HousingMarketplace() {
                   className={`w-full text-left p-4 rounded-2xl border transition-all ${editingPropertyId === property.id ? 'border-[#002645] bg-[#E8F4FD]' : 'border-[#e4e2e4] hover:border-slate-300 bg-white'}`}
                 >
                   <span className="block text-sm font-black text-[#002645]">{property.name}</span>
-                  <span className="block text-[11px] text-[#73777f] font-semibold mt-1">{property.county || 'County not set'} • {property.town || property.address}</span>
+                  <span className="block text-[11px] text-[#73777f] font-semibold mt-1">{property.county || 'County not set'} - {property.town || property.address}</span>
                   <span className={`mt-2 inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide ${property.availableForMarketplace === false ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-800'}`}>
                     {property.availableForMarketplace === false ? 'Hidden' : 'Published'}
                   </span>
@@ -144,7 +144,7 @@ export default function HousingMarketplace() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmitListing} className="lg:col-span-8 bg-white rounded-3xl border border-[#e4e2e4] p-5 md:p-6 shadow-sm">
+          <form onSubmit={handleSubmitListing} className="lg:col-span-8 bg-white rounded-2xl md:rounded-3xl border border-[#e4e2e4] p-4 md:p-6 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-5">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Landlord Listing Studio</span>
@@ -205,14 +205,14 @@ export default function HousingMarketplace() {
         </section>
       )}
 
-      <section className="mb-6 bg-white rounded-3xl border border-[#e4e2e4] p-4 md:p-5 shadow-sm">
+      <section className="mb-5 md:mb-6 bg-white rounded-2xl md:rounded-3xl border border-[#e4e2e4] p-3 sm:p-4 md:p-5 shadow-sm">
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#73777f]" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#f6f3f5] border border-[#e4e2e4] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#002645]/10" placeholder="Search county, estate, apartment, landmark..." />
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
-            <select value={county} onChange={(event) => setCounty(event.target.value)} className="min-w-44 px-4 py-3 rounded-xl bg-[#f6f3f5] border border-[#e4e2e4] text-sm font-bold text-[#002645] focus:outline-none">
+            <select value={county} onChange={(event) => setCounty(event.target.value)} className="w-full sm:min-w-44 px-4 py-3 rounded-xl bg-[#f6f3f5] border border-[#e4e2e4] text-sm font-bold text-[#002645] focus:outline-none">
               <option value="All">All counties</option>
               {KENYA_COUNTIES.map(item => <option key={item} value={item}>{item}</option>)}
             </select>
@@ -224,14 +224,14 @@ export default function HousingMarketplace() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <section className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
         {marketplaceListings.map(({ property, vacantUnits, lowestRent }) => (
-          <article key={property.id} className="bg-white rounded-3xl border border-[#e4e2e4] overflow-hidden shadow-sm">
+          <article key={property.id} className="bg-white rounded-2xl md:rounded-3xl border border-[#e4e2e4] overflow-hidden shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-5">
-              <div className="md:col-span-2 min-h-56 bg-cover bg-center" style={{ backgroundImage: `url('${property.imageUrl}')` }} />
-              <div className="md:col-span-3 p-5 space-y-4">
+              <div className="md:col-span-2 min-h-44 sm:min-h-56 bg-cover bg-center" style={{ backgroundImage: `url('${property.imageUrl}')` }} />
+              <div className="md:col-span-3 p-4 sm:p-5 space-y-4">
                 <div>
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div>
                       <h3 className="text-xl font-black text-[#002645]">{property.name}</h3>
                       <p className="text-xs font-bold text-[#73777f] mt-1 flex items-center gap-1.5">
@@ -255,7 +255,7 @@ export default function HousingMarketplace() {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="rounded-2xl bg-[#f6f3f5] p-3">
                     <span className="text-[9px] uppercase tracking-widest text-[#73777f] font-black">Rent from</span>
                     <span className="block text-lg font-black text-[#002645]">KES {lowestRent.toLocaleString()}</span>
@@ -279,13 +279,13 @@ export default function HousingMarketplace() {
               </div>
             </div>
             <div className="border-t border-[#e4e2e4] bg-[#f6f3f5]/70 p-3">
-              <iframe title={`${property.name} map`} src={embedUrlFor(property)} loading="lazy" className="w-full h-56 rounded-2xl border border-[#e4e2e4] bg-white" />
+              <iframe title={`${property.name} map`} src={embedUrlFor(property)} loading="lazy" className="w-full h-44 sm:h-56 rounded-2xl border border-[#e4e2e4] bg-white" />
             </div>
           </article>
         ))}
 
         {marketplaceListings.length === 0 && (
-          <div className="xl:col-span-2 bg-white rounded-3xl border border-[#e4e2e4] p-10 text-center">
+          <div className="xl:col-span-2 bg-white rounded-2xl md:rounded-3xl border border-[#e4e2e4] p-6 sm:p-10 text-center">
             <Building2 className="h-10 w-10 mx-auto text-[#002645]" />
             <h3 className="text-xl font-black text-[#002645] mt-4">No matching vacant listings yet</h3>
             <p className="text-sm text-[#73777f] mt-2">Try another county, increase the rent range, or ask a landlord to publish apartment location details.</p>

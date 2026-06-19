@@ -52,7 +52,7 @@ export default function LandingPage() {
       }}
     >
       {/* Top Navbar */}
-      <nav className="flex justify-between items-center px-4 md:px-10 h-16 w-full fixed top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 shadow-lg">
+      <nav className="flex justify-between items-center gap-3 px-3 sm:px-4 md:px-10 min-h-16 w-full fixed top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 shadow-lg">
         <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
           <div className="bg-emerald-500/15 p-1.5 rounded-lg border border-emerald-500/20 text-emerald-400">
             <Building2 className="h-5 w-5" />
@@ -87,7 +87,7 @@ export default function LandingPage() {
               const el = document.getElementById('auth-section');
               el?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="bg-white/10 hover:bg-white/20 text-white border border-white/15 px-4 py-2 rounded-xl font-bold text-xs active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
+            className="bg-white/10 hover:bg-white/20 text-white border border-white/15 px-3 sm:px-4 py-2 rounded-xl font-bold text-xs active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
           >
             <span>Credentials Log In</span>
             <ArrowRight className="h-3 w-3 text-emerald-400" />
@@ -100,7 +100,7 @@ export default function LandingPage() {
         <section className="relative min-h-[660px] flex flex-col lg:flex-row items-center justify-center px-4 md:px-10 max-w-7xl mx-auto gap-12 pt-8 lg:pt-16 pb-12">
           {/* Left Hero Content with Prominent App Name & Gorgeous Typography */}
           <div className="w-full lg:w-1/2 space-y-6 text-center lg:text-left z-10">
-            <div className="inline-flex items-center gap-2 bg-slate-950/80 text-emerald-100 border border-white/20 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider mb-2 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
+            <div className="inline-flex max-w-full items-center justify-center gap-2 bg-slate-950/80 text-emerald-100 border border-white/20 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider mb-2 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md text-center leading-relaxed">
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
@@ -109,7 +109,7 @@ export default function LandingPage() {
             </div>
             
             <div className="space-y-3">
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-white leading-tight tracking-tight drop-shadow-md">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white leading-tight tracking-tight drop-shadow-md">
                 Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 drop-shadow-[0_2px_15px_rgba(5,150,105,0.35)]">Renziy</span>
               </h1>
               <h2 className="text-2xl md:text-3xl font-extrabold text-slate-150 tracking-tight leading-none drop-shadow-sm">
