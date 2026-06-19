@@ -163,7 +163,7 @@ export default function HousingMarketplace() {
             <div>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Find rental homes by county, town, and live map location.</h1>
               <p className="text-sm text-[#b7cee8] mt-2 leading-relaxed">
-                Tenants can discover vacant houses across Kenya while landlords publish apartment details, amenities, contacts, and map locations from the same Renziy workspace.
+                Tenants can choose where they want to live and search vacant houses across Kenya while landlords publish apartment details, amenities, contacts, and map locations from the same Renziy workspace.
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
@@ -292,11 +292,39 @@ export default function HousingMarketplace() {
         </section>
       )}
 
+      {role === 'tenant' && (
+        <section className="mb-5 md:mb-6 bg-white rounded-2xl md:rounded-3xl border border-emerald-100 p-4 md:p-5 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Tenant house search</span>
+              <h2 className="text-xl font-black text-[#002645] mt-1">Choose the place you want to live</h2>
+              <p className="text-sm text-[#73777f] mt-1 max-w-2xl">
+                Search by any Kenya county, constituency, town, estate, road, landmark, rent range, or exact map area. The results update to show vacant homes you can contact or open on Google Maps.
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 md:min-w-80">
+              <div className="rounded-2xl bg-[#E8F4FD] p-3 text-center">
+                <span className="block text-xl font-black text-[#002645]">{KENYA_COUNTIES.length}</span>
+                <span className="text-[9px] font-black uppercase tracking-wider text-[#73777f]">Counties</span>
+              </div>
+              <div className="rounded-2xl bg-[#E8F4FD] p-3 text-center">
+                <span className="block text-xl font-black text-[#002645]">{constituencyOptions.length}</span>
+                <span className="text-[9px] font-black uppercase tracking-wider text-[#73777f]">Areas</span>
+              </div>
+              <div className="rounded-2xl bg-[#E8F4FD] p-3 text-center">
+                <span className="block text-xl font-black text-emerald-700">{marketplaceListings.length}</span>
+                <span className="text-[9px] font-black uppercase tracking-wider text-[#73777f]">Matches</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       <section className="mb-5 md:mb-6 bg-white rounded-2xl md:rounded-3xl border border-[#e4e2e4] p-3 sm:p-4 md:p-5 shadow-sm">
         <div className="flex flex-col xl:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#73777f]" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#f6f3f5] border border-[#e4e2e4] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#002645]/10" placeholder="Search apartment, estate, road, landmark..." />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#f6f3f5] border border-[#e4e2e4] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#002645]/10" placeholder="Search desired county, constituency, estate, road, landmark..." />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             <select

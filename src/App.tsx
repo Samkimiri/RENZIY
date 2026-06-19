@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { RenziyProvider, useRenziy } from './state';
 import LandingPage from './components/LandingPage';
 import LandlordDashboard from './components/LandlordDashboard';
@@ -13,7 +13,7 @@ import HousingMarketplace from './components/HousingMarketplace';
 import { Building2, LayoutDashboard, Building, Wrench, CreditCard, LogOut, Bell, ArrowLeftRight, Lock, Coins, MapPin } from 'lucide-react';
 
 function AppContent() {
-  const { role, setRole, username, notifications, markNotificationsAsRead, units } = useRenziy();
+  const { role, setRole, username, setUsername, notifications, markNotificationsAsRead, units, members } = useRenziy();
   
   // Find tenant avatar dynamically
   const myUnitInfo = units?.find(u => u.tenantName === username) || (username === 'Alex' || username === 'Alex Smith' ? units?.find(u => u.id === 'unit-1-4b') : undefined);
@@ -30,6 +30,32 @@ function AppContent() {
 
   const unreadNotifCount = notifications.filter(n => n.unread).length;
   const mobileNavButtonClass = (active: boolean) => `min-w-[68px] flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 cursor-pointer transition-all ${active ? 'bg-[#E8F4FD] text-[#002645]' : 'text-[#73777f] hover:bg-[#f6f3f5]'}`;
+  const sessionEmail = localStorage.getItem('renziy_user_email') || '';
+  const activeMember = useMemo(() => {
+    if (role === 'anonymous' || !sessionEmail) return undefined;
+    return members.find(member => (
+      member.role === role &&
+      member.email.toLowerCase() === sessionEmail.toLowerCase() &&
+      member.status === 'Active'
+    ));
+  }, [members, role, sessionEmail]);
+  const hasVerifiedAccount = role !== 'anonymous' && Boolean(activeMember);
+
+  useEffect(() => {
+    if (role === 'anonymous') return;
+
+    if (!activeMember) {
+      localStorage.removeItem('renziy_user_email');
+      setRole('anonymous');
+      setActiveTab('dashboard');
+      setExpressPayMethod(null);
+      return;
+    }
+
+    if (activeMember.name !== username) {
+      setUsername(activeMember.name);
+    }
+  }, [activeMember, role, setRole, setUsername, username]);
 
   const handleSignOut = () => {
     localStorage.removeItem('renziy_user_email');
@@ -40,8 +66,8 @@ function AppContent() {
     setExpressPayMethod(null);
   };
 
-  // If anonymous guest or not logged in, render the gorgeous splash Landing Page
-  if (role === 'anonymous') {
+  // If there is no verified platform account, keep the user on the account gate.
+  if (role === 'anonymous' || !hasVerifiedAccount) {
     return <LandingPage />;
   }
 
