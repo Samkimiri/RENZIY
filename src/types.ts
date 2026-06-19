@@ -9,8 +9,10 @@ export interface Property {
   unitsCount: number;
   imageUrl: string;
   county?: string;
+  constituency?: string;
   town?: string;
   neighborhood?: string;
+  specificLocation?: string;
   description?: string;
   amenities?: string[];
   contactPhone?: string;

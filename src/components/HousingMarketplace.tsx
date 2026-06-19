@@ -3,17 +3,62 @@ import { useRenziy } from '../state';
 import { Property } from '../types';
 import { Building2, CheckCircle2, Home, MapPin, Navigation, Phone, Search, SlidersHorizontal } from 'lucide-react';
 
-const KENYA_COUNTIES = [
-  'Nairobi', 'Mombasa', 'Kiambu', 'Kajiado', 'Machakos', 'Nakuru', 'Kisumu', 'Uasin Gishu',
-  'Nyeri', 'Muranga', 'Kirinyaga', 'Meru', 'Embu', 'Laikipia', 'Kilifi', 'Kwale', 'Kisii',
-  'Nyamira', 'Kakamega', 'Bungoma', 'Busia', 'Siaya', 'Homa Bay', 'Migori', 'Kericho',
-  'Bomet', 'Narok', 'Trans Nzoia', 'Turkana', 'Garissa', 'Isiolo'
+const KENYA_LOCATION_DATA = [
+  { county: 'Baringo', constituencies: ['Baringo Central', 'Baringo North', 'Eldama Ravine', 'Mogotio', 'Tiaty'], locations: ['Kabarnet', 'Eldama Ravine', 'Marigat', 'Mogotio'] },
+  { county: 'Bomet', constituencies: ['Bomet Central', 'Bomet East', 'Chepalungu', 'Konoin', 'Sotik'], locations: ['Bomet Town', 'Sotik', 'Longisa', 'Mogogosiek'] },
+  { county: 'Bungoma', constituencies: ['Bumula', 'Kabuchai', 'Kanduyi', 'Kimilili', 'Mt Elgon', 'Sirisia', 'Tongaren', 'Webuye East', 'Webuye West'], locations: ['Bungoma Town', 'Webuye', 'Kimilili', 'Chwele'] },
+  { county: 'Busia', constituencies: ['Budalangi', 'Butula', 'Funyula', 'Matayos', 'Nambale', 'Teso North', 'Teso South'], locations: ['Busia Town', 'Malaba', 'Port Victoria', 'Nambale'] },
+  { county: 'Elgeyo-Marakwet', constituencies: ['Keiyo North', 'Keiyo South', 'Marakwet East', 'Marakwet West'], locations: ['Iten', 'Kapsowar', 'Chebiemit', 'Tambach'] },
+  { county: 'Embu', constituencies: ['Manyatta', 'Mbeere North', 'Mbeere South', 'Runyenjes'], locations: ['Embu Town', 'Runyenjes', 'Siakago', 'Kiritiri'] },
+  { county: 'Garissa', constituencies: ['Balambala', 'Dadaab', 'Fafi', 'Garissa Township', 'Ijara', 'Lagdera'], locations: ['Garissa Town', 'Dadaab', 'Hulugho', 'Modogashe'] },
+  { county: 'Homa Bay', constituencies: ['Homa Bay Town', 'Kabondo Kasipul', 'Karachuonyo', 'Kasipul', 'Mbita', 'Ndhiwa', 'Rangwe', 'Suba'], locations: ['Homa Bay Town', 'Mbita', 'Oyugis', 'Ndhiwa'] },
+  { county: 'Isiolo', constituencies: ['Isiolo North', 'Isiolo South'], locations: ['Isiolo Town', 'Garbatulla', 'Merti', 'Kinna'] },
+  { county: 'Kajiado', constituencies: ['Kajiado Central', 'Kajiado East', 'Kajiado North', 'Kajiado South', 'Kajiado West'], locations: ['Kitengela', 'Ongata Rongai', 'Ngong', 'Kiserian', 'Kajiado Town'] },
+  { county: 'Kakamega', constituencies: ['Butere', 'Khwisero', 'Lugari', 'Lurambi', 'Malava', 'Matungu', 'Mumias East', 'Mumias West', 'Navakholo', 'Shinyalu'], locations: ['Kakamega Town', 'Mumias', 'Butere', 'Malava'] },
+  { county: 'Kericho', constituencies: ['Ainamoi', 'Belgut', 'Bureti', 'Kipkelion East', 'Kipkelion West', 'Soin Sigowet'], locations: ['Kericho Town', 'Litein', 'Kipkelion', 'Londiani'] },
+  { county: 'Kiambu', constituencies: ['Gatundu North', 'Gatundu South', 'Githunguri', 'Juja', 'Kabete', 'Kiambaa', 'Kiambu', 'Kikuyu', 'Lari', 'Limuru', 'Ruiru', 'Thika Town'], locations: ['Ruiru', 'Thika', 'Kikuyu', 'Kiambu Town', 'Juja', 'Ruaka', 'Limuru'] },
+  { county: 'Kilifi', constituencies: ['Ganze', 'Kaloleni', 'Kilifi North', 'Kilifi South', 'Magarini', 'Malindi', 'Rabai'], locations: ['Kilifi Town', 'Malindi', 'Mtwapa', 'Mariakani', 'Watamu'] },
+  { county: 'Kirinyaga', constituencies: ['Gichugu', 'Kirinyaga Central', 'Mwea', 'Ndia'], locations: ['Kerugoya', 'Kutus', 'Sagana', 'Wanguru'] },
+  { county: 'Kisii', constituencies: ['Bobasi', 'Bomachoge Borabu', 'Bomachoge Chache', 'Bonchari', 'Kitutu Chache North', 'Kitutu Chache South', 'Nyaribari Chache', 'Nyaribari Masaba', 'South Mugirango'], locations: ['Kisii Town', 'Ogembo', 'Suneka', 'Keroka'] },
+  { county: 'Kisumu', constituencies: ['Kisumu Central', 'Kisumu East', 'Kisumu West', 'Muhoroni', 'Nyakach', 'Nyando', 'Seme'], locations: ['Kisumu CBD', 'Milimani', 'Mamboleo', 'Kondele', 'Ahero', 'Maseno'] },
+  { county: 'Kitui', constituencies: ['Kitui Central', 'Kitui East', 'Kitui Rural', 'Kitui South', 'Kitui West', 'Mwingi Central', 'Mwingi North', 'Mwingi West'], locations: ['Kitui Town', 'Mwingi', 'Mutomo', 'Kwa Vonza'] },
+  { county: 'Kwale', constituencies: ['Kinango', 'Lunga Lunga', 'Matuga', 'Msambweni'], locations: ['Ukunda', 'Diani', 'Kwale Town', 'Msambweni'] },
+  { county: 'Laikipia', constituencies: ['Laikipia East', 'Laikipia North', 'Laikipia West'], locations: ['Nanyuki', 'Nyahururu', 'Rumuruti', 'Doldol'] },
+  { county: 'Lamu', constituencies: ['Lamu East', 'Lamu West'], locations: ['Lamu Town', 'Mpeketoni', 'Hindi', 'Witu'] },
+  { county: 'Machakos', constituencies: ['Kathiani', 'Machakos Town', 'Masinga', 'Matungulu', 'Mavoko', 'Mwala', 'Yatta'], locations: ['Machakos Town', 'Athi River', 'Syokimau', 'Mlolongo', 'Kangundo Road'] },
+  { county: 'Makueni', constituencies: ['Kaiti', 'Kibwezi East', 'Kibwezi West', 'Kilome', 'Makueni', 'Mbooni'], locations: ['Wote', 'Makindu', 'Emali', 'Sultan Hamud'] },
+  { county: 'Mandera', constituencies: ['Banissa', 'Lafey', 'Mandera East', 'Mandera North', 'Mandera South', 'Mandera West'], locations: ['Mandera Town', 'Elwak', 'Rhamu', 'Takaba'] },
+  { county: 'Marsabit', constituencies: ['Laisamis', 'Moyale', 'North Horr', 'Saku'], locations: ['Marsabit Town', 'Moyale', 'Sololo', 'Laisamis'] },
+  { county: 'Meru', constituencies: ['Buuri', 'Central Imenti', 'Igembe Central', 'Igembe North', 'Igembe South', 'North Imenti', 'South Imenti', 'Tigania East', 'Tigania West'], locations: ['Meru Town', 'Maua', 'Nkubu', 'Timau'] },
+  { county: 'Migori', constituencies: ['Awendo', 'Kuria East', 'Kuria West', 'Nyatike', 'Rongo', 'Suna East', 'Suna West', 'Uriri'], locations: ['Migori Town', 'Rongo', 'Awendo', 'Isebania'] },
+  { county: 'Mombasa', constituencies: ['Changamwe', 'Jomvu', 'Kisauni', 'Likoni', 'Mvita', 'Nyali'], locations: ['Nyali', 'Bamburi', 'Mtwapa', 'Mombasa CBD', 'Likoni', 'Tudor'] },
+  { county: 'Muranga', constituencies: ['Gatanga', 'Kandara', 'Kangema', 'Kigumo', 'Kiharu', 'Maragua', 'Mathioya'], locations: ['Muranga Town', 'Kenol', 'Kangari', 'Kandara'] },
+  { county: 'Nairobi', constituencies: ['Dagoretti North', 'Dagoretti South', 'Embakasi Central', 'Embakasi East', 'Embakasi North', 'Embakasi South', 'Embakasi West', 'Kamukunji', 'Kasarani', 'Kibra', 'Langata', 'Makadara', 'Mathare', 'Roysambu', 'Ruaraka', 'Starehe', 'Westlands'], locations: ['Kilimani', 'Westlands', 'Kileleshwa', 'Lavington', 'South B', 'South C', 'Roysambu', 'Kasarani', 'Embakasi', 'Karen', 'Ruaka border'] },
+  { county: 'Nakuru', constituencies: ['Bahati', 'Gilgil', 'Kuresoi North', 'Kuresoi South', 'Molo', 'Naivasha', 'Nakuru Town East', 'Nakuru Town West', 'Njoro', 'Rongai', 'Subukia'], locations: ['Nakuru CBD', 'Milimani', 'Naivasha', 'Gilgil', 'Njoro', 'Molo'] },
+  { county: 'Nandi', constituencies: ['Aldai', 'Chesumei', 'Emgwen', 'Mosop', 'Nandi Hills', 'Tinderet'], locations: ['Kapsabet', 'Nandi Hills', 'Kabiyet', 'Lessos'] },
+  { county: 'Narok', constituencies: ['Kilgoris', 'Narok East', 'Narok North', 'Narok South', 'Narok West', 'Emurua Dikirr'], locations: ['Narok Town', 'Kilgoris', 'Suswa', 'Ololulunga'] },
+  { county: 'Nyamira', constituencies: ['Borabu', 'Kitutu Masaba', 'North Mugirango', 'West Mugirango'], locations: ['Nyamira Town', 'Keroka', 'Ekerenyo', 'Nyansiongo'] },
+  { county: 'Nyandarua', constituencies: ['Kinangop', 'Kipipiri', 'Ndaragwa', 'Ol Jorok', 'Ol Kalou'], locations: ['Ol Kalou', 'Engineer', 'Njabini', 'Ndaragwa'] },
+  { county: 'Nyeri', constituencies: ['Kieni', 'Mathira', 'Mukurweini', 'Nyeri Town', 'Othaya', 'Tetu'], locations: ['Nyeri Town', 'Karatina', 'Othaya', 'Mweiga'] },
+  { county: 'Samburu', constituencies: ['Samburu East', 'Samburu North', 'Samburu West'], locations: ['Maralal', 'Baragoi', 'Wamba', 'Archers Post'] },
+  { county: 'Siaya', constituencies: ['Alego Usonga', 'Bondo', 'Gem', 'Rarieda', 'Ugenya', 'Ugunja'], locations: ['Siaya Town', 'Bondo', 'Ugunja', 'Yala'] },
+  { county: 'Taita-Taveta', constituencies: ['Mwatate', 'Taveta', 'Voi', 'Wundanyi'], locations: ['Voi', 'Wundanyi', 'Mwatate', 'Taveta'] },
+  { county: 'Tana River', constituencies: ['Bura', 'Galole', 'Garsen'], locations: ['Hola', 'Garsen', 'Bura', 'Madogo'] },
+  { county: 'Tharaka-Nithi', constituencies: ['Chuka Igambangombe', 'Maara', 'Tharaka'], locations: ['Chuka', 'Chogoria', 'Marimanti', 'Kathwana'] },
+  { county: 'Trans Nzoia', constituencies: ['Cherangany', 'Endebess', 'Kiminini', 'Kwanza', 'Saboti'], locations: ['Kitale', 'Kiminini', 'Endebess', 'Maili Tisa'] },
+  { county: 'Turkana', constituencies: ['Loima', 'Turkana Central', 'Turkana East', 'Turkana North', 'Turkana South', 'Turkana West'], locations: ['Lodwar', 'Kakuma', 'Lokichogio', 'Lokichar'] },
+  { county: 'Uasin Gishu', constituencies: ['Ainabkoi', 'Kapseret', 'Kesses', 'Moiben', 'Soy', 'Turbo'], locations: ['Eldoret CBD', 'Kapseret', 'Langas', 'Kimumu', 'Annex', 'Ziwa'] },
+  { county: 'Vihiga', constituencies: ['Emuhaya', 'Hamisi', 'Luanda', 'Sabatia', 'Vihiga'], locations: ['Mbale', 'Luanda', 'Chavakali', 'Hamisi'] },
+  { county: 'Wajir', constituencies: ['Eldas', 'Tarbaj', 'Wajir East', 'Wajir North', 'Wajir South', 'Wajir West'], locations: ['Wajir Town', 'Habaswein', 'Griftu', 'Eldas'] },
+  { county: 'West Pokot', constituencies: ['Kapenguria', 'Kacheliba', 'Pokot South', 'Sigor'], locations: ['Kapenguria', 'Makutano', 'Chepareria', 'Ortum'] }
 ];
+
+const KENYA_COUNTIES = KENYA_LOCATION_DATA.map(item => item.county);
 
 const DEFAULT_AMENITIES = ['Water', 'Security', 'Parking', 'Wi-Fi ready', 'Near public transport'];
 
 const getLocationQuery = (property: Property) => {
-  return property.mapQuery || [property.name, property.neighborhood, property.town, property.county || property.address, 'Kenya']
+  return property.mapQuery || [property.name, property.specificLocation, property.neighborhood, property.constituency, property.town, property.county || property.address, 'Kenya']
     .filter(Boolean)
     .join(', ');
 };
@@ -24,13 +69,17 @@ const embedUrlFor = (property: Property) => `https://www.google.com/maps?q=${enc
 export default function HousingMarketplace() {
   const { role, properties, units, updatePropertyDetails } = useRenziy();
   const [county, setCounty] = useState('All');
+  const [constituency, setConstituency] = useState('All');
+  const [specificLocation, setSpecificLocation] = useState('All');
   const [query, setQuery] = useState('');
   const [maxRent, setMaxRent] = useState('');
   const [editingPropertyId, setEditingPropertyId] = useState(properties[0]?.id || '');
   const [formState, setFormState] = useState({
     county: properties[0]?.county || 'Nairobi',
+    constituency: properties[0]?.constituency || '',
     town: properties[0]?.town || '',
     neighborhood: properties[0]?.neighborhood || '',
+    specificLocation: properties[0]?.specificLocation || '',
     contactPhone: properties[0]?.contactPhone || '',
     description: properties[0]?.description || '',
     amenities: properties[0]?.amenities?.join(', ') || DEFAULT_AMENITIES.join(', '),
@@ -39,6 +88,14 @@ export default function HousingMarketplace() {
   });
 
   const selectedProperty = properties.find(property => property.id === editingPropertyId) || properties[0];
+  const selectedCountyData = KENYA_LOCATION_DATA.find(item => item.county === formState.county) || KENYA_LOCATION_DATA.find(item => item.county === county);
+  const filterCountyData = KENYA_LOCATION_DATA.find(item => item.county === county);
+  const constituencyOptions = county === 'All'
+    ? Array.from(new Set(KENYA_LOCATION_DATA.flatMap(item => item.constituencies))).sort()
+    : filterCountyData?.constituencies || [];
+  const locationOptions = county === 'All'
+    ? Array.from(new Set(KENYA_LOCATION_DATA.flatMap(item => item.locations))).sort()
+    : filterCountyData?.locations || [];
 
   const marketplaceListings = useMemo(() => {
     return properties
@@ -51,19 +108,23 @@ export default function HousingMarketplace() {
       .filter(({ property, vacantUnits, lowestRent }) => {
         const listed = property.availableForMarketplace !== false;
         const countyMatch = county === 'All' || (property.county || '').toLowerCase() === county.toLowerCase();
-        const text = [property.name, property.address, property.county, property.town, property.neighborhood, property.description].join(' ').toLowerCase();
+        const constituencyMatch = constituency === 'All' || (property.constituency || '').toLowerCase() === constituency.toLowerCase();
+        const locationMatch = specificLocation === 'All' || [property.specificLocation, property.neighborhood, property.town, property.address].join(' ').toLowerCase().includes(specificLocation.toLowerCase());
+        const text = [property.name, property.address, property.county, property.constituency, property.town, property.neighborhood, property.specificLocation, property.description].join(' ').toLowerCase();
         const queryMatch = !query || text.includes(query.toLowerCase());
         const rentMatch = !maxRent || lowestRent <= Number(maxRent);
-        return listed && vacantUnits.length > 0 && countyMatch && queryMatch && rentMatch;
+        return listed && vacantUnits.length > 0 && countyMatch && constituencyMatch && locationMatch && queryMatch && rentMatch;
       });
-  }, [properties, units, county, query, maxRent]);
+  }, [properties, units, county, constituency, specificLocation, query, maxRent]);
 
   const handleSelectProperty = (property: Property) => {
     setEditingPropertyId(property.id);
     setFormState({
       county: property.county || 'Nairobi',
+      constituency: property.constituency || '',
       town: property.town || '',
       neighborhood: property.neighborhood || '',
+      specificLocation: property.specificLocation || '',
       contactPhone: property.contactPhone || '',
       description: property.description || '',
       amenities: property.amenities?.join(', ') || DEFAULT_AMENITIES.join(', '),
@@ -78,12 +139,14 @@ export default function HousingMarketplace() {
 
     await updatePropertyDetails(selectedProperty.id, {
       county: formState.county,
+      constituency: formState.constituency,
       town: formState.town,
       neighborhood: formState.neighborhood,
+      specificLocation: formState.specificLocation,
       contactPhone: formState.contactPhone,
       description: formState.description,
       amenities: formState.amenities.split(',').map(item => item.trim()).filter(Boolean),
-      mapQuery: formState.mapQuery || [selectedProperty.name, formState.neighborhood, formState.town, formState.county, 'Kenya'].filter(Boolean).join(', '),
+      mapQuery: formState.mapQuery || [selectedProperty.name, formState.specificLocation, formState.neighborhood, formState.constituency, formState.town, formState.county, 'Kenya'].filter(Boolean).join(', '),
       availableForMarketplace: formState.availableForMarketplace
     });
   };
@@ -166,10 +229,21 @@ export default function HousingMarketplace() {
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#73777f]">County</span>
                 <select
                   value={formState.county}
-                  onChange={(event) => setFormState(prev => ({ ...prev, county: event.target.value }))}
+                  onChange={(event) => setFormState(prev => ({ ...prev, county: event.target.value, constituency: '', specificLocation: '' }))}
                   className="w-full bg-[#f6f3f5] border border-[#e4e2e4] rounded-xl p-3 text-sm font-bold text-[#002645] focus:outline-none focus:ring-2 focus:ring-[#002645]/10"
                 >
                   {KENYA_COUNTIES.map(item => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#73777f]">Constituency</span>
+                <select
+                  value={formState.constituency}
+                  onChange={(event) => setFormState(prev => ({ ...prev, constituency: event.target.value }))}
+                  className="w-full bg-[#f6f3f5] border border-[#e4e2e4] rounded-xl p-3 text-sm font-bold text-[#002645] focus:outline-none focus:ring-2 focus:ring-[#002645]/10"
+                >
+                  <option value="">Select constituency</option>
+                  {(selectedCountyData?.constituencies || []).map(item => <option key={item} value={item}>{item}</option>)}
                 </select>
               </label>
               <label className="space-y-1">
@@ -179,6 +253,19 @@ export default function HousingMarketplace() {
               <label className="space-y-1">
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#73777f]">Neighborhood / Landmark</span>
                 <input value={formState.neighborhood} onChange={(event) => setFormState(prev => ({ ...prev, neighborhood: event.target.value }))} className="w-full bg-[#f6f3f5] border border-[#e4e2e4] rounded-xl p-3 text-sm font-bold text-[#002645] focus:outline-none focus:ring-2 focus:ring-[#002645]/10" placeholder="Near mall, stage, school..." />
+              </label>
+              <label className="space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#73777f]">Specific Location</span>
+                <input
+                  list="specific-location-suggestions"
+                  value={formState.specificLocation}
+                  onChange={(event) => setFormState(prev => ({ ...prev, specificLocation: event.target.value }))}
+                  className="w-full bg-[#f6f3f5] border border-[#e4e2e4] rounded-xl p-3 text-sm font-bold text-[#002645] focus:outline-none focus:ring-2 focus:ring-[#002645]/10"
+                  placeholder="Road, mall, stage, estate, school..."
+                />
+                <datalist id="specific-location-suggestions">
+                  {(selectedCountyData?.locations || []).map(item => <option key={item} value={item} />)}
+                </datalist>
               </label>
               <label className="space-y-1">
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#73777f]">Viewing Contact</span>
@@ -206,19 +293,35 @@ export default function HousingMarketplace() {
       )}
 
       <section className="mb-5 md:mb-6 bg-white rounded-2xl md:rounded-3xl border border-[#e4e2e4] p-3 sm:p-4 md:p-5 shadow-sm">
-        <div className="flex flex-col lg:flex-row gap-3">
+        <div className="flex flex-col xl:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#73777f]" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#f6f3f5] border border-[#e4e2e4] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#002645]/10" placeholder="Search county, estate, apartment, landmark..." />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#f6f3f5] border border-[#e4e2e4] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#002645]/10" placeholder="Search apartment, estate, road, landmark..." />
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <select value={county} onChange={(event) => setCounty(event.target.value)} className="w-full sm:min-w-44 px-4 py-3 rounded-xl bg-[#f6f3f5] border border-[#e4e2e4] text-sm font-bold text-[#002645] focus:outline-none">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+            <select
+              value={county}
+              onChange={(event) => {
+                setCounty(event.target.value);
+                setConstituency('All');
+                setSpecificLocation('All');
+              }}
+              className="w-full xl:w-44 px-4 py-3 rounded-xl bg-[#f6f3f5] border border-[#e4e2e4] text-sm font-bold text-[#002645] focus:outline-none"
+            >
               <option value="All">All counties</option>
               {KENYA_COUNTIES.map(item => <option key={item} value={item}>{item}</option>)}
             </select>
+            <select value={constituency} onChange={(event) => setConstituency(event.target.value)} className="w-full xl:w-52 px-4 py-3 rounded-xl bg-[#f6f3f5] border border-[#e4e2e4] text-sm font-bold text-[#002645] focus:outline-none">
+              <option value="All">All constituencies</option>
+              {constituencyOptions.map(item => <option key={item} value={item}>{item}</option>)}
+            </select>
+            <select value={specificLocation} onChange={(event) => setSpecificLocation(event.target.value)} className="w-full xl:w-48 px-4 py-3 rounded-xl bg-[#f6f3f5] border border-[#e4e2e4] text-sm font-bold text-[#002645] focus:outline-none">
+              <option value="All">All locations</option>
+              {locationOptions.map(item => <option key={item} value={item}>{item}</option>)}
+            </select>
             <div className="relative">
               <SlidersHorizontal className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#73777f]" />
-              <input type="number" value={maxRent} onChange={(event) => setMaxRent(event.target.value)} className="w-full sm:w-44 pl-10 pr-4 py-3 rounded-xl bg-[#f6f3f5] border border-[#e4e2e4] text-sm font-bold text-[#002645] focus:outline-none" placeholder="Max rent" />
+              <input type="number" value={maxRent} onChange={(event) => setMaxRent(event.target.value)} className="w-full xl:w-40 pl-10 pr-4 py-3 rounded-xl bg-[#f6f3f5] border border-[#e4e2e4] text-sm font-bold text-[#002645] focus:outline-none" placeholder="Max rent" />
             </div>
           </div>
         </div>
@@ -236,7 +339,7 @@ export default function HousingMarketplace() {
                       <h3 className="text-xl font-black text-[#002645]">{property.name}</h3>
                       <p className="text-xs font-bold text-[#73777f] mt-1 flex items-center gap-1.5">
                         <MapPin className="h-3.5 w-3.5" />
-                        <span>{property.neighborhood || property.address}, {property.town || property.county || 'Kenya'}</span>
+                        <span>{property.specificLocation || property.neighborhood || property.address}, {property.constituency || property.town || property.county || 'Kenya'}</span>
                       </p>
                     </div>
                     <span className="rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide">
@@ -263,6 +366,10 @@ export default function HousingMarketplace() {
                   <div className="rounded-2xl bg-[#f6f3f5] p-3">
                     <span className="text-[9px] uppercase tracking-widest text-[#73777f] font-black">County</span>
                     <span className="block text-lg font-black text-[#002645]">{property.county || 'Kenya'}</span>
+                  </div>
+                  <div className="rounded-2xl bg-[#f6f3f5] p-3 sm:col-span-2">
+                    <span className="text-[9px] uppercase tracking-widest text-[#73777f] font-black">Constituency / location</span>
+                    <span className="block text-sm font-black text-[#002645] mt-1">{property.constituency || 'Not provided'} - {property.specificLocation || property.neighborhood || 'Specific location pending'}</span>
                   </div>
                 </div>
 

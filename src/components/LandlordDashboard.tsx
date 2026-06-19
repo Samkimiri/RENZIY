@@ -177,32 +177,32 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
       {/* Metrics Row */}
       <h2 className="text-lg font-bold uppercase tracking-wider text-[#002645] mb-4">Portfolio Analytics</h2>
-      <section className="mb-8 grid grid-cols-2 lg:grid-cols-6 gap-4">
-        <div className="p-5 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between">
+      <section className="mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="min-w-0 p-5 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between">
           <span className="text-xs font-bold uppercase text-[#73777f] tracking-wider">Total Properties</span>
           <span className="text-3xl lg:text-4xl font-extrabold text-[#002645] mt-2 block">{totalProperties}</span>
         </div>
-        <div className="p-5 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between">
+        <div className="min-w-0 p-5 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between">
           <span className="text-xs font-bold uppercase text-[#73777f] tracking-wider">Total Units</span>
           <span className="text-3xl lg:text-4xl font-extrabold text-[#002645] mt-2 block">{totalUnits}</span>
         </div>
-        <div className="p-5 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between">
+        <div className="min-w-0 p-5 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between">
           <span className="text-xs font-bold uppercase text-[#73777f] tracking-wider">Occupancy Rate</span>
           <span className="text-3xl lg:text-4xl font-extrabold text-emerald-600 mt-2 block">{occupancyRate}%</span>
         </div>
-        <div className="p-5 bg-white rounded-2xl shadow-sm border border-emerald-200 flex flex-col justify-between">
+        <div className="min-w-0 p-5 bg-white rounded-2xl shadow-sm border border-emerald-200 flex flex-col justify-between">
           <span className="text-xs font-bold uppercase text-emerald-700 tracking-wider">Platform Members</span>
           <span className="text-3xl lg:text-4xl font-extrabold text-emerald-700 mt-2 block">{totalMembers}</span>
         </div>
-        <div className="p-5 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between">
+        <div className="min-w-0 p-5 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between">
           <span className="text-xs font-bold uppercase text-[#73777f] tracking-wider">Rent Collected</span>
-          <span className="text-3xl lg:text-4xl font-extrabold text-[#002645] mt-2 block">
+          <span className="text-2xl lg:text-3xl 2xl:text-4xl font-extrabold text-[#002645] mt-2 block leading-tight break-words tabular-nums">
             KES {totalCollected.toLocaleString('en-US', { maximumFractionDigits: 0 })}
           </span>
         </div>
-        <div className="p-5 bg-white rounded-2xl shadow-sm border border-red-200 flex flex-col justify-between col-span-2 sm:col-span-1">
+        <div className="min-w-0 p-5 bg-white rounded-2xl shadow-sm border border-red-200 flex flex-col justify-between">
           <span className="text-xs font-bold uppercase text-red-600 tracking-wider">Outstanding Rent</span>
-          <span className="text-3xl lg:text-4xl font-extrabold text-red-600 mt-2 block">
+          <span className="text-2xl lg:text-3xl 2xl:text-4xl font-extrabold text-red-600 mt-2 block leading-tight break-words tabular-nums">
             KES {totalOutstanding.toLocaleString('en-US', { maximumFractionDigits: 0 })}
           </span>
         </div>
