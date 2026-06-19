@@ -9,7 +9,8 @@ import MaintenanceForm from './components/MaintenanceForm';
 import MaintenanceHistory from './components/MaintenanceHistory';
 import SmartLocks from './components/SmartLocks';
 import PayoutSettings from './components/PayoutSettings';
-import { Building2, LayoutDashboard, Building, Wrench, CreditCard, LogOut, Bell, User, Menu, X, ArrowLeftRight, HelpCircle, Lock, Coins } from 'lucide-react';
+import HousingMarketplace from './components/HousingMarketplace';
+import { Building2, LayoutDashboard, Building, Wrench, CreditCard, LogOut, Bell, ArrowLeftRight, Lock, Coins, MapPin } from 'lucide-react';
 import { motion } from 'motion/react';
 
 function AppContent() {
@@ -77,6 +78,13 @@ function AppContent() {
                   <span>Properties & Units</span>
                 </button>
                 <button 
+                  onClick={() => { setActiveTab('marketplace'); setExpressPayMethod(null); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'marketplace' ? 'bg-[#1a3c5e] text-white shadow-sm' : 'text-[#87a7ce] hover:text-white hover:bg-white/5'}`}
+                >
+                  <MapPin className="h-4 w-4" />
+                  <span>Housing Market</span>
+                </button>
+                <button 
                   onClick={() => { setActiveTab('maintenance'); setExpressPayMethod(null); }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'maintenance' ? 'bg-[#1a3c5e] text-white shadow-sm' : 'text-[#87a7ce] hover:text-white hover:bg-white/5'}`}
                 >
@@ -114,6 +122,13 @@ function AppContent() {
                 >
                   <CreditCard className="h-4 w-4" />
                   <span>Express Rent Pay</span>
+                </button>
+                <button 
+                  onClick={() => { setActiveTab('marketplace'); setExpressPayMethod(null); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'marketplace' ? 'bg-[#1a3c5e] text-white shadow-sm' : 'text-[#87a7ce] hover:text-white hover:bg-white/5'}`}
+                >
+                  <MapPin className="h-4 w-4" />
+                  <span>Find Houses</span>
                 </button>
                 <button 
                   onClick={() => { setActiveTab('request_repair'); setExpressPayMethod(null); }}
@@ -311,6 +326,8 @@ function AppContent() {
                     }} />;
                   case 'properties':
                     return <LandlordProperties />;
+                  case 'marketplace':
+                    return <HousingMarketplace />;
                   case 'maintenance':
                     return <MaintenanceHistory />;
                   case 'locks':
@@ -335,6 +352,8 @@ function AppContent() {
                     />;
                   case 'request_repair':
                     return <MaintenanceForm onClose={() => setActiveTab('dashboard')} />;
+                  case 'marketplace':
+                    return <HousingMarketplace />;
                   case 'maintenance_list':
                     return <MaintenanceHistory />;
                   default:
@@ -363,6 +382,13 @@ function AppContent() {
               >
                 <Building className="h-5 w-5" />
                 <span className="text-[10px] font-bold">Portfolio</span>
+              </button>
+              <button 
+                onClick={() => { setActiveTab('marketplace'); setExpressPayMethod(null); }}
+                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${activeTab === 'marketplace' ? 'text-[#002645]' : 'text-[#73777f]'}`}
+              >
+                <MapPin className="h-5 w-5" />
+                <span className="text-[10px] font-bold">Market</span>
               </button>
               <button 
                 onClick={() => { setActiveTab('maintenance'); setExpressPayMethod(null); }}
@@ -402,6 +428,13 @@ function AppContent() {
               >
                 <CreditCard className="h-5 w-5" />
                 <span className="text-[10px] font-bold">Pay Rent</span>
+              </button>
+              <button 
+                onClick={() => { setActiveTab('marketplace'); setExpressPayMethod(null); }}
+                className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${activeTab === 'marketplace' ? 'text-[#002645]' : 'text-[#73777f]'}`}
+              >
+                <MapPin className="h-5 w-5" />
+                <span className="text-[10px] font-bold">Houses</span>
               </button>
               <button 
                 onClick={() => { setActiveTab('request_repair'); setExpressPayMethod(null); }}

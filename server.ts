@@ -8,6 +8,14 @@ interface Property {
   address: string;
   unitsCount: number;
   imageUrl?: string;
+  county?: string;
+  town?: string;
+  neighborhood?: string;
+  description?: string;
+  amenities?: string[];
+  contactPhone?: string;
+  mapQuery?: string;
+  availableForMarketplace?: boolean;
 }
 
 interface Unit {
@@ -91,23 +99,47 @@ let properties: Property[] = [
   {
     id: 'prop-1',
     name: 'Oakwood Heights',
-    address: '1200 Pine St, Seattle, WA',
+    address: 'Kilimani, Nairobi',
     unitsCount: 12,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDMxFypFJhzOCuTAq-LcLtvR4Y7ZY9bY54rSM8H5Fph0ckllantEW12QMfxkKgv07Su36d4tFLU3AqPcLAg7Uj-BF4VrVmqEQtJTgcSdEOVOJR7FN14v_XogFaT2Gh3ZDnn-3pdKTnjX7MMoWaR3HgkJfPnUgLFsheBufag0UlCJfG5PFlA5TI0pYMNgmvP6PIXX1tp8LQmTtcB59pPvkG6Eh3F9Kgp-60KmmEDPmeQYry0nEDmGA89799YSjmtXbz-EJn_uGWto2ku'
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDMxFypFJhzOCuTAq-LcLtvR4Y7ZY9bY54rSM8H5Fph0ckllantEW12QMfxkKgv07Su36d4tFLU3AqPcLAg7Uj-BF4VrVmqEQtJTgcSdEOVOJR7FN14v_XogFaT2Gh3ZDnn-3pdKTnjX7MMoWaR3HgkJfPnUgLFsheBufag0UlCJfG5PFlA5TI0pYMNgmvP6PIXX1tp8LQmTtcB59pPvkG6Eh3F9Kgp-60KmmEDPmeQYry0nEDmGA89799YSjmtXbz-EJn_uGWto2ku',
+    county: 'Nairobi',
+    town: 'Kilimani',
+    neighborhood: 'Near Yaya Centre',
+    description: 'Managed apartments close to shopping, transport, schools, and everyday services.',
+    amenities: ['Security', 'Parking', 'Water', 'Wi-Fi ready', 'Near public transport'],
+    contactPhone: '0712345678',
+    mapQuery: 'Kilimani Nairobi Kenya',
+    availableForMarketplace: true
   },
   {
     id: 'prop-2',
     name: 'Harbor View Villas',
-    address: '45 Marine Dr, Bremerton, WA',
+    address: 'Nyali, Mombasa',
     unitsCount: 8,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0-lP6mcA6HIE4LbzTr765rwiEop89MIpJdvoyF11DN-epOhG7wzLR2vlsvvbIs-eHfUJNUdibFBNajQHHbWzJeqHMFacPNozVQz5c_cpg8uv7fiB71TnE1n_AKhKhic2o8RClwzPHlK1tGsw0MkRGgTOyoCDxd_DliMftNntarn6QL0T4rOntvVbWuKWKfj7-n8nt8R7oxKRysKqzqbaLI_o1dRnqkJ-65xCIUfuKl4jxyeydhAO2IpAgSOxBrOIkfgdT45kPYn1w'
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0-lP6mcA6HIE4LbzTr765rwiEop89MIpJdvoyF11DN-epOhG7wzLR2vlsvvbIs-eHfUJNUdibFBNajQHHbWzJeqHMFacPNozVQz5c_cpg8uv7fiB71TnE1n_AKhKhic2o8RClwzPHlK1tGsw0MkRGgTOyoCDxd_DliMftNntarn6QL0T4rOntvVbWuKWKfj7-n8nt8R7oxKRysKqzqbaLI_o1dRnqkJ-65xCIUfuKl4jxyeydhAO2IpAgSOxBrOIkfgdT45kPYn1w',
+    county: 'Mombasa',
+    town: 'Nyali',
+    neighborhood: 'Near Links Road',
+    description: 'Coastal rental homes with quick access to beach areas, malls, and public transport.',
+    amenities: ['Security', 'Parking', 'Balcony', 'Water', 'Near beach'],
+    contactPhone: '0722001122',
+    mapQuery: 'Nyali Mombasa Kenya',
+    availableForMarketplace: true
   },
   {
     id: 'prop-3',
     name: 'The Landmark Plaza',
-    address: '800 5th Ave, Seattle, WA',
+    address: 'Westlands, Nairobi',
     unitsCount: 24,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDeFWF3TQaKiLEBRJtArgPXu09QtvyqQs-gb3Zt7iYlExPtNsZbIyaRrqyH-ukWCzFv775NWuT8V7XiXreNauV2xQTQdHb02QW_oN7OP1jp1g7Q4rJabYd5OQaedPKghFW7rMjA694Z2xEjSk44lalS6SdzWfG0I8_cLy9cCtqUZ2tP3vBmMM48q3UOStup7tWS9k1qdRLWjO2VFDULs8B0ngFXh-V-Gqp2JwMn5DH6oKY48I-GpOgw6M5_Xr0K1Gx7vkKDB417LOey'
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDeFWF3TQaKiLEBRJtArgPXu09QtvyqQs-gb3Zt7iYlExPtNsZbIyaRrqyH-ukWCzFv775NWuT8V7XiXreNauV2xQTQdHb02QW_oN7OP1jp1g7Q4rJabYd5OQaedPKghFW7rMjA694Z2xEjSk44lalS6SdzWfG0I8_cLy9cCtqUZ2tP3vBmMM48q3UOStup7tWS9k1qdRLWjO2VFDULs8B0ngFXh-V-Gqp2JwMn5DH6oKY48I-GpOgw6M5_Xr0K1Gx7vkKDB417LOey',
+    county: 'Nairobi',
+    town: 'Westlands',
+    neighborhood: 'Near Waiyaki Way',
+    description: 'Mixed-use units for tenants who want quick access to Nairobi business corridors.',
+    amenities: ['Lift access', 'Security', 'Backup power', 'Parking', 'CBD access'],
+    contactPhone: '0733001122',
+    mapQuery: 'Westlands Nairobi Kenya',
+    availableForMarketplace: true
   }
 ];
 
@@ -333,6 +365,35 @@ app.use(express.json());
     units.push(...generatedUnits);
 
     res.json({ property: newProperty, addedUnits: generatedUnits });
+  });
+
+  app.patch("/api/properties/:id", (req, res) => {
+    const { id } = req.params;
+    let updatedProperty: Property | null = null;
+
+    properties = properties.map(property => {
+      if (property.id === id) {
+        updatedProperty = { ...property, ...req.body };
+        return updatedProperty;
+      }
+      return property;
+    });
+
+    if (!updatedProperty) {
+      return res.status(404).json({ error: "Property not found" });
+    }
+
+    units = units.map(unit => {
+      if (unit.propertyId === id && updatedProperty) {
+        return {
+          ...unit,
+          propertyName: updatedProperty.name
+        };
+      }
+      return unit;
+    });
+
+    res.json(updatedProperty);
   });
 
   app.get("/api/units", (req, res) => {

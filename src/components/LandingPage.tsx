@@ -100,7 +100,7 @@ export default function LandingPage() {
         <section className="relative min-h-[660px] flex flex-col lg:flex-row items-center justify-center px-4 md:px-10 max-w-7xl mx-auto gap-12 pt-8 lg:pt-16 pb-12">
           {/* Left Hero Content with Prominent App Name & Gorgeous Typography */}
           <div className="w-full lg:w-1/2 space-y-6 text-center lg:text-left z-10">
-            <div className="inline-flex items-center gap-2 bg-emerald-400/15 text-emerald-400 border border-emerald-400/25 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2">
+            <div className="inline-flex items-center gap-2 bg-slate-950/80 text-emerald-100 border border-white/20 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider mb-2 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>

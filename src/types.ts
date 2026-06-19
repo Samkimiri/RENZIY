@@ -8,6 +8,14 @@ export interface Property {
   address: string;
   unitsCount: number;
   imageUrl: string;
+  county?: string;
+  town?: string;
+  neighborhood?: string;
+  description?: string;
+  amenities?: string[];
+  contactPhone?: string;
+  mapQuery?: string;
+  availableForMarketplace?: boolean;
 }
 
 export interface Unit {
