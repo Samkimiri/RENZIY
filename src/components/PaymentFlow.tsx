@@ -196,7 +196,7 @@ export default function PaymentFlow({
                   <div className="flex justify-between items-end">
                     <div>
                       <p className="text-[10px] text-slate-400 font-sans uppercase">Cardholder</p>
-                      <p className="text-xs font-bold tracking-tight mt-0.5 truncate max-w-[140px]">{cardName || 'ALEX SMITH'}</p>
+                      <p className="text-xs font-bold tracking-tight mt-0.5 truncate max-w-[140px]">{cardName || 'TENANT NAME'}</p>
                     </div>
                     <div>
                       <p className="text-[10px] text-slate-400 font-sans uppercase">Expiry Date</p>
@@ -209,7 +209,7 @@ export default function PaymentFlow({
                   <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Cardholder Name</label>
                   <input 
                     className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold"
-                    placeholder="Alex Smith"
+                    placeholder="Tenant full name"
                     value={cardName}
                     onChange={(e) => setCardName(e.target.value)}
                     required

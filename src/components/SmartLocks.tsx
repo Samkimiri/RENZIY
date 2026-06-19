@@ -41,7 +41,7 @@ export default function SmartLocks() {
   // Is tenant overdue? Helper function to join logic
   const isTenantOverdue = (unit: Unit) => {
     if (!unit.tenantName) return false;
-    // Alex Smith balance
+    // Default resident balance for the seeded tenant account.
     if ((unit.tenantName === 'Alex Smith' || unit.tenantName === 'Alex') && tenantBalance > 0) {
       return true;
     }

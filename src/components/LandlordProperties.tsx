@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRenziy } from '../state';
 import { Property, Unit } from '../types';
 import { Search, MapPin, ChevronRight, UserMinus, Plus, Edit2, Check, X, DollarSign, Sparkles } from 'lucide-react';
@@ -15,11 +15,24 @@ export default function LandlordProperties() {
   const [editRentAmount, setEditRentAmount] = useState<number>(0);
   const [editTenantName, setEditTenantName] = useState<string>('');
 
+  const currentUserEmail = localStorage.getItem('renziy_user_email') || 'john@renziy.app';
+  const portfolioProperties = properties.filter(property => (
+    property.ownerEmail ? property.ownerEmail === currentUserEmail : currentUserEmail === 'john@renziy.app'
+  ));
+  const portfolioPropertyIds = portfolioProperties.map(property => property.id);
+  const portfolioUnits = units.filter(unit => portfolioPropertyIds.includes(unit.propertyId));
+
+  useEffect(() => {
+    if (portfolioProperties.length && !portfolioProperties.some(property => property.id === activePropertyId)) {
+      setActivePropertyId(portfolioProperties[0].id);
+    }
+  }, [activePropertyId, portfolioProperties]);
+
   // Find active property info
-  const activeProperty = properties.find(p => p.id === activePropertyId) || properties[0];
+  const activeProperty = portfolioProperties.find(p => p.id === activePropertyId) || portfolioProperties[0];
 
   // Filter properties based on search & filter mode
-  const filteredProperties = properties.filter(p => {
+  const filteredProperties = portfolioProperties.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || 
                           p.address.toLowerCase().includes(search.toLowerCase());
     
@@ -33,7 +46,7 @@ export default function LandlordProperties() {
   });
 
   // Load the units for the chosen active property
-  const activePropertyUnits = units.filter(u => u.propertyId === activePropertyId);
+  const activePropertyUnits = portfolioUnits.filter(u => u.propertyId === activePropertyId);
 
   // Compute stats
   const totalPropertyYield = activePropertyUnits.reduce((sum, u) => sum + u.rentAmount, 0);
@@ -102,7 +115,7 @@ export default function LandlordProperties() {
           <div className="space-y-4">
             {filteredProperties.map(p => {
               const isSelected = p.id === activePropertyId;
-              const propUnits = units.filter(u => u.propertyId === p.id);
+              const propUnits = portfolioUnits.filter(u => u.propertyId === p.id);
               const occUnits = propUnits.filter(u => u.status === 'Occupied').length;
 
               return (

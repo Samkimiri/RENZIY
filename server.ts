@@ -16,6 +16,7 @@ interface Property {
   contactPhone?: string;
   mapQuery?: string;
   availableForMarketplace?: boolean;
+  ownerEmail?: string;
 }
 
 interface Unit {
@@ -110,7 +111,8 @@ let properties: Property[] = [
     amenities: ['Security', 'Parking', 'Water', 'Wi-Fi ready', 'Near public transport'],
     contactPhone: '0712345678',
     mapQuery: 'Kilimani Nairobi Kenya',
-    availableForMarketplace: true
+    availableForMarketplace: true,
+    ownerEmail: 'john@renziy.app'
   },
   {
     id: 'prop-2',
@@ -125,7 +127,8 @@ let properties: Property[] = [
     amenities: ['Security', 'Parking', 'Balcony', 'Water', 'Near beach'],
     contactPhone: '0722001122',
     mapQuery: 'Nyali Mombasa Kenya',
-    availableForMarketplace: true
+    availableForMarketplace: true,
+    ownerEmail: 'john@renziy.app'
   },
   {
     id: 'prop-3',
@@ -140,7 +143,8 @@ let properties: Property[] = [
     amenities: ['Lift access', 'Security', 'Backup power', 'Parking', 'CBD access'],
     contactPhone: '0733001122',
     mapQuery: 'Westlands Nairobi Kenya',
-    availableForMarketplace: true
+    availableForMarketplace: true,
+    ownerEmail: 'john@renziy.app'
   }
 ];
 
@@ -550,8 +554,8 @@ app.use(express.json());
 
     payments.unshift(newPayment);
 
-    // If tenant recorded Alex paying his rent, clear Alex's balance too!
-    if (tenantName === 'Alex Smith' || tenantName === 'Alex') {
+    const payingUnit = units.find(u => u.tenantName === tenantName);
+    if (payingUnit?.id === 'unit-1-4b' || tenantName === 'Alex Smith' || tenantName === 'Alex') {
       tenantBalance = 0;
     }
 
@@ -568,8 +572,8 @@ app.use(express.json());
       return res.status(400).json({ error: "Missing repair ticket content" });
     }
 
-    const tName = tenantName || 'Alex Smith';
-    const activeUnit = units.find(u => u.tenantName === tName) || units[4]; // Default Apt 4B
+    const tName = tenantName || 'Unassigned Tenant';
+    const activeUnit = units.find(u => u.tenantName === tName);
 
     const newRequest: MaintenanceRequest = {
       id: `req-${Date.now()}`,
@@ -581,8 +585,8 @@ app.use(express.json());
       date: new Date().toISOString().split('T')[0],
       photos: photos || [],
       tenantName: tName,
-      propertyName: activeUnit?.propertyName || 'Oakwood Heights',
-      unitNumber: activeUnit?.unitNumber || 'Apt 4B'
+      propertyName: activeUnit?.propertyName || 'Pending assignment',
+      unitNumber: activeUnit?.unitNumber || 'Pending assignment'
     };
 
     maintenanceRequests.unshift(newRequest);
@@ -628,18 +632,15 @@ app.use(express.json());
       return res.status(404).json({ error: "Maintenance Request not found" });
     }
 
-    // Notify client if tenant was Alex Smith
     const reqObj = foundRequest as MaintenanceRequest;
-    if (reqObj.tenantName === 'Alex Smith' || reqObj.tenantName === 'Alex') {
-      notifications.unshift({
-        id: `notif-${Date.now()}`,
-        title: 'Repair Status Updated',
-        message: `Your repair "${reqObj.title}" is now marked as ${status}.`,
-        date: 'Just now',
-        type: 'maintenance',
-        unread: true
-      });
-    }
+    notifications.unshift({
+      id: `notif-${Date.now()}`,
+      title: 'Repair Status Updated',
+      message: `Repair "${reqObj.title}" for ${reqObj.tenantName} is now marked as ${status}.`,
+      date: 'Just now',
+      type: 'maintenance',
+      unread: true
+    });
 
     res.json(foundRequest);
   });
@@ -688,7 +689,7 @@ app.use(express.json());
   });
 
   app.post("/api/balance/pay", (req, res) => {
-    const { method } = req.body;
+    const { method, tenantName } = req.body;
     if (!method) {
       return res.status(400).json({ error: "Missing payment method details" });
     }
@@ -696,9 +697,12 @@ app.use(express.json());
     const originalAmount = tenantBalance;
     tenantBalance = 0;
 
-    // Auto-release smart lock for Alex Smith upon rent settlement!
+    const payingTenantName = tenantName || 'Alex Smith';
+    const activeUnit = units.find(u => u.tenantName === payingTenantName) || units.find(u => u.id === 'unit-1-4b');
+
+    // Auto-release smart lock for the paying tenant upon rent settlement.
     units = units.map(u => {
-      if (u.tenantName === 'Alex Smith' || u.tenantName === 'Alex') {
+      if (u.id === activeUnit?.id) {
         return {
           ...u,
           isLocked: false,
@@ -711,9 +715,9 @@ app.use(express.json());
     const hash = Math.random().toString(36).substring(2, 10).toUpperCase();
     const newPayment: Payment = {
       id: `pay-${Date.now()}`,
-      tenantName: 'Alex Smith',
-      unitNumber: 'Apt 4B',
-      propertyName: 'Oakwood Heights',
+      tenantName: payingTenantName,
+      unitNumber: activeUnit?.unitNumber || 'Pending assignment',
+      propertyName: activeUnit?.propertyName || 'Pending assignment',
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       amount: originalAmount,
       status: 'Paid',

@@ -10,7 +10,7 @@ const defaultAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbV
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
 export default function LandingPage() {
-  const { members, registerMember, setRole, setUsername } = useRenziy();
+  const { members, registerMember, setRole, setUsername, addProperty } = useRenziy();
   const [authMode, setAuthMode] = useState<AccountMode>('signin');
   const [selectedRole, setSelectedRole] = useState<AccountRole>('tenant');
   const [fullName, setFullName] = useState('');
@@ -85,6 +85,24 @@ export default function LandingPage() {
         unitNumber: selectedRole === 'tenant' ? unitNumber.trim() || 'Pending assignment' : undefined,
         rentAmount: selectedRole === 'tenant' ? 0 : undefined
       });
+
+      if (selectedRole === 'landlord') {
+        addProperty({
+          name: propertyName.trim() || `${fullName.trim()}'s Portfolio`,
+          address: 'Address pending verification',
+          unitsCount: 1,
+          imageUrl: 'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=1200&q=80',
+          county: 'Nairobi',
+          town: 'Pending update',
+          neighborhood: 'Pending update',
+          description: 'New landlord portfolio pending property details.',
+          amenities: ['Security', 'Water', 'Parking'],
+          contactPhone: phone || 'Pending',
+          mapQuery: propertyName.trim() || fullName.trim(),
+          availableForMarketplace: false,
+          ownerEmail: cleanEmail
+        });
+      }
 
       enterAccount(created.role, created.name, created.email);
     } finally {

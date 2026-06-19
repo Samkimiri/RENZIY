@@ -231,7 +231,7 @@ export default function PayoutSettings() {
             </div>
 
             <p className="text-[11px] text-[#73777f] leading-relaxed">
-              Below is how these payout coordinates will appear on Alex Simth’s checkout dashboard if he selects M-Pesa payment:
+              Below is how these payout coordinates will appear on a tenant checkout dashboard when M-Pesa is selected:
             </p>
 
             {/* Simulated Checkout Box */}

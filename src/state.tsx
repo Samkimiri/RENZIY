@@ -60,7 +60,8 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         amenities: ['Security', 'Parking', 'Water', 'Wi-Fi ready', 'Near public transport'],
         contactPhone: '0712345678',
         mapQuery: 'Kilimani Nairobi Kenya',
-        availableForMarketplace: true
+        availableForMarketplace: true,
+        ownerEmail: 'john@renziy.app'
       },
       {
         id: 'prop-2',
@@ -75,7 +76,8 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         amenities: ['Security', 'Parking', 'Balcony', 'Water', 'Near beach'],
         contactPhone: '0722001122',
         mapQuery: 'Nyali Mombasa Kenya',
-        availableForMarketplace: true
+        availableForMarketplace: true,
+        ownerEmail: 'john@renziy.app'
       },
       {
         id: 'prop-3',
@@ -90,7 +92,8 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         amenities: ['Lift access', 'Security', 'Backup power', 'Parking', 'CBD access'],
         contactPhone: '0733001122',
         mapQuery: 'Westlands Nairobi Kenya',
-        availableForMarketplace: true
+        availableForMarketplace: true,
+        ownerEmail: 'john@renziy.app'
       }
     ];
   });
@@ -481,7 +484,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       code: `${p.paymentMethod === 'M-Pesa' ? 'MPESA' : 'CARD'}-REC-${paymentHash}`
     };
     setPayments(prev => [newPayment, ...prev]);
-    if (p.tenantName === 'Alex Smith' || p.tenantName === 'Alex') {
+    if (p.tenantName === username || ((username === 'Alex' || username === 'Alex Smith') && (p.tenantName === 'Alex Smith' || p.tenantName === 'Alex'))) {
       setTenantBalance(0);
     }
 
@@ -508,15 +511,15 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // File repair ticket (backend-coupled API post)
   const addMaintenanceRequest = async (req: Omit<MaintenanceRequest, 'id' | 'status' | 'date' | 'tenantName' | 'propertyName' | 'unitNumber'>) => {
     // Optimistic local state updates
-    const activeUnit = units.find(u => u.tenantName === 'Alex Smith' || u.tenantName === 'Alex') || units[4]; // Default Apt 4B
+    const activeUnit = units.find(u => u.tenantName === username) || ((username === 'Alex' || username === 'Alex Smith') ? units.find(u => u.id === 'unit-1-4b') : undefined);
     const newRequest: MaintenanceRequest = {
       ...req,
       id: `req-${Date.now()}`,
       status: 'Submitted',
       date: new Date().toISOString().split('T')[0],
       tenantName: username,
-      propertyName: activeUnit?.propertyName || 'Oakwood Heights',
-      unitNumber: activeUnit?.unitNumber || 'Apt 4B'
+      propertyName: activeUnit?.propertyName || 'Pending assignment',
+      unitNumber: activeUnit?.unitNumber || 'Pending assignment'
     };
     setMaintenanceRequests(prev => [newRequest, ...prev]);
 
@@ -589,12 +592,13 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const originalAmount = tenantBalance;
     setTenantBalance(0);
 
+    const activeUnit = units.find(u => u.tenantName === username) || ((username === 'Alex' || username === 'Alex Smith') ? units.find(u => u.id === 'unit-1-4b') : undefined);
     const paymentHash = Math.random().toString(36).substring(2, 10).toUpperCase();
     const newPayment: Payment = {
       id: `pay-${Date.now()}`,
-      tenantName: 'Alex Smith',
-      unitNumber: 'Apt 4B',
-      propertyName: 'Oakwood Heights',
+      tenantName: username,
+      unitNumber: activeUnit?.unitNumber || 'Pending assignment',
+      propertyName: activeUnit?.propertyName || 'Pending assignment',
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       amount: originalAmount,
       status: 'Paid',
@@ -607,7 +611,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       {
         id: `notif-${Date.now()}`,
         title: 'Rent Paid Successfully',
-        message: `Successfully processed ${method} rent payment of $${originalAmount.toLocaleString()}.`,
+        message: `Successfully processed ${method} rent payment of KES ${originalAmount.toLocaleString()}.`,
         date: 'Just now',
         type: 'payment',
         unread: true
@@ -619,7 +623,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const res = await fetch('/api/balance/pay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method })
+        body: JSON.stringify({ method, tenantName: username })
       });
       if (res.ok) {
         const paymentsRes = await fetch('/api/payments');

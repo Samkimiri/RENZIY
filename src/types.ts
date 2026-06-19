@@ -16,6 +16,7 @@ export interface Property {
   contactPhone?: string;
   mapQuery?: string;
   availableForMarketplace?: boolean;
+  ownerEmail?: string;
 }
 
 export interface Unit {

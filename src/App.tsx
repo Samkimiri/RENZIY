@@ -110,14 +110,14 @@ function AppContent() {
                 </button>
               </>
             ) : (
-              /* Tenant Menu Links (Alex Smith) */
+              /* Tenant menu links */
               <>
                 <button 
                   onClick={() => { setActiveTab('dashboard'); setExpressPayMethod(null); }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'dashboard' ? 'bg-[#1a3c5e] text-white shadow-sm' : 'text-[#87a7ce] hover:text-white hover:bg-white/5'}`}
                 >
                   <LayoutDashboard className="h-4 w-4" />
-                  <span>Alex's Apartment</span>
+                  <span>My Apartment</span>
                 </button>
                 <button 
                   onClick={() => { setExpressPayMethod('M-Pesa'); }}
@@ -374,7 +374,7 @@ function AppContent() {
               </button>
             </>
           ) : (
-            /* Alex Smith tenant links */
+            /* Tenant links */
             <>
               <button 
                 onClick={() => { setActiveTab('dashboard'); setExpressPayMethod(null); }}

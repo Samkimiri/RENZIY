@@ -2,24 +2,21 @@ import React, { useState } from 'react';
 import { useRenziy } from '../state';
 import { Property, Unit, Payment, MaintenanceRequest } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Building2, Users2, CreditCard, ChevronRight, Plus, Wrench, ShieldAlert, CheckCircle2, Clock, Filter, X, ArrowUpRight, DollarSign, ArrowRightLeft, Lock, Coins, Award, Gamepad2, Star } from 'lucide-react';
+import { Building2, Users2, CreditCard, ChevronRight, Plus, Wrench, ShieldAlert, CheckCircle2, Clock, Filter, X, ArrowUpRight, DollarSign, ArrowRightLeft, Lock, Coins } from 'lucide-react';
 
 export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: string) => void }) {
-  const { 
-    properties, 
-    units, 
-    payments, 
-    maintenanceRequests, 
-    recordPayment, 
-    addProperty, 
+  const {
+    properties,
+    units,
+    payments,
+    maintenanceRequests,
+    recordPayment,
+    addProperty,
     addTenantToUnit,
     tenantBalance,
     members,
     registerMember
   } = useRenziy();
-
-  const gameStats = null;
-
 
   // Dialog Overlays State
   const [showPropertyModal, setShowPropertyModal] = useState(false);
@@ -44,31 +41,47 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
   // Table filter options
   const [paymentFilter, setPaymentFilter] = useState<'All' | 'Paid' | 'Pending'>('All');
 
+  const currentUserEmail = localStorage.getItem('renziy_user_email') || 'john@renziy.app';
+  const ownsProperty = (property: Property) => (
+    property.ownerEmail ? property.ownerEmail === currentUserEmail : currentUserEmail === 'john@renziy.app'
+  );
+  const portfolioProperties = properties.filter(ownsProperty);
+  const portfolioPropertyIds = portfolioProperties.map(property => property.id);
+  const portfolioPropertyNames = portfolioProperties.map(property => property.name);
+  const portfolioUnits = units.filter(unit => portfolioPropertyIds.includes(unit.propertyId));
+  const portfolioPayments = payments.filter(payment => portfolioPropertyNames.includes(payment.propertyName));
+  const portfolioMaintenanceRequests = maintenanceRequests.filter(request => portfolioPropertyNames.includes(request.propertyName));
+  const portfolioMembers = members.filter(member => (
+    member.role === 'landlord'
+      ? member.email === currentUserEmail
+      : !member.propertyName || portfolioPropertyNames.includes(member.propertyName)
+  ));
+
   // Compute live Landlord Metrics
-  const totalProperties = properties.length;
-  const totalUnits = units.length;
-  const totalMembers = members.length;
-  const occupiedUnits = units.filter(u => u.status === 'Occupied').length;
+  const totalProperties = portfolioProperties.length;
+  const totalUnits = portfolioUnits.length;
+  const totalMembers = portfolioMembers.length;
+  const occupiedUnits = portfolioUnits.filter(u => u.status === 'Occupied').length;
   const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
-  
+
   // Total collected rent
-  const totalCollected = payments
+  const totalCollected = portfolioPayments
     .filter(p => p.status === 'Paid')
     .reduce((sum, p) => sum + p.amount, 0);
 
   // Outstanding rent (Pending/Overdue from payments database)
-  const totalOutstanding = payments
+  const totalOutstanding = portfolioPayments
     .filter(p => p.status === 'Pending' || p.status === 'Overdue')
     .reduce((sum, p) => sum + p.amount, 0);
 
   // Maintenance metrics
-  const activeRequests = maintenanceRequests.filter(r => r.status !== 'Resolved');
+  const activeRequests = portfolioMaintenanceRequests.filter(r => r.status !== 'Resolved');
   const emergencyCount = activeRequests.filter(r => r.urgency === 'Emergency').length;
   const openCount = activeRequests.filter(r => r.status === 'Submitted' || r.status === 'Acknowledged').length;
   const inProgressCount = activeRequests.filter(r => r.status === 'In Progress').length;
 
   // Filtered Payments list
-  const filteredPayments = payments.filter(p => {
+  const filteredPayments = portfolioPayments.filter(p => {
     if (paymentFilter === 'All') return true;
     return p.status === paymentFilter;
   });
@@ -80,7 +93,8 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
       name: newPropName,
       address: newPropAddress,
       unitsCount: Number(newPropUnits),
-      imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0-lP6mcA6HIE4LbzTr765rwiEop89MIpJdvoyF11DN-epOhG7wzLR2vlsvvbIs-eHfUJNUdibFBNajQHHbWzJeqHMFacPNozVQz5c_cpg8uv7fiB71TnE1n_AKhKhic2o8RClwzPHlK1tGsw0MkRGgTOyoCDxd_DliMftNntarn6QL0T4rOntvVbWuKWKfj7-n8nt8R7oxKRysKqzqbaLI_o1dRnqkJ-65xCIUfuKl4jxyeydhAO2IpAgSOxBrOIkfgdT45kPYn1w'
+      imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0-lP6mcA6HIE4LbzTr765rwiEop89MIpJdvoyF11DN-epOhG7wzLR2vlsvvbIs-eHfUJNUdibFBNajQHHbWzJeqHMFacPNozVQz5c_cpg8uv7fiB71TnE1n_AKhKhic2o8RClwzPHlK1tGsw0MkRGgTOyoCDxd_DliMftNntarn6QL0T4rOntvVbWuKWKfj7-n8nt8R7oxKRysKqzqbaLI_o1dRnqkJ-65xCIUfuKl4jxyeydhAO2IpAgSOxBrOIkfgdT45kPYn1w',
+      ownerEmail: currentUserEmail
     });
     setNewPropName('');
     setNewPropAddress('');
@@ -91,7 +105,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
   const handleRegisterTenant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUnitId || !newTenantName || !newTenantPhone || !newTenantEmail) return;
-    const selectedUnit = units.find(u => u.id === selectedUnitId);
+    const selectedUnit = portfolioUnits.find(u => u.id === selectedUnitId);
     addTenantToUnit(selectedUnitId, newTenantName);
     await registerMember({
       role: 'tenant',
@@ -112,9 +126,9 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
   const handleRecordPayment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!paymentAmount) return;
-    
+
     // Attempt to locate unit detail for metadata
-    const associatedUnit = units.find(u => u.id === paymentUnitId);
+    const associatedUnit = portfolioUnits.find(u => u.id === paymentUnitId);
     const tenant = paymentTenantName || associatedUnit?.tenantName || 'Anonymous Tenant';
     const propName = associatedUnit?.propertyName || 'General Portfolio';
     const unitNo = associatedUnit?.unitNumber || 'Generic';
@@ -137,51 +151,6 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
   return (
     <div className="bg-[#fcf8fb] min-h-screen text-[#1b1b1d] pb-24 md:pb-12">
-      {/* Gamified Gamer Status Banner */}
-      {gameStats && (
-        <div className="mb-6 bg-slate-900 text-white p-5 rounded-3xl border border-slate-800 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4 text-left w-full sm:w-auto">
-            <div className="w-12 h-12 rounded-full border-2 border-emerald-500 bg-slate-800 overflow-hidden shrink-0 relative shadow-[0_0_12px_rgba(5,150,105,0.3)]">
-              <img 
-                src={localStorage.getItem('renziy_custom_avatar') || 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRxmlZiyPxhMA9KhxxEY-ZornwU45XOarKthi5rZwjaUXVYAzK1Rptwz3XSUMih-aX7N40cr2Ki-5KZvD7pUHT8xTTKjuQMyyucNGma4FaFJirfRO8Nmxdo7wvHhgJnJDxwkPMa5NOJdwGCIEP9IoZoEnvk7HAYZ8jfseOFIDZ7L5DKDb2LTYFaZymzBJ-SYm2ragI8Q_dxp6yzf6AjtEmLdC6yZGqnU2ZCun5dcEqufGWVNNfnsQoC1JyHXHZfKXLK1rfwMLmEMPm'} 
-                alt="Avatar" 
-                className="w-full h-full object-cover" 
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-black tracking-tight text-emerald-400 uppercase">{gameStats.badge || 'Executive Landlord'}</span>
-                <span className="text-[9px] font-black px-2 py-0.5 bg-slate-800 text-slate-300 rounded-md uppercase border border-slate-700">LVL {gameStats.level || 1}</span>
-              </div>
-              <p className="text-[10px] text-slate-400 font-medium">
-                Distributed RPG Stats: <span className="text-white font-bold">Revenue Focus {gameStats.stats?.statA || 4}</span> • <span className="text-white font-bold">Automation Level {gameStats.stats?.statB || 3}</span> • <span className="text-white font-bold">IoT Authority {gameStats.stats?.statC || 3}</span>
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-            <div className="bg-slate-950 px-4 py-2 rounded-2xl flex items-center gap-2 border border-slate-800">
-              <Coins className="h-4 w-4 text-emerald-400" />
-              <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Balance:</span>
-              <span className="text-xs font-black text-emerald-400">{gameStats.rpBalance || 150} RP</span>
-            </div>
-
-            <button 
-              onClick={() => {
-                localStorage.removeItem('renziy_game_stats');
-                localStorage.removeItem('renziy_role');
-                localStorage.removeItem('renziy_username');
-                window.location.reload();
-              }}
-              className="text-[10px] font-black tracking-wider uppercase text-rose-400 hover:text-rose-300 px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl cursor-pointer hover:underline transition-all"
-            >
-              Reset Class
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Proactive Lock Alerts Banner */}
       {totalOutstanding > 0 && (
         <div className="mb-6 p-4 bg-amber-50 rounded-2xl border border-amber-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 text-left">
@@ -196,7 +165,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
               </p>
             </div>
           </div>
-          <button 
+          <button
             onClick={() => onNavigate('locks')}
             className="self-start md:self-center px-4 py-2 bg-[#002645] hover:bg-[#1a3c5e] text-white text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs"
           >
@@ -243,7 +212,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
       <h2 className="text-lg font-bold uppercase tracking-wider text-[#002645] mb-4">Operations Console</h2>
       <section className="mb-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <button 
+          <button
             onClick={() => setShowPropertyModal(true)}
             className="flex items-center justify-between p-6 bg-[#002645] text-white rounded-2xl text-left hover:opacity-95 active:scale-95 transition-all group shadow-sm cursor-pointer"
           >
@@ -255,8 +224,8 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
               <Plus className="h-6 w-6 text-white" />
             </div>
           </button>
-          
-          <button 
+
+          <button
             onClick={() => setShowTenantModal(true)}
             className="flex items-center justify-between p-6 bg-white text-[#002645] rounded-2xl text-left hover:bg-slate-50 active:scale-95 transition-all group border border-[#e4e2e4] shadow-sm cursor-pointer"
           >
@@ -269,7 +238,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
             </div>
           </button>
 
-          <button 
+          <button
             onClick={() => setShowPaymentModal(true)}
             className="flex items-center justify-between p-6 bg-gradient-to-br from-[#1a3c5e] to-[#25527a] text-white rounded-2xl text-left hover:brightness-105 active:scale-95 transition-all group shadow-sm cursor-pointer"
           >
@@ -282,7 +251,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
             </div>
           </button>
 
-          <button 
+          <button
             onClick={() => onNavigate('locks')}
             className="flex items-center justify-between p-6 bg-gradient-to-br from-amber-600 to-amber-700 text-white rounded-2xl text-left hover:brightness-105 active:scale-95 transition-all group shadow-sm cursor-pointer"
           >
@@ -305,7 +274,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
             <h3 className="text-lg font-bold text-white">Landlord Billing & Collections Routing</h3>
             <p className="text-xs text-slate-300">Set active bank routing codes, M-Pesa Shortcodes, or telephone targets to direct cash immediately.</p>
           </div>
-          <button 
+          <button
             onClick={() => onNavigate('payouts')}
             className="px-5 py-2.5 bg-emerald-600 text-white font-bold hover:bg-emerald-700 active:scale-95 transition-all text-xs rounded-xl cursor-pointer flex items-center gap-1.5 shrink-0 shadow-sm"
           >
@@ -329,7 +298,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
-            {members.slice(0, 4).map(member => (
+            {portfolioMembers.slice(0, 4).map(member => (
               <div key={member.id} className="p-4 rounded-2xl border border-[#e4e2e4] bg-[#fcf8fb] flex gap-4 items-start">
                 <div className="w-12 h-12 rounded-2xl bg-[#002645]/10 overflow-hidden flex items-center justify-center text-[#002645] font-black shrink-0 border border-white shadow-sm">
                   {member.avatarUrl ? (
@@ -367,7 +336,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
       {/* Main Grid: Maintenance & Recent Payments */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-        
+
         {/* Maintenance Box */}
         <section className="lg:col-span-4 flex flex-col">
           <div className="p-6 bg-white rounded-2xl shadow-sm border border-[#e4e2e4] flex flex-col justify-between h-full">
@@ -383,7 +352,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
               </div>
 
               <div className="space-y-3">
-                <div 
+                <div
                   onClick={() => onNavigate('maintenance')}
                   className="flex justify-between items-center p-4 bg-red-50 hover:bg-red-100/50 rounded-xl border border-red-100 cursor-pointer transition-all"
                 >
@@ -394,7 +363,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                   <span className="text-xl font-extrabold text-red-600">{emergencyCount}</span>
                 </div>
 
-                <div 
+                <div
                   onClick={() => onNavigate('maintenance')}
                   className="flex justify-between items-center p-4 bg-[#f6f3f5] hover:bg-[#f0edef] rounded-xl border border-[#e4e2e4] cursor-pointer transition-all"
                 >
@@ -405,7 +374,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                   <span className="text-xl font-bold text-[#1b1b1d]">{openCount}</span>
                 </div>
 
-                <div 
+                <div
                   onClick={() => onNavigate('maintenance')}
                   className="flex justify-between items-center p-4 bg-[#f6f3f5] hover:bg-[#f0edef] rounded-xl border border-[#e4e2e4] cursor-pointer transition-all"
                 >
@@ -418,7 +387,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
               </div>
             </div>
 
-            <button 
+            <button
               onClick={() => onNavigate('maintenance')}
               className="w-full mt-6 py-3 text-sm text-[#002645] font-bold border border-[#002645]/20 rounded-xl hover:bg-[#002645]/5 transition-all text-center"
             >
@@ -436,7 +405,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                   <ArrowRightLeft className="h-5 w-5 text-emerald-500" />
                   <span>Recent Payment Ledgers</span>
                 </h3>
-                
+
                 {/* Filter pill selectors */}
                 <div className="flex bg-[#f0edef] p-1 rounded-lg self-start">
                   {(['All', 'Paid', 'Pending'] as const).map(f => (
@@ -485,10 +454,10 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                         </td>
                         <td className="py-4 text-right">
                           <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold ${
-                            p.status === 'Paid' 
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
-                              : p.status === 'Pending' 
-                                ? 'bg-amber-100 text-amber-800 border border-amber-200' 
+                            p.status === 'Paid'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : p.status === 'Pending'
+                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
                                 : 'bg-red-100 text-red-800 border border-red-200'
                           }`}>
                             {p.status}
@@ -507,7 +476,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                 </table>
               </div>
             </div>
-            
+
             <div className="border-t border-[#e4e2e4] pt-4 mt-4 flex justify-between items-center text-xs text-[#73777f] font-bold">
               <span>Automatic M-Pesa ledger sync is live</span>
               <span className="h-2 w-2 bg-emerald-500 rounded-full animate-ping"></span>
@@ -517,32 +486,32 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
       </div>
 
       {/* DIALOG OVERLAYS (MODALS) */}
-      
+
       {/* 1. Add Property Modal */}
       <AnimatePresence>
         {showPropertyModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowPropertyModal(false)}
               className="absolute inset-0 bg-[#002645]/40 backdrop-blur-xs"
             />
-            
-            <motion.div 
+
+            <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 15 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 15 }}
               className="bg-white rounded-3xl w-full max-w-md p-6 border border-[#e4e2e4] shadow-xl relative z-10"
             >
-              <button 
+              <button
                 onClick={() => setShowPropertyModal(false)}
                 className="absolute top-4 right-4 text-[#73777f] hover:text-[#002645] transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
-              
+
               <div className="mb-4">
                 <h3 className="text-xl font-bold text-[#002645] flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-[#002645]" />
@@ -550,11 +519,11 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                 </h3>
                 <p className="text-xs text-[#73777f] mt-1">Establish a new asset container in your portfolio.</p>
               </div>
-              
+
               <form onSubmit={handleCreateProperty} className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Property Name</label>
-                  <input 
+                  <input
                     className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold"
                     placeholder="e.g. Oakwood Heights"
                     value={newPropName}
@@ -565,7 +534,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
                 <div className="space-y-1">
                   <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Street Address</label>
-                  <input 
+                  <input
                     className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold"
                     placeholder="e.g. 1200 Pine St, Seattle, WA"
                     value={newPropAddress}
@@ -576,7 +545,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
                 <div className="space-y-1">
                   <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Number of Units to Auto-Gen</label>
-                  <input 
+                  <input
                     type="number"
                     min="1"
                     max="50"
@@ -588,7 +557,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                   <p className="text-[10px] text-[#73777f] px-1">Renziy will automatically create these numerical active units.</p>
                 </div>
 
-                <button 
+                <button
                   type="submit"
                   className="w-full bg-[#002645] text-white py-3.5 rounded-xl font-bold hover:brightness-110 active:scale-95 transition-all text-sm mt-4 shadow-sm"
                 >
@@ -604,27 +573,27 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
       <AnimatePresence>
         {showTenantModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowTenantModal(false)}
               className="absolute inset-0 bg-[#002645]/40 backdrop-blur-xs"
             />
-            
-            <motion.div 
+
+            <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 15 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 15 }}
               className="bg-white rounded-3xl w-full max-w-md p-6 border border-[#e4e2e4] shadow-xl relative z-10"
             >
-              <button 
+              <button
                 onClick={() => setShowTenantModal(false)}
                 className="absolute top-4 right-4 text-[#73777f] hover:text-[#002645] transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
-              
+
               <div className="mb-4">
                 <h3 className="text-xl font-bold text-[#002645] flex items-center gap-2">
                   <Users2 className="h-5 w-5 text-[#002645]" />
@@ -632,18 +601,18 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                 </h3>
                 <p className="text-xs text-[#73777f] mt-1">Onboard a citizen into an available empty portfolio unit.</p>
               </div>
-              
+
               <form onSubmit={handleRegisterTenant} className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Select Available Unit</label>
-                  <select 
+                  <select
                     className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold appearance-none"
                     value={selectedUnitId}
                     onChange={(e) => setSelectedUnitId(e.target.value)}
                     required
                   >
                     <option value="">-- Choose Unit --</option>
-                    {units.filter(u => u.status === 'Vacant').map(u => (
+                    {portfolioUnits.filter(u => u.status === 'Vacant').map(u => (
                       <option key={u.id} value={u.id}>
                         {u.propertyName} - Unit {u.unitNumber} (KES {u.rentAmount.toLocaleString()}/mo)
                       </option>
@@ -653,7 +622,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
                 <div className="space-y-1">
                   <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Full Name</label>
-                  <input 
+                  <input
                     className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold"
                     placeholder="e.g. Jane Doe"
                     value={newTenantName}
@@ -665,7 +634,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Phone</label>
-                    <input 
+                    <input
                       className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold"
                       placeholder="0712345678"
                       value={newTenantPhone}
@@ -676,7 +645,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
                   <div className="space-y-1">
                     <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Email</label>
-                    <input 
+                    <input
                       type="email"
                       className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold"
                       placeholder="tenant@example.com"
@@ -687,7 +656,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                   </div>
                 </div>
 
-                <button 
+                <button
                   type="submit"
                   className="w-full bg-[#002645] text-white py-3.5 rounded-xl font-bold hover:brightness-110 active:scale-95 transition-all text-sm mt-4 shadow-sm"
                 >
@@ -703,27 +672,27 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
       <AnimatePresence>
         {showPaymentModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowPaymentModal(false)}
               className="absolute inset-0 bg-[#002645]/40 backdrop-blur-xs"
             />
-            
-            <motion.div 
+
+            <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 15 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 15 }}
               className="bg-white rounded-3xl w-full max-w-md p-6 border border-[#e4e2e4] shadow-xl relative z-10"
             >
-              <button 
+              <button
                 onClick={() => setShowPaymentModal(false)}
                 className="absolute top-4 right-4 text-[#73777f] hover:text-[#002645] transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
-              
+
               <div className="mb-4">
                 <h3 className="text-xl font-bold text-[#002645] flex items-center gap-2">
                   <CreditCard className="h-5 w-5 text-emerald-500" />
@@ -731,17 +700,17 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                 </h3>
                 <p className="text-xs text-[#73777f] mt-1">Record manual cash, wire, or card collections offline.</p>
               </div>
-              
+
               <form onSubmit={handleRecordPayment} className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Source Tenant / Apartment</label>
-                  <select 
+                  <select
                     className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold appearance-none"
                     value={paymentUnitId}
                     onChange={(e) => {
                       const id = e.target.value;
                       setPaymentUnitId(id);
-                      const unit = units.find(u => u.id === id);
+                      const unit = portfolioUnits.find(u => u.id === id);
                       if (unit) {
                         setPaymentAmount(unit.rentAmount.toString());
                         setPaymentTenantName(unit.tenantName || '');
@@ -750,7 +719,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                     required
                   >
                     <option value="">-- Choose Unit --</option>
-                    {units.filter(u => u.status === 'Occupied').map(u => (
+                    {portfolioUnits.filter(u => u.status === 'Occupied').map(u => (
                       <option key={u.id} value={u.id}>
                         {u.propertyName} - Room {u.unitNumber} ({u.tenantName})
                       </option>
@@ -760,7 +729,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
                 <div className="space-y-1">
                   <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Tenant Name (Verify)</label>
-                  <input 
+                  <input
                     className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold"
                     placeholder="Jane Doe"
                     value={paymentTenantName}
@@ -771,7 +740,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
 
                 <div className="space-y-1">
                   <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Rent Amount Collected (KES)</label>
-                  <input 
+                  <input
                     type="number"
                     className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold"
                     placeholder="185000"
@@ -784,14 +753,14 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                 <div className="space-y-1">
                   <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">Payment Channel</label>
                   <div className="grid grid-cols-2 gap-2 p-1 bg-[#f0edef] rounded-lg">
-                    <button 
+                    <button
                       type="button"
                       onClick={() => setPaymentMethod('M-Pesa')}
                       className={`py-2 text-xs font-bold rounded-md transition-all ${paymentMethod === 'M-Pesa' ? 'bg-[#002645] text-white shadow-xs' : 'text-[#43474e]'}`}
                     >
                       M-Pesa STK
                     </button>
-                    <button 
+                    <button
                       type="button"
                       onClick={() => setPaymentMethod('Card')}
                       className={`py-2 text-xs font-bold rounded-md transition-all ${paymentMethod === 'Card' ? 'bg-[#002645] text-white shadow-xs' : 'text-[#43474e]'}`}
@@ -801,7 +770,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                   </div>
                 </div>
 
-                <button 
+                <button
                   type="submit"
                   className="w-full bg-emerald-600 text-white py-3.5 rounded-xl font-bold hover:bg-emerald-700 active:scale-95 transition-all text-sm mt-4 shadow-sm cursor-pointer"
                 >
@@ -814,7 +783,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
       </AnimatePresence>
 
       {/* FAB Floating action button for landlord dashboard */}
-      <button 
+      <button
         onClick={() => setShowPropertyModal(true)}
         className="fixed bottom-24 md:bottom-6 right-4 md:right-6 bg-[#002645] text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform z-40"
       >
