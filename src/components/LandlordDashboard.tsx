@@ -18,13 +18,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
     registerMember
   } = useRenziy();
 
-  const [gameStats, setGameStats] = useState(() => {
-    try {
-      const saved = localStorage.getItem('renziy_game_stats');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return null;
-  });
+  const gameStats = null;
 
 
   // Dialog Overlays State

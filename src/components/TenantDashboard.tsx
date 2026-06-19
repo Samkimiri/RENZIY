@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useRenziy } from '../state';
-import { ArrowRight, Smartphone, CreditCard, Wrench, ShieldAlert, Sparkles, CheckCircle2, ChevronRight, Bell, Calendar, HelpCircle, Clock, Lock, Unlock, AlertTriangle, Camera, X, Coins, Award, Gamepad2, Star } from 'lucide-react';
+import { ArrowRight, Smartphone, CreditCard, Wrench, ShieldAlert, Sparkles, CheckCircle2, ChevronRight, Bell, Calendar, HelpCircle, Clock, Lock, Unlock, AlertTriangle, Camera, X, Coins, Award, Gamepad2, Star, Home } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function TenantDashboard({ 
@@ -17,24 +17,20 @@ export default function TenantDashboard({
     maintenanceRequests, 
     markNotificationsAsRead,
     units,
-    updateTenantAvatar
+    updateTenantAvatar,
+    members
   } = useRenziy();
 
-  const [gameStats, setGameStats] = useState(() => {
-    try {
-      const saved = localStorage.getItem('renziy_game_stats');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return null;
-  });
+  const gameStats = null;
 
-  // Find active unit (matched by custom username, defaults to Apt 4B)
-  const myUnit = units?.find(u => u.tenantName === username || u.tenantName === 'Alex Smith' || u.tenantName === 'Alex') || units?.find(u => u.id === 'unit-1-4b');
+  const currentTenantAccount = members.find(member => member.role === 'tenant' && member.name === username);
+  // Find active unit for the signed-in account. Only the demo tenant falls back to Apt 4B.
+  const myUnit = units?.find(u => u.tenantName === username) || (username === 'Alex' || username === 'Alex Smith' ? units?.find(u => u.id === 'unit-1-4b') : undefined);
   const isLocked = myUnit?.isLocked;
 
-  // Filter tickets dynamically matched by custom username or default tenant names
+  // Filter tickets dynamically matched by signed-in tenant.
   const alexTickets = maintenanceRequests.filter(
-    r => r.tenantName === username || r.tenantName === 'Alex Smith' || r.tenantName === 'Alex'
+    r => r.tenantName === username || ((username === 'Alex' || username === 'Alex Smith') && (r.tenantName === 'Alex Smith' || r.tenantName === 'Alex'))
   );
 
   // Unread count
@@ -91,6 +87,50 @@ export default function TenantDashboard({
       setShowUploadPanel(false);
     }
   };
+
+  if (!myUnit) {
+    return (
+      <div className="bg-[#E8F4FD] min-h-screen text-[#1b1b1d] pb-24 md:pb-12">
+        <div className="bg-white rounded-3xl border border-[#e4e2e4] shadow-sm p-6 md:p-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-3">
+              <span className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-[10px] font-black uppercase tracking-wider">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Tenant account created
+              </span>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-black text-[#002645]">Welcome, {username}.</h1>
+                <p className="text-sm text-[#43474e] mt-2 max-w-2xl leading-relaxed">
+                  Your tenant profile is active. A landlord still needs to assign your account to a property and unit before rent balances, smart locks, and maintenance records appear here.
+                </p>
+              </div>
+            </div>
+            <div className="rounded-2xl bg-[#f6f3f5] border border-[#e4e2e4] p-4 min-w-full md:min-w-64">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#73777f]">Account summary</p>
+              <p className="text-sm font-black text-[#002645] mt-2">{currentTenantAccount?.email || 'Tenant email saved'}</p>
+              <p className="text-xs font-semibold text-[#73777f] mt-1">{currentTenantAccount?.unitNumber || 'Unit pending assignment'}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            onClick={() => onNavigate('marketplace')}
+            className="text-left bg-[#002645] text-white rounded-3xl p-6 border border-[#1a3c5e] shadow-sm hover:bg-[#1a3c5e] transition-all"
+          >
+            <Home className="h-6 w-6 text-emerald-400" />
+            <h2 className="text-xl font-black mt-4">Find rental houses</h2>
+            <p className="text-sm text-[#b7cee8] mt-2">Browse available homes by county, town, rent, and Google Maps location.</p>
+          </button>
+          <div className="bg-white rounded-3xl p-6 border border-[#e4e2e4] shadow-sm">
+            <Bell className="h-6 w-6 text-[#002645]" />
+            <h2 className="text-xl font-black text-[#002645] mt-4">Waiting for landlord link</h2>
+            <p className="text-sm text-[#73777f] mt-2">Once linked to a unit, this dashboard will show only your rent, repairs, lock status, and documents.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLocked) {
     return (

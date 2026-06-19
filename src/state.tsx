@@ -262,6 +262,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         name: 'John Doe',
         phone: '0712345678',
         email: 'john@renziy.app',
+        password: 'demo123',
         avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRxmlZiyPxhMA9KhxxEY-ZornwU45XOarKthi5rZwjaUXVYAzK1Rptwz3XSUMih-aX7N40cr2Ki-5KZvD7pUHT8xTTKjuQMyyucNGma4FaFJirfRO8Nmxdo7wvHhgJnJDxwkPMa5NOJdwGCIEP9IoZoEnvk7HAYZ8jfseOFIDZ7L5DKDb2LTYFaZymzBJ-SYm2ragI8Q_dxp6yzf6AjtEmLdC6yZGqnU2ZCun5dcEqufGWVNNfnsQoC1JyHXHZfKXLK1rfwMLmEMPm',
         propertyName: 'Oakwood Heights',
         joinDate: '2026-05-20',
@@ -273,6 +274,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         name: 'Alex Smith',
         phone: '0712456789',
         email: 'alex@renziy.app',
+        password: 'demo123',
         avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB',
         propertyName: 'Oakwood Heights',
         unitNumber: 'Apt 4B',
@@ -359,11 +361,6 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Set Role Context
   const setRole = (newRole: AppUserRole) => {
     setRoleState(newRole);
-    if (newRole === 'tenant') {
-      setUsernameState('Alex');
-    } else if (newRole === 'landlord') {
-      setUsernameState('John Doe');
-    }
   };
 
   const setUsername = (name: string) => {

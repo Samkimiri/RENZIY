@@ -50,6 +50,7 @@ export interface PlatformMember {
   name: string;
   phone: string;
   email: string;
+  password?: string;
   avatarUrl?: string;
   propertyName?: string;
   unitNumber?: string;
