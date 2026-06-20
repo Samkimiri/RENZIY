@@ -87,6 +87,24 @@ interface PlatformMember {
   status: 'Active' | 'Pending Review';
 }
 
+interface RentalApplication {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  unitId: string;
+  unitNumber: string;
+  rentAmount: number;
+  ownerEmail?: string;
+  ownerPhone?: string;
+  tenantName: string;
+  tenantEmail: string;
+  tenantPhone?: string;
+  requestedAt: string;
+  status: 'Awaiting Rent' | 'Rent Paid' | 'Approved' | 'Declined';
+  paymentCode?: string;
+  approvedAt?: string;
+}
+
 interface SettlementConfig {
   mpesaType: 'Paybill' | 'BuyGoods' | 'PhoneNumber';
   mpesaDetails: string;
@@ -153,6 +171,78 @@ let properties: Property[] = [
     mapQuery: 'Westlands Nairobi Kenya',
     availableForMarketplace: true,
     ownerEmail: 'john@renziy.app'
+  },
+  {
+    id: 'prop-4',
+    name: "Le'Mac Residences",
+    address: 'Waiyaki Way, Westlands, Nairobi',
+    unitsCount: 10,
+    imageUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80',
+    county: 'Nairobi',
+    constituency: 'Westlands',
+    town: 'Westlands',
+    neighborhood: 'Near ABC Place',
+    specificLocation: 'Waiyaki Way, Westlands',
+    description: "High-rise Westlands homes inspired by Le'Mac's mixed-use residential tower profile, with city access, lift service, and lifestyle amenities.",
+    amenities: ['Lift access', 'Gym', 'Backup power', 'Security', 'Parking'],
+    contactPhone: '0738112233',
+    mapQuery: "Le'Mac Westlands Nairobi Kenya",
+    availableForMarketplace: true,
+    ownerEmail: 'john@renziy.app'
+  },
+  {
+    id: 'prop-5',
+    name: 'Greenpark Athi River Homes',
+    address: 'Athi River, Machakos',
+    unitsCount: 16,
+    imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+    county: 'Machakos',
+    constituency: 'Mavoko',
+    town: 'Athi River',
+    neighborhood: 'Near Mombasa Road',
+    specificLocation: 'Greenpark Estate area, Athi River',
+    description: 'Family-friendly homes inspired by the well-known Greenpark development corridor near Nairobi, with quieter living and road access.',
+    amenities: ['Parking', 'Garden court', 'Security', 'Water', 'Family estate'],
+    contactPhone: '0744556677',
+    mapQuery: 'Greenpark Athi River Machakos Kenya',
+    availableForMarketplace: true,
+    ownerEmail: 'john@renziy.app'
+  },
+  {
+    id: 'prop-6',
+    name: 'Madaraka City Flats',
+    address: 'Madaraka Estate, Nairobi',
+    unitsCount: 14,
+    imageUrl: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
+    county: 'Nairobi',
+    constituency: 'Langata',
+    town: 'Madaraka',
+    neighborhood: 'Near Nyayo National Stadium',
+    specificLocation: 'Ole Sangale Road, Madaraka',
+    description: 'Practical city flats inspired by Madaraka Estate, close to CBD routes, universities, stadium access, and everyday services.',
+    amenities: ['Near CBD', 'Public transport', 'Water', 'Security', 'Schools nearby'],
+    contactPhone: '0701223344',
+    mapQuery: 'Madaraka Estate Nairobi Kenya',
+    availableForMarketplace: true,
+    ownerEmail: 'john@renziy.app'
+  },
+  {
+    id: 'prop-7',
+    name: 'Nyali Beach Apartments',
+    address: 'Nyali, Mombasa',
+    unitsCount: 12,
+    imageUrl: 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?auto=format&fit=crop&w=1200&q=80',
+    county: 'Mombasa',
+    constituency: 'Nyali',
+    town: 'Nyali',
+    neighborhood: 'Near Nyali Beach',
+    specificLocation: 'Nyali beach residential belt',
+    description: 'Coastal apartments inspired by Nyali, with quick access to malls, beach roads, and resort-style residential services.',
+    amenities: ['Near beach', 'Balcony', 'Parking', 'Security', 'Water'],
+    contactPhone: '0729004455',
+    mapQuery: 'Nyali Beach Mombasa Kenya',
+    availableForMarketplace: true,
+    ownerEmail: 'john@renziy.app'
   }
 ];
 
@@ -169,7 +259,15 @@ let units: Unit[] = [
   { id: 'unit-2-4', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 4', rentAmount: 210000, status: 'Vacant' },
   
   { id: 'unit-3-1', propertyId: 'prop-3', propertyName: 'The Landmark Plaza', unitNumber: 'Suite A', rentAmount: 450000, status: 'Occupied', tenantName: 'Tom Brown' },
-  { id: 'unit-3-2', propertyId: 'prop-3', propertyName: 'The Landmark Plaza', unitNumber: 'Suite B', rentAmount: 450000, status: 'Vacant' }
+  { id: 'unit-3-2', propertyId: 'prop-3', propertyName: 'The Landmark Plaza', unitNumber: 'Suite B', rentAmount: 450000, status: 'Vacant' },
+  { id: 'unit-4-1201', propertyId: 'prop-4', propertyName: "Le'Mac Residences", unitNumber: '1201', rentAmount: 265000, status: 'Vacant' },
+  { id: 'unit-4-1603', propertyId: 'prop-4', propertyName: "Le'Mac Residences", unitNumber: '1603', rentAmount: 315000, status: 'Vacant' },
+  { id: 'unit-5-b08', propertyId: 'prop-5', propertyName: 'Greenpark Athi River Homes', unitNumber: 'B-08', rentAmount: 95000, status: 'Vacant' },
+  { id: 'unit-5-c14', propertyId: 'prop-5', propertyName: 'Greenpark Athi River Homes', unitNumber: 'C-14', rentAmount: 125000, status: 'Vacant' },
+  { id: 'unit-6-f12', propertyId: 'prop-6', propertyName: 'Madaraka City Flats', unitNumber: 'F-12', rentAmount: 78000, status: 'Vacant' },
+  { id: 'unit-6-g03', propertyId: 'prop-6', propertyName: 'Madaraka City Flats', unitNumber: 'G-03', rentAmount: 88000, status: 'Vacant' },
+  { id: 'unit-7-a2', propertyId: 'prop-7', propertyName: 'Nyali Beach Apartments', unitNumber: 'A-2', rentAmount: 135000, status: 'Vacant' },
+  { id: 'unit-7-p1', propertyId: 'prop-7', propertyName: 'Nyali Beach Apartments', unitNumber: 'Penthouse 1', rentAmount: 260000, status: 'Vacant' }
 ];
 
 let payments: Payment[] = [
@@ -322,6 +420,8 @@ let members: PlatformMember[] = [
   }
 ];
 
+let rentalApplications: RentalApplication[] = [];
+
 let tenantBalance = 145000;
 
 let settlementConfig: SettlementConfig = {
@@ -361,7 +461,7 @@ app.use(express.json());
     }
 
     const id = `prop-${Date.now()}`;
-    const newProperty: Property = { id, name, address, unitsCount, imageUrl };
+    const newProperty: Property = { ...req.body, id, name, address, unitsCount, imageUrl };
     properties.push(newProperty);
 
     // Auto generate internal units
@@ -690,6 +790,149 @@ app.use(express.json());
     });
 
     res.json(member);
+  });
+
+  app.get("/api/rental-applications", (req, res) => {
+    res.json(rentalApplications);
+  });
+
+  app.post("/api/rental-applications", (req, res) => {
+    const { propertyId, propertyName, unitId, unitNumber, rentAmount, tenantName, tenantEmail } = req.body;
+    if (!propertyId || !propertyName || !unitId || !unitNumber || !rentAmount || !tenantName || !tenantEmail) {
+      return res.status(400).json({ error: "Missing rental request details" });
+    }
+
+    const application: RentalApplication = {
+      ...req.body,
+      id: req.body.id || `rent-app-${Date.now()}`,
+      requestedAt: req.body.requestedAt || new Date().toISOString(),
+      status: req.body.status || 'Awaiting Rent'
+    };
+
+    rentalApplications = [
+      application,
+      ...rentalApplications.filter(item => !(item.unitId === application.unitId && item.tenantEmail === application.tenantEmail && item.status !== 'Declined'))
+    ];
+
+    notifications.unshift({
+      id: `notif-rental-${Date.now()}`,
+      title: 'New House Request',
+      message: `${application.tenantName} requested ${application.propertyName} - Unit ${application.unitNumber}.`,
+      date: 'Just now',
+      type: 'lease',
+      unread: true
+    });
+
+    res.json(application);
+  });
+
+  app.post("/api/rental-applications/:id/pay", (req, res) => {
+    const { id } = req.params;
+    const { method, paymentCode } = req.body;
+    let application: RentalApplication | undefined;
+
+    rentalApplications = rentalApplications.map(item => {
+      if (item.id === id) {
+        application = {
+          ...item,
+          status: 'Rent Paid',
+          paymentCode: paymentCode || `${method === 'Card' ? 'CARD' : 'MPESA'}-HOLD-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+        };
+        return application;
+      }
+      return item;
+    });
+
+    if (!application) {
+      return res.status(404).json({ error: "Rental request not found" });
+    }
+
+    const paidApplication = application as RentalApplication;
+    payments.unshift({
+      id: `pay-${Date.now()}`,
+      tenantName: paidApplication.tenantName,
+      unitNumber: paidApplication.unitNumber,
+      propertyName: paidApplication.propertyName,
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      amount: paidApplication.rentAmount,
+      status: 'Paid',
+      paymentMethod: method || 'M-Pesa',
+      code: paidApplication.paymentCode || 'MPESA-HOLD'
+    });
+
+    notifications.unshift({
+      id: `notif-rental-paid-${Date.now()}`,
+      title: 'House Request Rent Paid',
+      message: `${paidApplication.tenantName} paid KES ${paidApplication.rentAmount.toLocaleString()} for ${paidApplication.propertyName} - Unit ${paidApplication.unitNumber}.`,
+      date: 'Just now',
+      type: 'payment',
+      unread: true
+    });
+
+    res.json(paidApplication);
+  });
+
+  app.post("/api/rental-applications/:id/approve", (req, res) => {
+    const { id } = req.params;
+    let application: RentalApplication | undefined;
+
+    rentalApplications = rentalApplications.map(item => {
+      if (item.id === id && item.status === 'Rent Paid') {
+        application = {
+          ...item,
+          status: 'Approved',
+          approvedAt: new Date().toISOString()
+        };
+        return application;
+      }
+      return item;
+    });
+
+    if (!application) {
+      return res.status(404).json({ error: "Paid rental request not found" });
+    }
+
+    const approvedApplication = application as RentalApplication;
+    units = units.map(unit => (
+      unit.id === approvedApplication.unitId
+        ? { ...unit, status: 'Occupied', tenantName: approvedApplication.tenantName }
+        : unit
+    ));
+    members = members.map(member => (
+      member.email === approvedApplication.tenantEmail && member.role === 'tenant'
+        ? { ...member, propertyName: approvedApplication.propertyName, unitNumber: approvedApplication.unitNumber, rentAmount: approvedApplication.rentAmount }
+        : member
+    ));
+
+    notifications.unshift({
+      id: `notif-rental-approved-${Date.now()}`,
+      title: 'Unit Approved',
+      message: `${approvedApplication.propertyName} - Unit ${approvedApplication.unitNumber} has been approved for ${approvedApplication.tenantName}.`,
+      date: 'Just now',
+      type: 'lease',
+      unread: true
+    });
+
+    res.json(approvedApplication);
+  });
+
+  app.post("/api/rental-applications/:id/decline", (req, res) => {
+    const { id } = req.params;
+    let application: RentalApplication | undefined;
+
+    rentalApplications = rentalApplications.map(item => {
+      if (item.id === id) {
+        application = { ...item, status: 'Declined' };
+        return application;
+      }
+      return item;
+    });
+
+    if (!application) {
+      return res.status(404).json({ error: "Rental request not found" });
+    }
+
+    res.json(application);
   });
 
   app.get("/api/balance", (req, res) => {

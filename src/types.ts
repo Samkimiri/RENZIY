@@ -62,6 +62,24 @@ export interface PlatformMember {
   status: 'Active' | 'Pending Review';
 }
 
+export interface RentalApplication {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  unitId: string;
+  unitNumber: string;
+  rentAmount: number;
+  ownerEmail?: string;
+  ownerPhone?: string;
+  tenantName: string;
+  tenantEmail: string;
+  tenantPhone?: string;
+  requestedAt: string;
+  status: 'Awaiting Rent' | 'Rent Paid' | 'Approved' | 'Declined';
+  paymentCode?: string;
+  approvedAt?: string;
+}
+
 export interface Payment {
   id: string;
   tenantName: string;

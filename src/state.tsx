@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Property, Unit, Payment, MaintenanceRequest, Notification, AppUserRole, SettlementConfig, PlatformMember } from './types';
+import { Property, Unit, Payment, MaintenanceRequest, Notification, AppUserRole, SettlementConfig, PlatformMember, RentalApplication } from './types';
 
 interface RenziyContextType {
   role: AppUserRole;
@@ -12,6 +12,7 @@ interface RenziyContextType {
   maintenanceRequests: MaintenanceRequest[];
   notifications: Notification[];
   members: PlatformMember[];
+  rentalApplications: RentalApplication[];
   tenantBalance: number;
   settlementConfig: SettlementConfig;
   addProperty: (property: Omit<Property, 'id'>) => void;
@@ -27,6 +28,10 @@ interface RenziyContextType {
   updateSettlementConfig: (config: Partial<SettlementConfig>) => Promise<void>;
   updateTenantAvatar: (unitId: string, tenantAvatar: string) => Promise<void>;
   registerMember: (member: Omit<PlatformMember, 'id' | 'joinDate' | 'status'>) => Promise<PlatformMember>;
+  submitRentalApplication: (application: Omit<RentalApplication, 'id' | 'requestedAt' | 'status'>) => Promise<RentalApplication>;
+  markRentalApplicationPaid: (applicationId: string, method: 'M-Pesa' | 'Card') => Promise<void>;
+  approveRentalApplication: (applicationId: string) => Promise<void>;
+  declineRentalApplication: (applicationId: string) => Promise<void>;
 }
 
 const RenziyContext = createContext<RenziyContextType | undefined>(undefined);
@@ -100,6 +105,78 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         mapQuery: 'Westlands Nairobi Kenya',
         availableForMarketplace: true,
         ownerEmail: 'john@renziy.app'
+      },
+      {
+        id: 'prop-4',
+        name: "Le'Mac Residences",
+        address: 'Waiyaki Way, Westlands, Nairobi',
+        unitsCount: 10,
+        imageUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80',
+        county: 'Nairobi',
+        constituency: 'Westlands',
+        town: 'Westlands',
+        neighborhood: 'Near ABC Place',
+        specificLocation: 'Waiyaki Way, Westlands',
+        description: "High-rise Westlands homes inspired by Le'Mac's mixed-use residential tower profile, with city access, lift service, and lifestyle amenities.",
+        amenities: ['Lift access', 'Gym', 'Backup power', 'Security', 'Parking'],
+        contactPhone: '0738112233',
+        mapQuery: "Le'Mac Westlands Nairobi Kenya",
+        availableForMarketplace: true,
+        ownerEmail: 'john@renziy.app'
+      },
+      {
+        id: 'prop-5',
+        name: 'Greenpark Athi River Homes',
+        address: 'Athi River, Machakos',
+        unitsCount: 16,
+        imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+        county: 'Machakos',
+        constituency: 'Mavoko',
+        town: 'Athi River',
+        neighborhood: 'Near Mombasa Road',
+        specificLocation: 'Greenpark Estate area, Athi River',
+        description: 'Family-friendly homes inspired by the well-known Greenpark development corridor near Nairobi, with quieter living and road access.',
+        amenities: ['Parking', 'Garden court', 'Security', 'Water', 'Family estate'],
+        contactPhone: '0744556677',
+        mapQuery: 'Greenpark Athi River Machakos Kenya',
+        availableForMarketplace: true,
+        ownerEmail: 'john@renziy.app'
+      },
+      {
+        id: 'prop-6',
+        name: 'Madaraka City Flats',
+        address: 'Madaraka Estate, Nairobi',
+        unitsCount: 14,
+        imageUrl: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
+        county: 'Nairobi',
+        constituency: 'Langata',
+        town: 'Madaraka',
+        neighborhood: 'Near Nyayo National Stadium',
+        specificLocation: 'Ole Sangale Road, Madaraka',
+        description: 'Practical city flats inspired by Madaraka Estate, close to CBD routes, universities, stadium access, and everyday services.',
+        amenities: ['Near CBD', 'Public transport', 'Water', 'Security', 'Schools nearby'],
+        contactPhone: '0701223344',
+        mapQuery: 'Madaraka Estate Nairobi Kenya',
+        availableForMarketplace: true,
+        ownerEmail: 'john@renziy.app'
+      },
+      {
+        id: 'prop-7',
+        name: 'Nyali Beach Apartments',
+        address: 'Nyali, Mombasa',
+        unitsCount: 12,
+        imageUrl: 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?auto=format&fit=crop&w=1200&q=80',
+        county: 'Mombasa',
+        constituency: 'Nyali',
+        town: 'Nyali',
+        neighborhood: 'Near Nyali Beach',
+        specificLocation: 'Nyali beach residential belt',
+        description: 'Coastal apartments inspired by Nyali, with quick access to malls, beach roads, and resort-style residential services.',
+        amenities: ['Near beach', 'Balcony', 'Parking', 'Security', 'Water'],
+        contactPhone: '0729004455',
+        mapQuery: 'Nyali Beach Mombasa Kenya',
+        availableForMarketplace: true,
+        ownerEmail: 'john@renziy.app'
       }
     ];
   });
@@ -121,7 +198,15 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       { id: 'unit-2-4', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 4', rentAmount: 210000, status: 'Vacant' },
       
       { id: 'unit-3-1', propertyId: 'prop-3', propertyName: 'The Landmark Plaza', unitNumber: 'Suite A', rentAmount: 450000, status: 'Occupied', tenantName: 'Tom Brown' },
-      { id: 'unit-3-2', propertyId: 'prop-3', propertyName: 'The Landmark Plaza', unitNumber: 'Suite B', rentAmount: 450000, status: 'Vacant' }
+      { id: 'unit-3-2', propertyId: 'prop-3', propertyName: 'The Landmark Plaza', unitNumber: 'Suite B', rentAmount: 450000, status: 'Vacant' },
+      { id: 'unit-4-1201', propertyId: 'prop-4', propertyName: "Le'Mac Residences", unitNumber: '1201', rentAmount: 265000, status: 'Vacant' },
+      { id: 'unit-4-1603', propertyId: 'prop-4', propertyName: "Le'Mac Residences", unitNumber: '1603', rentAmount: 315000, status: 'Vacant' },
+      { id: 'unit-5-b08', propertyId: 'prop-5', propertyName: 'Greenpark Athi River Homes', unitNumber: 'B-08', rentAmount: 95000, status: 'Vacant' },
+      { id: 'unit-5-c14', propertyId: 'prop-5', propertyName: 'Greenpark Athi River Homes', unitNumber: 'C-14', rentAmount: 125000, status: 'Vacant' },
+      { id: 'unit-6-f12', propertyId: 'prop-6', propertyName: 'Madaraka City Flats', unitNumber: 'F-12', rentAmount: 78000, status: 'Vacant' },
+      { id: 'unit-6-g03', propertyId: 'prop-6', propertyName: 'Madaraka City Flats', unitNumber: 'G-03', rentAmount: 88000, status: 'Vacant' },
+      { id: 'unit-7-a2', propertyId: 'prop-7', propertyName: 'Nyali Beach Apartments', unitNumber: 'A-2', rentAmount: 135000, status: 'Vacant' },
+      { id: 'unit-7-p1', propertyId: 'prop-7', propertyName: 'Nyali Beach Apartments', unitNumber: 'Penthouse 1', rentAmount: 260000, status: 'Vacant' }
     ];
   });
 
@@ -294,6 +379,12 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     ];
   });
 
+  const [rentalApplications, setRentalApplications] = useState<RentalApplication[]>(() => {
+    const saved = localStorage.getItem('renziy_rental_applications');
+    if (saved) return JSON.parse(saved);
+    return [];
+  });
+
   // Tenant Balance
   const [tenantBalance, setTenantBalance] = useState<number>(() => {
     const saved = localStorage.getItem('renziy_balance');
@@ -338,6 +429,9 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const membersRes = await fetch('/api/members');
         if (membersRes.ok) setMembers(await membersRes.json());
 
+        const rentalApplicationsRes = await fetch('/api/rental-applications');
+        if (rentalApplicationsRes.ok) setRentalApplications(await rentalApplicationsRes.json());
+
         const balRes = await fetch('/api/balance');
         if (balRes.ok) {
           const balData = await balRes.json();
@@ -363,9 +457,10 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem('renziy_maintenance', JSON.stringify(maintenanceRequests));
     localStorage.setItem('renziy_notifications', JSON.stringify(notifications));
     localStorage.setItem('renziy_members', JSON.stringify(members));
+    localStorage.setItem('renziy_rental_applications', JSON.stringify(rentalApplications));
     localStorage.setItem('renziy_balance', tenantBalance.toString());
     localStorage.setItem('renziy_settlement', JSON.stringify(settlementConfig));
-  }, [role, username, properties, units, payments, maintenanceRequests, notifications, members, tenantBalance, settlementConfig]);
+  }, [role, username, properties, units, payments, maintenanceRequests, notifications, members, rentalApplications, tenantBalance, settlementConfig]);
 
   // Set Role Context
   const setRole = (newRole: AppUserRole) => {
@@ -798,6 +893,170 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return newMember;
   };
 
+  const submitRentalApplication = async (application: Omit<RentalApplication, 'id' | 'requestedAt' | 'status'>) => {
+    const newApplication: RentalApplication = {
+      ...application,
+      id: `rent-app-${Date.now()}`,
+      requestedAt: new Date().toISOString(),
+      status: 'Awaiting Rent'
+    };
+
+    setRentalApplications(prev => [
+      newApplication,
+      ...prev.filter(item => !(item.unitId === application.unitId && item.tenantEmail === application.tenantEmail && item.status !== 'Declined'))
+    ]);
+    setNotifications(prev => [
+      {
+        id: `notif-rental-${Date.now()}`,
+        title: 'New House Request',
+        message: `${application.tenantName} requested ${application.propertyName} - Unit ${application.unitNumber}.`,
+        date: 'Just now',
+        type: 'lease',
+        unread: true
+      },
+      ...prev
+    ]);
+
+    try {
+      const res = await fetch('/api/rental-applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newApplication)
+      });
+      if (res.ok) {
+        const savedApplication = await res.json();
+        setRentalApplications(prev => [
+          savedApplication,
+          ...prev.filter(item => item.id !== newApplication.id && !(item.unitId === application.unitId && item.tenantEmail === application.tenantEmail && item.status !== 'Declined'))
+        ]);
+        return savedApplication;
+      }
+    } catch (err) {
+      console.warn("Express API rental application sync unavailable, using local workflow:", err);
+    }
+
+    return newApplication;
+  };
+
+  const markRentalApplicationPaid = async (applicationId: string, method: 'M-Pesa' | 'Card') => {
+    const application = rentalApplications.find(item => item.id === applicationId);
+    if (!application) return;
+
+    const paymentHash = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const paymentCode = `${method === 'M-Pesa' ? 'MPESA' : 'CARD'}-HOLD-${paymentHash}`;
+    const newPayment: Payment = {
+      id: `pay-${Date.now()}`,
+      tenantName: application.tenantName,
+      unitNumber: application.unitNumber,
+      propertyName: application.propertyName,
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      amount: application.rentAmount,
+      status: 'Paid',
+      paymentMethod: method,
+      code: paymentCode
+    };
+
+    setRentalApplications(prev => prev.map(item => (
+      item.id === applicationId ? { ...item, status: 'Rent Paid', paymentCode } : item
+    )));
+    setPayments(prev => [newPayment, ...prev]);
+    setNotifications(prev => [
+      {
+        id: `notif-rental-paid-${Date.now()}`,
+        title: 'House Request Rent Paid',
+        message: `${application.tenantName} paid KES ${application.rentAmount.toLocaleString()} for ${application.propertyName} - Unit ${application.unitNumber}.`,
+        date: 'Just now',
+        type: 'payment',
+        unread: true
+      },
+      ...prev
+    ]);
+
+    try {
+      const res = await fetch(`/api/rental-applications/${applicationId}/pay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method, paymentCode })
+      });
+      if (res.ok) {
+        const [applicationsRes, paymentsRes, notifsRes] = await Promise.all([
+          fetch('/api/rental-applications'),
+          fetch('/api/payments'),
+          fetch('/api/notifications')
+        ]);
+        if (applicationsRes.ok) setRentalApplications(await applicationsRes.json());
+        if (paymentsRes.ok) setPayments(await paymentsRes.json());
+        if (notifsRes.ok) setNotifications(await notifsRes.json());
+      }
+    } catch (err) {
+      console.warn("Express API rental payment sync unavailable, using local workflow:", err);
+    }
+  };
+
+  const approveRentalApplication = async (applicationId: string) => {
+    const application = rentalApplications.find(item => item.id === applicationId);
+    if (!application || application.status !== 'Rent Paid') return;
+
+    setRentalApplications(prev => prev.map(item => (
+      item.id === applicationId ? { ...item, status: 'Approved', approvedAt: new Date().toISOString() } : item
+    )));
+    setUnits(prev => prev.map(unit => (
+      unit.id === application.unitId
+        ? { ...unit, status: 'Occupied', tenantName: application.tenantName }
+        : unit
+    )));
+    setMembers(prev => prev.map(member => (
+      member.email === application.tenantEmail && member.role === 'tenant'
+        ? { ...member, propertyName: application.propertyName, unitNumber: application.unitNumber, rentAmount: application.rentAmount }
+        : member
+    )));
+    setNotifications(prev => [
+      {
+        id: `notif-rental-approved-${Date.now()}`,
+        title: 'Unit Approved',
+        message: `${application.propertyName} - Unit ${application.unitNumber} has been approved for ${application.tenantName}.`,
+        date: 'Just now',
+        type: 'lease',
+        unread: true
+      },
+      ...prev
+    ]);
+
+    try {
+      const res = await fetch(`/api/rental-applications/${applicationId}/approve`, { method: 'POST' });
+      if (res.ok) {
+        const [applicationsRes, unitsRes, membersRes, notifsRes] = await Promise.all([
+          fetch('/api/rental-applications'),
+          fetch('/api/units'),
+          fetch('/api/members'),
+          fetch('/api/notifications')
+        ]);
+        if (applicationsRes.ok) setRentalApplications(await applicationsRes.json());
+        if (unitsRes.ok) setUnits(await unitsRes.json());
+        if (membersRes.ok) setMembers(await membersRes.json());
+        if (notifsRes.ok) setNotifications(await notifsRes.json());
+      }
+    } catch (err) {
+      console.warn("Express API rental approval sync unavailable, using local workflow:", err);
+    }
+  };
+
+  const declineRentalApplication = async (applicationId: string) => {
+    setRentalApplications(prev => prev.map(item => (
+      item.id === applicationId ? { ...item, status: 'Declined' } : item
+    )));
+
+    try {
+      const res = await fetch(`/api/rental-applications/${applicationId}/decline`, { method: 'POST' });
+      if (res.ok) {
+        const applicationsRes = await fetch('/api/rental-applications');
+        if (applicationsRes.ok) setRentalApplications(await applicationsRes.json());
+      }
+    } catch (err) {
+      console.warn("Express API rental decline sync unavailable, using local workflow:", err);
+    }
+  };
+
   return (
     <RenziyContext.Provider
       value={{
@@ -811,6 +1070,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         maintenanceRequests,
         notifications,
         members,
+        rentalApplications,
         tenantBalance,
         settlementConfig,
         addProperty,
@@ -825,7 +1085,11 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         toggleUnitLock,
         updateSettlementConfig,
         updateTenantAvatar,
-        registerMember
+        registerMember,
+        submitRentalApplication,
+        markRentalApplicationPaid,
+        approveRentalApplication,
+        declineRentalApplication
       }}
     >
       {children}

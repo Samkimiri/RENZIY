@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useRenziy } from '../state';
 import { Property } from '../types';
-import { Building2, CheckCircle2, Home, MapPin, Navigation, Phone, Search, SlidersHorizontal } from 'lucide-react';
+import { Building2, CheckCircle2, CreditCard, Home, MapPin, MessageCircle, Navigation, Phone, Search, SlidersHorizontal } from 'lucide-react';
 
 const KENYA_LOCATION_DATA = [
   { county: 'Baringo', constituencies: ['Baringo Central', 'Baringo North', 'Eldama Ravine', 'Mogotio', 'Tiaty'], locations: ['Kabarnet', 'Eldama Ravine', 'Marigat', 'Mogotio'] },
@@ -65,9 +65,27 @@ const getLocationQuery = (property: Property) => {
 
 const mapUrlFor = (property: Property) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(getLocationQuery(property))}`;
 const embedUrlFor = (property: Property) => `https://www.google.com/maps?q=${encodeURIComponent(getLocationQuery(property))}&output=embed`;
+const formatKes = (amount: number) => `KES ${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+const normalizeKenyaPhone = (phone?: string) => {
+  const digits = (phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('254')) return digits;
+  if (digits.startsWith('0')) return `254${digits.slice(1)}`;
+  return digits;
+};
 
 export default function HousingMarketplace() {
-  const { role, properties, units, updatePropertyDetails } = useRenziy();
+  const {
+    role,
+    username,
+    properties,
+    units,
+    members,
+    rentalApplications,
+    updatePropertyDetails,
+    submitRentalApplication,
+    markRentalApplicationPaid
+  } = useRenziy();
   const [county, setCounty] = useState('All');
   const [constituency, setConstituency] = useState('All');
   const [specificLocation, setSpecificLocation] = useState('All');
@@ -96,13 +114,14 @@ export default function HousingMarketplace() {
   const locationOptions = county === 'All'
     ? Array.from(new Set(KENYA_LOCATION_DATA.flatMap(item => item.locations))).sort()
     : filterCountyData?.locations || [];
+  const currentTenant = members.find(member => member.role === 'tenant' && member.name === username);
 
   const marketplaceListings = useMemo(() => {
     return properties
       .map(property => {
         const propertyUnits = units.filter(unit => unit.propertyId === property.id);
         const vacantUnits = propertyUnits.filter(unit => unit.status === 'Vacant');
-        const lowestRent = propertyUnits.length ? Math.min(...propertyUnits.map(unit => unit.rentAmount)) : 0;
+        const lowestRent = vacantUnits.length ? Math.min(...vacantUnits.map(unit => unit.rentAmount)) : 0;
         return { property, propertyUnits, vacantUnits, lowestRent };
       })
       .filter(({ property, vacantUnits, lowestRent }) => {
@@ -110,7 +129,20 @@ export default function HousingMarketplace() {
         const countyMatch = county === 'All' || (property.county || '').toLowerCase() === county.toLowerCase();
         const constituencyMatch = constituency === 'All' || (property.constituency || '').toLowerCase() === constituency.toLowerCase();
         const locationMatch = specificLocation === 'All' || [property.specificLocation, property.neighborhood, property.town, property.address].join(' ').toLowerCase().includes(specificLocation.toLowerCase());
-        const text = [property.name, property.address, property.county, property.constituency, property.town, property.neighborhood, property.specificLocation, property.description].join(' ').toLowerCase();
+        const text = [
+          property.name,
+          property.address,
+          property.county,
+          property.constituency,
+          property.town,
+          property.neighborhood,
+          property.specificLocation,
+          property.description,
+          property.mapQuery,
+          property.contactPhone,
+          ...(property.amenities || []),
+          ...vacantUnits.map(unit => `${unit.unitNumber} ${unit.rentAmount}`)
+        ].join(' ').toLowerCase();
         const queryMatch = !query || text.includes(query.toLowerCase());
         const rentMatch = !maxRent || lowestRent <= Number(maxRent);
         return listed && vacantUnits.length > 0 && countyMatch && constituencyMatch && locationMatch && queryMatch && rentMatch;
@@ -149,6 +181,53 @@ export default function HousingMarketplace() {
       mapQuery: formState.mapQuery || [selectedProperty.name, formState.specificLocation, formState.neighborhood, formState.constituency, formState.town, formState.county, 'Kenya'].filter(Boolean).join(', '),
       availableForMarketplace: formState.availableForMarketplace
     });
+  };
+
+  const getOwnerPhone = (property: Property) => {
+    const owner = members.find(member => member.role === 'landlord' && member.email === property.ownerEmail);
+    return owner?.phone || property.contactPhone || '';
+  };
+
+  const getApplicationForUnit = (unitId: string) => {
+    const tenantEmail = currentTenant?.email || localStorage.getItem('renziy_user_email') || '';
+    return rentalApplications.find(application => (
+      application.unitId === unitId &&
+      application.tenantEmail === tenantEmail &&
+      application.status !== 'Declined'
+    ));
+  };
+
+  const whatsappUrlFor = (property: Property, unitId: string) => {
+    const unit = units.find(item => item.id === unitId);
+    const phone = normalizeKenyaPhone(getOwnerPhone(property));
+    const message = `Hello, I am ${username}. I want to rent ${property.name} - Unit ${unit?.unitNumber || ''} at ${formatKes(unit?.rentAmount || 0)} per month. I have sent a Renziy portal request for approval after rent payment.`;
+    return phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : '';
+  };
+
+  const handleChooseUnit = async (property: Property, unitId: string) => {
+    const unit = units.find(item => item.id === unitId);
+    if (!unit || !currentTenant) return;
+
+    const existingApplication = getApplicationForUnit(unitId);
+    if (!existingApplication) {
+      await submitRentalApplication({
+        propertyId: property.id,
+        propertyName: property.name,
+        unitId: unit.id,
+        unitNumber: unit.unitNumber,
+        rentAmount: unit.rentAmount,
+        ownerEmail: property.ownerEmail,
+        ownerPhone: getOwnerPhone(property),
+        tenantName: username,
+        tenantEmail: currentTenant.email,
+        tenantPhone: currentTenant.phone
+      });
+    }
+
+    const whatsappUrl = whatsappUrlFor(property, unitId);
+    if (whatsappUrl) {
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (
@@ -389,7 +468,8 @@ export default function HousingMarketplace() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="rounded-2xl bg-[#f6f3f5] p-3">
                     <span className="text-[9px] uppercase tracking-widest text-[#73777f] font-black">Rent from</span>
-                    <span className="block text-lg font-black text-[#002645]">KES {lowestRent.toLocaleString()}</span>
+                    <span className="block text-lg font-black text-[#002645]">{formatKes(lowestRent)}</span>
+                    <span className="text-[10px] font-semibold text-[#73777f]">Monthly rent. First month required before approval.</span>
                   </div>
                   <div className="rounded-2xl bg-[#f6f3f5] p-3">
                     <span className="text-[9px] uppercase tracking-widest text-[#73777f] font-black">County</span>
@@ -398,6 +478,63 @@ export default function HousingMarketplace() {
                   <div className="rounded-2xl bg-[#f6f3f5] p-3 sm:col-span-2">
                     <span className="text-[9px] uppercase tracking-widest text-[#73777f] font-black">Constituency / location</span>
                     <span className="block text-sm font-black text-[#002645] mt-1">{property.constituency || 'Not provided'} - {property.specificLocation || property.neighborhood || 'Specific location pending'}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <span className="text-[9px] uppercase tracking-widest text-emerald-700 font-black">Choose a vacant unit</span>
+                      <p className="text-[11px] text-[#43474e] font-semibold mt-0.5">Rent is shown as monthly rent. The first payment locks the request for owner approval.</p>
+                    </div>
+                    <CreditCard className="h-4 w-4 text-emerald-700 shrink-0" />
+                  </div>
+                  <div className="space-y-2">
+                    {vacantUnits.map(unit => {
+                      const application = getApplicationForUnit(unit.id);
+                      const whatsappUrl = whatsappUrlFor(property, unit.id);
+                      return (
+                        <div key={unit.id} className="rounded-xl bg-white border border-emerald-100 p-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-black text-[#002645]">Unit {unit.unitNumber}</p>
+                              <p className="text-xs font-bold text-emerald-700">{formatKes(unit.rentAmount)} / month</p>
+                              <p className="text-[10px] text-[#73777f] font-semibold">First payment due: {formatKes(unit.rentAmount)}</p>
+                            </div>
+                            {role === 'tenant' && (
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleChooseUnit(property, unit.id)}
+                                  disabled={!currentTenant}
+                                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-[10px] font-black text-white hover:bg-emerald-700 disabled:bg-slate-300 transition-all"
+                                >
+                                  <MessageCircle className="h-3.5 w-3.5" />
+                                  {application ? 'WhatsApp Owner' : 'Request + WhatsApp'}
+                                </button>
+                                {application?.status === 'Awaiting Rent' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => markRentalApplicationPaid(application.id, 'M-Pesa')}
+                                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#002645]/20 px-3 py-2 text-[10px] font-black text-[#002645] hover:bg-[#E8F4FD] transition-all"
+                                  >
+                                    Mark Rent Paid
+                                  </button>
+                                )}
+                                {application && application.status !== 'Awaiting Rent' && (
+                                  <span className="inline-flex items-center justify-center rounded-xl bg-[#E8F4FD] px-3 py-2 text-[10px] font-black text-[#002645]">
+                                    {application.status}
+                                  </span>
+                                )}
+                                {!whatsappUrl && (
+                                  <span className="text-[10px] font-bold text-amber-700">Owner phone needed</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 

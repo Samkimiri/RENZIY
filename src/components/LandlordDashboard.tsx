@@ -15,7 +15,10 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
     addTenantToUnit,
     tenantBalance,
     members,
-    registerMember
+    registerMember,
+    rentalApplications,
+    approveRentalApplication,
+    declineRentalApplication
   } = useRenziy();
 
   // Dialog Overlays State
@@ -51,6 +54,11 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
   const portfolioUnits = units.filter(unit => portfolioPropertyIds.includes(unit.propertyId));
   const portfolioPayments = payments.filter(payment => portfolioPropertyNames.includes(payment.propertyName));
   const portfolioMaintenanceRequests = maintenanceRequests.filter(request => portfolioPropertyNames.includes(request.propertyName));
+  const portfolioRentalApplications = rentalApplications.filter(application => (
+    portfolioPropertyIds.includes(application.propertyId) ||
+    portfolioPropertyNames.includes(application.propertyName) ||
+    application.ownerEmail === currentUserEmail
+  ));
   const portfolioMembers = members.filter(member => (
     member.role === 'landlord'
       ? member.email === currentUserEmail
@@ -79,6 +87,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
   const emergencyCount = activeRequests.filter(r => r.urgency === 'Emergency').length;
   const openCount = activeRequests.filter(r => r.status === 'Submitted' || r.status === 'Acknowledged').length;
   const inProgressCount = activeRequests.filter(r => r.status === 'In Progress').length;
+  const pendingRentalApplicationCount = portfolioRentalApplications.filter(application => application.status !== 'Approved' && application.status !== 'Declined').length;
 
   // Filtered Payments list
   const filteredPayments = portfolioPayments.filter(p => {
@@ -263,6 +272,82 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
               <Lock className="h-6 w-6 text-white" />
             </div>
           </button>
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <div className="bg-white rounded-3xl border border-[#e4e2e4] shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-[#e4e2e4] flex flex-col md:flex-row md:items-end justify-between gap-3">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Tenant House Requests</span>
+              <h3 className="text-xl font-extrabold text-[#002645] mt-1">Approve units after rent is paid</h3>
+              <p className="text-xs text-[#73777f] mt-1">Requests submitted from the tenant marketplace appear here and can be approved once payment is marked as received.</p>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-[#E8F4FD] text-[#002645] border border-[#002645]/10 text-[10px] font-black uppercase tracking-wider">
+              {pendingRentalApplicationCount} active request{pendingRentalApplicationCount === 1 ? '' : 's'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 p-4">
+            {portfolioRentalApplications.slice(0, 6).map(application => (
+              <div key={application.id} className="rounded-2xl border border-[#e4e2e4] bg-[#fcf8fb] p-4">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm font-black text-[#002645]">{application.propertyName}</h4>
+                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${
+                        application.status === 'Approved'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : application.status === 'Rent Paid'
+                            ? 'bg-[#002645] text-white'
+                            : application.status === 'Declined'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {application.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#73777f] font-semibold mt-1">Unit {application.unitNumber} requested by {application.tenantName}</p>
+                    <p className="text-[11px] text-[#43474e] mt-1">{application.tenantEmail}{application.tenantPhone ? ` - ${application.tenantPhone}` : ''}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white border border-[#e4e2e4] p-3 min-w-36">
+                    <span className="block text-[9px] font-black uppercase tracking-widest text-[#73777f]">Monthly rent</span>
+                    <span className="block text-lg font-black text-[#002645]">KES {application.rentAmount.toLocaleString()}</span>
+                    {application.paymentCode && (
+                      <span className="block text-[9px] font-bold text-emerald-700 mt-1">{application.paymentCode}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={() => approveRentalApplication(application.id)}
+                    disabled={application.status !== 'Rent Paid'}
+                    className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-black text-white hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 transition-all"
+                  >
+                    Approve Unit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => declineRentalApplication(application.id)}
+                    disabled={application.status === 'Approved' || application.status === 'Declined'}
+                    className="flex-1 rounded-xl border border-red-200 px-4 py-2.5 text-xs font-black text-red-700 hover:bg-red-50 disabled:bg-slate-100 disabled:text-slate-400 transition-all"
+                  >
+                    Decline
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {portfolioRentalApplications.length === 0 && (
+              <div className="xl:col-span-2 rounded-2xl border border-dashed border-[#c3c6cf] bg-[#fcf8fb] p-8 text-center">
+                <Users2 className="h-8 w-8 mx-auto text-[#002645]" />
+                <h4 className="text-sm font-black text-[#002645] mt-3">No tenant house requests yet</h4>
+                <p className="text-xs text-[#73777f] mt-1">When a tenant chooses a unit from the marketplace, the request will appear here.</p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
