@@ -3,6 +3,7 @@ import { useRenziy } from '../state';
 import { Property, Unit, Payment, MaintenanceRequest } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Building2, Users2, CreditCard, ChevronRight, Plus, Wrench, ShieldAlert, CheckCircle2, Clock, Filter, X, ArrowUpRight, DollarSign, ArrowRightLeft, Lock, Coins } from 'lucide-react';
+import { MAX_UNITS_PER_PROPERTY, normalizeUnitCount } from '../unitLimits';
 
 export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: string) => void }) {
   const {
@@ -98,10 +99,11 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
   const handleCreateProperty = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPropName || !newPropAddress) return;
+    const unitsCount = normalizeUnitCount(newPropUnits);
     addProperty({
       name: newPropName,
       address: newPropAddress,
-      unitsCount: Number(newPropUnits),
+      unitsCount,
       imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0-lP6mcA6HIE4LbzTr765rwiEop89MIpJdvoyF11DN-epOhG7wzLR2vlsvvbIs-eHfUJNUdibFBNajQHHbWzJeqHMFacPNozVQz5c_cpg8uv7fiB71TnE1n_AKhKhic2o8RClwzPHlK1tGsw0MkRGgTOyoCDxd_DliMftNntarn6QL0T4rOntvVbWuKWKfj7-n8nt8R7oxKRysKqzqbaLI_o1dRnqkJ-65xCIUfuKl4jxyeydhAO2IpAgSOxBrOIkfgdT45kPYn1w',
       ownerEmail: currentUserEmail
     });
@@ -633,13 +635,13 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                   <input
                     type="number"
                     min="1"
-                    max="50"
+                    max={MAX_UNITS_PER_PROPERTY}
                     className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold"
                     value={newPropUnits}
-                    onChange={(e) => setNewPropUnits(Number(e.target.value))}
+                    onChange={(e) => setNewPropUnits(normalizeUnitCount(e.target.value))}
                     required
                   />
-                  <p className="text-[10px] text-[#73777f] px-1">Renziy will automatically create these numerical active units.</p>
+                  <p className="text-[10px] text-[#73777f] px-1">Renziy will automatically create up to {MAX_UNITS_PER_PROPERTY.toLocaleString()} numerical active units.</p>
                 </div>
 
                 <button

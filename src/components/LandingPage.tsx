@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRenziy } from '../state';
 import { ArrowRight, BarChart3, Building2, CheckCircle2, HardHat, HelpCircle, Home, Lock, Mail, MapPin, Phone, ShieldCheck, Smartphone, UserRound } from 'lucide-react';
 
@@ -19,16 +19,25 @@ export default function LandingPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetCode, setResetCode] = useState('');
-  const [resetDelivery, setResetDelivery] = useState<{ email: string; phone: string; resetCode?: string } | null>(null);
+  const [resetDelivery, setResetDelivery] = useState<{ email: string; phone: string; resetCode?: string; expiresAt?: number } | null>(null);
   const [propertyName, setPropertyName] = useState('');
   const [unitNumber, setUnitNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [formMessage, setFormMessage] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
 
   const accountsForRole = useMemo(
     () => members.filter(member => member.role === selectedRole),
     [members, selectedRole]
   );
+
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem('renziy_remembered_email');
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handlePhoneInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const digits = event.target.value.replace(/\D/g, '');
@@ -61,7 +70,7 @@ export default function LandingPage() {
       amenities: ['Security', 'Water', 'Parking'],
       contactPhone: phone || 'Pending',
       mapQuery: propertyName.trim() || ownerName,
-      availableForMarketplace: false,
+      availableForMarketplace: true,
       ownerEmail
     });
   };
@@ -76,15 +85,10 @@ export default function LandingPage() {
 
     try {
       if (authMode === 'reset') {
-        if (!existingAccount) {
-          setFormMessage('No account was found for that email and account type.');
-          return;
-        }
-
         if (!resetDelivery) {
           const delivery = await requestPasswordReset(selectedRole, cleanEmail);
           setResetDelivery(delivery);
-          setFormMessage(`Reset code sent to ${delivery.email} and ${delivery.phone}.${delivery.resetCode ? ` Demo code: ${delivery.resetCode}` : ''}`);
+          setFormMessage(`Reset code generated for ${delivery.email} and ${delivery.phone}. Enter it below before it expires.`);
           return;
         }
 
@@ -125,14 +129,24 @@ export default function LandingPage() {
           });
           if (res.ok) {
             const data = await res.json();
+            if (rememberMe) {
+              localStorage.setItem('renziy_remembered_email', cleanEmail);
+            } else {
+              localStorage.removeItem('renziy_remembered_email');
+            }
             enterAccount(data.member.role, data.member.name, data.member.email, data.token);
             return;
           }
         } catch (err) {
-          console.warn('Server login unavailable, trying local demo credentials:', err);
+          console.warn('Server login unavailable, trying saved local credentials:', err);
         }
 
         if (existingAccount.password && existingAccount.password === password) {
+          if (rememberMe) {
+            localStorage.setItem('renziy_remembered_email', cleanEmail);
+          } else {
+            localStorage.removeItem('renziy_remembered_email');
+          }
           enterAccount(existingAccount.role, existingAccount.name, existingAccount.email);
           return;
         }
@@ -212,7 +226,12 @@ export default function LandingPage() {
 
             <div className="space-y-3">
               <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white leading-tight tracking-tight drop-shadow-md">
-                Manage rentals with a real Renziy account.
+                <span className="block text-white">Manage rentals</span>
+                <span className="block text-emerald-400">with a real</span>
+                <span className="block">
+                  <span className="text-white">Renziy </span>
+                  <span className="text-emerald-400">account.</span>
+                </span>
               </h1>
               <p className="text-sm md:text-base text-slate-100 max-w-xl mx-auto lg:mx-0 leading-relaxed font-semibold drop-shadow-lg">
                 Create a tenant or landlord account, sign in securely, and access only the workspace connected to that account type.
@@ -329,8 +348,32 @@ export default function LandingPage() {
                   </label>
                 )}
 
+                {authMode === 'signin' && (
+                  <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 cursor-pointer">
+                    <span className="flex items-center gap-3">
+                      <input
+                        checked={rememberMe}
+                        onChange={event => setRememberMe(event.target.checked)}
+                        type="checkbox"
+                        className="h-4 w-4 accent-emerald-500 cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-slate-200">Remember me</span>
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Saved email</span>
+                  </label>
+                )}
+
                 {authMode === 'reset' && resetDelivery && (
                   <>
+                    {resetDelivery.resetCode && (
+                      <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Recovery code</span>
+                        <p className="mt-1 text-2xl font-black tracking-widest text-white">{resetDelivery.resetCode}</p>
+                        <p className="mt-1 text-[10px] font-bold text-slate-300">
+                          Sent to {resetDelivery.email} and {resetDelivery.phone}. This code expires in 10 minutes.
+                        </p>
+                      </div>
+                    )}
                     <label className="block space-y-1">
                       <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">Reset code</span>
                       <span className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-emerald-500 bg-slate-900 transition-all">

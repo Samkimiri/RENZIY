@@ -3,12 +3,14 @@ import { useRenziy } from '../state';
 import { Property, Unit } from '../types';
 import { Search, MapPin, ChevronRight, UserMinus, Plus, Edit2, Check, X, DollarSign, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { UNIT_DIRECTORY_PAGE_SIZE } from '../unitLimits';
 
 export default function LandlordProperties() {
   const { properties, units, addTenantToUnit, updateUnit } = useRenziy();
   const [search, setSearch] = useState('');
   const [activePropertyId, setActivePropertyId] = useState<string>('prop-1');
   const [filterMode, setFilterMode] = useState<'all' | 'commercial' | 'residential'>('all');
+  const [visibleUnitCount, setVisibleUnitCount] = useState(UNIT_DIRECTORY_PAGE_SIZE);
 
   // Edit Unit Mode State
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
@@ -27,6 +29,10 @@ export default function LandlordProperties() {
       setActivePropertyId(portfolioProperties[0].id);
     }
   }, [activePropertyId, portfolioProperties]);
+
+  useEffect(() => {
+    setVisibleUnitCount(UNIT_DIRECTORY_PAGE_SIZE);
+  }, [activePropertyId]);
 
   // Find active property info
   const activeProperty = portfolioProperties.find(p => p.id === activePropertyId) || portfolioProperties[0];
@@ -47,6 +53,7 @@ export default function LandlordProperties() {
 
   // Load the units for the chosen active property
   const activePropertyUnits = portfolioUnits.filter(u => u.propertyId === activePropertyId);
+  const visiblePropertyUnits = activePropertyUnits.slice(0, visibleUnitCount);
 
   // Compute stats
   const totalPropertyYield = activePropertyUnits.reduce((sum, u) => sum + u.rentAmount, 0);
@@ -184,6 +191,21 @@ export default function LandlordProperties() {
                   </div>
                 </div>
               </div>
+              {activePropertyUnits.length > UNIT_DIRECTORY_PAGE_SIZE && (
+                <div className="px-6 py-3 bg-[#fcf8fb] border-b border-[#e4e2e4] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-[#73777f]">
+                    Showing {Math.min(visibleUnitCount, activePropertyUnits.length).toLocaleString()} of {activePropertyUnits.length.toLocaleString()} units
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setVisibleUnitCount(prev => Math.min(prev + UNIT_DIRECTORY_PAGE_SIZE, activePropertyUnits.length))}
+                    disabled={visibleUnitCount >= activePropertyUnits.length}
+                    className="self-start sm:self-auto px-3 py-2 rounded-xl bg-[#002645] text-white text-[10px] font-black uppercase tracking-wider disabled:bg-slate-300 transition-all"
+                  >
+                    Load more units
+                  </button>
+                </div>
+              )}
 
               {/* Units Table list responsive */}
               <div className="overflow-x-auto">
@@ -198,7 +220,7 @@ export default function LandlordProperties() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#f0edef]">
-                    {activePropertyUnits.map(u => {
+                    {visiblePropertyUnits.map(u => {
                       const isEditing = editingUnitId === u.id;
 
                       return (

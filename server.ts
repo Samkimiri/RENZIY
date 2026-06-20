@@ -3,6 +3,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import { normalizeUnitCount } from "./src/unitLimits";
 
 interface Property {
   id: string;
@@ -401,7 +402,7 @@ let notifications: Notification[] = [
 
 let members: PlatformMember[] = [
   {
-    id: 'member-landlord-demo',
+    id: 'member-landlord-default',
     role: 'landlord',
     name: 'John Doe',
     phone: '0743475247',
@@ -413,7 +414,7 @@ let members: PlatformMember[] = [
     status: 'Active'
   },
   {
-    id: 'member-tenant-demo',
+    id: 'member-tenant-default',
     role: 'tenant',
     name: 'Alex Smith',
     phone: '0712456789',
@@ -427,7 +428,7 @@ let members: PlatformMember[] = [
     status: 'Active'
   },
   {
-    id: 'member-worker-demo',
+    id: 'member-worker-default',
     role: 'worker',
     name: 'Mark S.',
     phone: '0743991122',
@@ -815,10 +816,11 @@ const unitBelongsTo = (unitId: string, email: string) => {
     }
 
     const resetCode = crypto.randomInt(100000, 1000000).toString();
+    const expiresAt = Date.now() + 10 * 60 * 1000;
     passwordResetChallenges.set(resetKey(role, email), {
       memberId: member.id,
       codeHash: hashPassword(resetCode),
-      expiresAt: Date.now() + 10 * 60 * 1000,
+      expiresAt,
       attempts: 0
     });
 
@@ -827,7 +829,8 @@ const unitBelongsTo = (unitId: string, email: string) => {
       delivery: {
         email: maskEmail(member.email),
         phone: maskPhone(member.phone),
-        resetCode
+        resetCode,
+        expiresAt
       }
     });
   });
@@ -926,6 +929,7 @@ const unitBelongsTo = (unitId: string, email: string) => {
     if (!name || !address || !unitsCount) {
       return res.status(400).json({ error: "Missing required fields" });
     }
+    const normalizedUnitsCount = normalizeUnitCount(unitsCount);
 
     const id = `prop-${Date.now()}`;
     const newProperty: Property = {
@@ -933,14 +937,15 @@ const unitBelongsTo = (unitId: string, email: string) => {
       id,
       name: sanitizeText(name, 120),
       address: sanitizeText(address, 180),
-      unitsCount: Number(unitsCount),
+      unitsCount: normalizedUnitsCount,
       imageUrl: sanitizeUrl(imageUrl),
+      availableForMarketplace: true,
       ownerEmail: session.email
     };
     properties.push(newProperty);
 
     // Auto generate internal units
-    const generatedUnits: Unit[] = Array.from({ length: unitsCount }).map((_, index) => {
+    const generatedUnits: Unit[] = Array.from({ length: normalizedUnitsCount }).map((_, index) => {
       const unitNum = `${100 + index + 1}`;
       return {
         id: `unit-${id}-${unitNum}`,
@@ -966,7 +971,7 @@ const unitBelongsTo = (unitId: string, email: string) => {
 
     properties = properties.map(property => {
       if (property.id === id && property.ownerEmail?.toLowerCase() === session.email.toLowerCase()) {
-        updatedProperty = { ...property, ...req.body };
+        updatedProperty = { ...property, ...req.body, availableForMarketplace: true };
         return updatedProperty;
       }
       return property;

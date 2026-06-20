@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useRenziy } from '../state';
 import { Property } from '../types';
 import { Building2, CheckCircle2, CreditCard, Home, MapPin, MessageCircle, Navigation, Phone, Search, SlidersHorizontal } from 'lucide-react';
+import { MARKETPLACE_UNIT_BATCH_SIZE } from '../unitLimits';
 
 const KENYA_LOCATION_DATA = [
   { county: 'Baringo', constituencies: ['Baringo Central', 'Baringo North', 'Eldama Ravine', 'Mogotio', 'Tiaty'], locations: ['Kabarnet', 'Eldama Ravine', 'Marigat', 'Mogotio'] },
@@ -93,6 +94,7 @@ export default function HousingMarketplace() {
   const [maxRent, setMaxRent] = useState('');
   const [requestMessage, setRequestMessage] = useState('');
   const [editingPropertyId, setEditingPropertyId] = useState(properties[0]?.id || '');
+  const [visibleUnitsByProperty, setVisibleUnitsByProperty] = useState<Record<string, number>>({});
   const sessionEmail = localStorage.getItem('renziy_user_email') || '';
   const editableProperties = role === 'landlord'
     ? properties.filter(property => property.ownerEmail?.toLowerCase() === sessionEmail.toLowerCase())
@@ -108,7 +110,7 @@ export default function HousingMarketplace() {
     description: defaultEditableProperty?.description || '',
     amenities: defaultEditableProperty?.amenities?.join(', ') || DEFAULT_AMENITIES.join(', '),
     mapQuery: defaultEditableProperty?.mapQuery || '',
-    availableForMarketplace: defaultEditableProperty?.availableForMarketplace ?? true
+    availableForMarketplace: true
   });
 
   const selectedProperty = editableProperties.find(property => property.id === editingPropertyId) || defaultEditableProperty;
@@ -127,10 +129,11 @@ export default function HousingMarketplace() {
       .map(property => {
         const propertyUnits = units.filter(unit => unit.propertyId === property.id);
         const vacantUnits = propertyUnits.filter(unit => unit.status === 'Vacant');
-        const lowestRent = vacantUnits.length ? Math.min(...vacantUnits.map(unit => unit.rentAmount)) : 0;
-        return { property, propertyUnits, vacantUnits, lowestRent };
+        const lowestRent = vacantUnits.reduce((lowest, unit) => Math.min(lowest, unit.rentAmount), Number.POSITIVE_INFINITY);
+        const searchableUnitText = query ? vacantUnits.map(unit => `${unit.unitNumber} ${unit.rentAmount}`) : [];
+        return { property, propertyUnits, vacantUnits, lowestRent: Number.isFinite(lowestRent) ? lowestRent : 0, searchableUnitText };
       })
-      .filter(({ property, vacantUnits, lowestRent }) => {
+      .filter(({ property, vacantUnits, lowestRent, searchableUnitText }) => {
         const listed = property.availableForMarketplace !== false;
         const countyMatch = county === 'All' || (property.county || '').toLowerCase() === county.toLowerCase();
         const constituencyMatch = constituency === 'All' || (property.constituency || '').toLowerCase() === constituency.toLowerCase();
@@ -147,7 +150,7 @@ export default function HousingMarketplace() {
           property.mapQuery,
           property.contactPhone,
           ...(property.amenities || []),
-          ...vacantUnits.map(unit => `${unit.unitNumber} ${unit.rentAmount}`)
+          ...searchableUnitText
         ].join(' ').toLowerCase();
         const queryMatch = !query || text.includes(query.toLowerCase());
         const rentMatch = !maxRent || lowestRent <= Number(maxRent);
@@ -167,7 +170,7 @@ export default function HousingMarketplace() {
       description: property.description || '',
       amenities: property.amenities?.join(', ') || DEFAULT_AMENITIES.join(', '),
       mapQuery: property.mapQuery || '',
-      availableForMarketplace: property.availableForMarketplace ?? true
+      availableForMarketplace: true
     });
   };
 
@@ -185,7 +188,7 @@ export default function HousingMarketplace() {
       description: formState.description,
       amenities: formState.amenities.split(',').map(item => item.trim()).filter(Boolean),
       mapQuery: formState.mapQuery || [selectedProperty.name, formState.specificLocation, formState.neighborhood, formState.constituency, formState.town, formState.county, 'Kenya'].filter(Boolean).join(', '),
-      availableForMarketplace: formState.availableForMarketplace
+      availableForMarketplace: true
     });
   };
 
@@ -290,8 +293,8 @@ export default function HousingMarketplace() {
                 >
                   <span className="block text-sm font-black text-[#002645]">{property.name}</span>
                   <span className="block text-[11px] text-[#73777f] font-semibold mt-1">{property.county || 'County not set'} - {property.town || property.address}</span>
-                  <span className={`mt-2 inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide ${property.availableForMarketplace === false ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-800'}`}>
-                    {property.availableForMarketplace === false ? 'Hidden' : 'Published'}
+                  <span className="mt-2 inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide bg-emerald-100 text-emerald-800">
+                    Visible to marketplace
                   </span>
                 </button>
               ))}
@@ -310,14 +313,9 @@ export default function HousingMarketplace() {
                 <h2 className="text-xl font-black text-[#002645] mt-1">Publish apartment location details</h2>
                 <p className="text-xs text-[#73777f] mt-1">Fill these fields so potential tenants can find your house by county and open the exact area in Google Maps.</p>
               </div>
-              <label className="flex items-center gap-2 text-xs font-black text-[#002645] bg-[#f6f3f5] px-3 py-2 rounded-xl">
-                <input
-                  type="checkbox"
-                  checked={formState.availableForMarketplace}
-                  onChange={(event) => setFormState(prev => ({ ...prev, availableForMarketplace: event.target.checked }))}
-                />
-                Listed
-              </label>
+              <span className="inline-flex items-center rounded-xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800">
+                Saved updates are visible to tenants and landlords
+              </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -457,7 +455,11 @@ export default function HousingMarketplace() {
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
-        {marketplaceListings.map(({ property, vacantUnits, lowestRent }) => (
+        {marketplaceListings.map(({ property, vacantUnits, lowestRent }) => {
+          const visibleCount = visibleUnitsByProperty[property.id] || MARKETPLACE_UNIT_BATCH_SIZE;
+          const visibleVacantUnits = vacantUnits.slice(0, visibleCount);
+
+          return (
           <article key={property.id} className="bg-white rounded-2xl md:rounded-3xl border border-[#e4e2e4] overflow-hidden shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-5">
               <div className="md:col-span-2 min-h-44 sm:min-h-56 bg-cover bg-center" style={{ backgroundImage: `url('${property.imageUrl}')` }} />
@@ -512,7 +514,7 @@ export default function HousingMarketplace() {
                     <CreditCard className="h-4 w-4 text-emerald-700 shrink-0" />
                   </div>
                   <div className="space-y-2">
-                    {vacantUnits.map(unit => {
+                    {visibleVacantUnits.map(unit => {
                       const application = getApplicationForUnit(unit.id);
                       const whatsappUrl = whatsappUrlFor(property, unit.id);
                       return (
@@ -557,6 +559,18 @@ export default function HousingMarketplace() {
                         </div>
                       );
                     })}
+                    {visibleCount < vacantUnits.length && (
+                      <button
+                        type="button"
+                        onClick={() => setVisibleUnitsByProperty(prev => ({
+                          ...prev,
+                          [property.id]: Math.min((prev[property.id] || MARKETPLACE_UNIT_BATCH_SIZE) + MARKETPLACE_UNIT_BATCH_SIZE, vacantUnits.length)
+                        }))}
+                        className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-800 hover:bg-emerald-50 transition-all"
+                      >
+                        Show more units ({Math.min(visibleCount, vacantUnits.length).toLocaleString()} of {vacantUnits.length.toLocaleString()})
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -576,7 +590,8 @@ export default function HousingMarketplace() {
               <iframe title={`${property.name} map`} src={embedUrlFor(property)} loading="lazy" className="w-full h-44 sm:h-56 rounded-2xl border border-[#e4e2e4] bg-white" />
             </div>
           </article>
-        ))}
+          );
+        })}
 
         {marketplaceListings.length === 0 && (
           <div className="xl:col-span-2 bg-white rounded-2xl md:rounded-3xl border border-[#e4e2e4] p-6 sm:p-10 text-center">

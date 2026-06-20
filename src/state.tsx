@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Property, Unit, Payment, MaintenanceRequest, Notification, AppUserRole, SettlementConfig, PlatformMember, RentalApplication } from './types';
+import { normalizeUnitCount } from './unitLimits';
 
 interface RenziyContextType {
   role: AppUserRole;
@@ -29,7 +30,7 @@ interface RenziyContextType {
   updateSettlementConfig: (config: Partial<SettlementConfig>) => Promise<void>;
   updateProfileAvatar: (memberId: string, avatarUrl: string, unitId?: string) => Promise<void>;
   updateTenantAvatar: (unitId: string, tenantAvatar: string) => Promise<void>;
-  requestPasswordReset: (role: PlatformMember['role'], email: string) => Promise<{ email: string; phone: string; resetCode?: string }>;
+  requestPasswordReset: (role: PlatformMember['role'], email: string) => Promise<{ email: string; phone: string; resetCode?: string; expiresAt?: number }>;
   confirmPasswordReset: (role: PlatformMember['role'], email: string, code: string, password: string) => Promise<void>;
   registerMember: (member: Omit<PlatformMember, 'id' | 'joinDate' | 'status'>) => Promise<PlatformMember>;
   submitRentalApplication: (application: Omit<RentalApplication, 'id' | 'requestedAt' | 'status'>) => Promise<RentalApplication>;
@@ -39,10 +40,10 @@ interface RenziyContextType {
 }
 
 const RenziyContext = createContext<RenziyContextType | undefined>(undefined);
-const DEMO_OWNER_EMAIL = 'john@renziy.app';
-const DEMO_OWNER_PHONE = '0743475247';
-const DEMO_WORKER: PlatformMember = {
-  id: 'member-worker-demo',
+const DEFAULT_OWNER_EMAIL = 'john@renziy.app';
+const DEFAULT_OWNER_PHONE = '0743475247';
+const DEFAULT_WORKER: PlatformMember = {
+  id: 'member-worker-default',
   role: 'worker',
   name: 'Mark S.',
   phone: '0743991122',
@@ -77,7 +78,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const saved = localStorage.getItem('renziy_properties');
     if (saved) {
       return (JSON.parse(saved) as Property[]).map(property => (
-        property.ownerEmail === DEMO_OWNER_EMAIL ? { ...property, contactPhone: DEMO_OWNER_PHONE } : property
+        property.ownerEmail === DEFAULT_OWNER_EMAIL ? { ...property, contactPhone: DEFAULT_OWNER_PHONE } : property
       ));
     }
     return [
@@ -381,15 +382,15 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const saved = localStorage.getItem('renziy_members');
     if (saved) {
       const savedMembers = (JSON.parse(saved) as PlatformMember[]).map(member => (
-        member.role === 'landlord' && member.email === DEMO_OWNER_EMAIL ? { ...member, phone: DEMO_OWNER_PHONE } : member
+        member.role === 'landlord' && member.email === DEFAULT_OWNER_EMAIL ? { ...member, phone: DEFAULT_OWNER_PHONE } : member
       ));
-      return savedMembers.some(member => member.role === 'worker' && member.email === DEMO_WORKER.email)
+      return savedMembers.some(member => member.role === 'worker' && member.email === DEFAULT_WORKER.email)
         ? savedMembers
-        : [DEMO_WORKER, ...savedMembers];
+        : [DEFAULT_WORKER, ...savedMembers];
     }
     return [
       {
-        id: 'member-landlord-demo',
+        id: 'member-landlord-default',
         role: 'landlord',
         name: 'John Doe',
         phone: '0743475247',
@@ -401,7 +402,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         status: 'Active'
       },
       {
-        id: 'member-tenant-demo',
+        id: 'member-tenant-default',
         role: 'tenant',
         name: 'Alex Smith',
         phone: '0712456789',
@@ -415,7 +416,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         status: 'Active'
       },
       {
-        id: 'member-worker-demo',
+        id: 'member-worker-default',
         role: 'worker',
         name: 'Mark S.',
         phone: '0743991122',
@@ -498,6 +499,32 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     loadAllData();
   }, []);
 
+  useEffect(() => {
+    if (role === 'anonymous') return;
+
+    const refreshSharedHousingData = async () => {
+      try {
+        const [propsRes, unitsRes, applicationsRes] = await Promise.all([
+          fetch('/api/properties'),
+          fetch('/api/units'),
+          fetch('/api/rental-applications')
+        ]);
+        if (propsRes.ok) setProperties(await propsRes.json());
+        if (unitsRes.ok) setUnits(await unitsRes.json());
+        if (applicationsRes.ok) setRentalApplications(await applicationsRes.json());
+      } catch (err) {
+        console.warn("Shared housing refresh unavailable, using local state:", err);
+      }
+    };
+
+    const refreshId = window.setInterval(refreshSharedHousingData, 15000);
+    window.addEventListener('focus', refreshSharedHousingData);
+    return () => {
+      window.clearInterval(refreshId);
+      window.removeEventListener('focus', refreshSharedHousingData);
+    };
+  }, [role]);
+
   // Soft-sync State to Local Storage for immediate UI responsive rendering
   useEffect(() => {
     localStorage.setItem('renziy_role', role);
@@ -526,9 +553,10 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const addProperty = async (newProp: Omit<Property, 'id'>) => {
     // Optimistic fallback
     const id = `prop-${Date.now()}`;
-    const property: Property = { ...newProp, id };
+    const unitsCount = normalizeUnitCount(newProp.unitsCount);
+    const property: Property = { ...newProp, id, unitsCount };
     setProperties(prev => [...prev, property]);
-    const generatedUnits: Unit[] = Array.from({ length: Number(newProp.unitsCount) || 0 }).map((_, index) => {
+    const generatedUnits: Unit[] = Array.from({ length: unitsCount }).map((_, index) => {
       const unitNumber = `${100 + index + 1}`;
       return {
         id: `unit-${id}-${unitNumber}`,
@@ -545,7 +573,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const res = await fetch('/api/properties', {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify(newProp)
+        body: JSON.stringify({ ...newProp, unitsCount })
       });
       if (res.ok) {
         const propsRes = await fetch('/api/properties');
@@ -1042,14 +1070,6 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const requestPasswordReset = async (role: PlatformMember['role'], email: string) => {
     const normalizedEmail = email.trim().toLowerCase();
-    const matchingMember = members.find(member => (
-      member.role === role &&
-      member.email.toLowerCase() === normalizedEmail
-    ));
-
-    if (!matchingMember) {
-      throw new Error('No matching account was found for that role and email address.');
-    }
 
     try {
       const res = await fetch('/api/auth/request-password-reset', {
@@ -1059,7 +1079,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
       if (res.ok) {
         const data = await res.json();
-        return data.delivery as { email: string; phone: string; resetCode?: string };
+        return data.delivery as { email: string; phone: string; resetCode?: string; expiresAt?: number };
       }
 
       const data = await res.json().catch(() => null);
@@ -1069,15 +1089,26 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         throw err;
       }
       console.warn("Express API password reset unavailable, using local reset code:", err);
+      const matchingMember = members.find(member => (
+        member.role === role &&
+        member.email.toLowerCase() === normalizedEmail
+      ));
+
+      if (!matchingMember) {
+        throw new Error('No matching account was found for that role and email address.');
+      }
+
       const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = Date.now() + 10 * 60 * 1000;
       setPasswordResetChallenges(prev => ({
         ...prev,
-        [resetKey(role, normalizedEmail)]: { code, expiresAt: Date.now() + 10 * 60 * 1000 }
+        [resetKey(role, normalizedEmail)]: { code, expiresAt }
       }));
       return {
         email: maskEmail(matchingMember.email),
         phone: maskPhone(matchingMember.phone),
-        resetCode: code
+        resetCode: code,
+        expiresAt
       };
     }
   };
