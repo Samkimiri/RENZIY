@@ -5,9 +5,10 @@ import { motion } from 'motion/react';
 import { Wrench, ShieldAlert, CheckCircle2, Clock, Calendar, Filter, User, HelpCircle, ArrowRightCircle } from 'lucide-react';
 
 export default function MaintenanceHistory() {
-  const { role, maintenanceRequests, updateRequestStatus } = useRenziy();
+  const { role, maintenanceRequests, members, updateRequestStatus, assignMaintenanceWorker } = useRenziy();
   const [filterUrgency, setFilterUrgency] = useState<'All' | 'High-Emergency' | 'Low-Med'>('All');
   const [filterStatus, setFilterStatus] = useState<'All' | 'Active' | 'Resolved'>('All');
+  const workers = members.filter(member => member.role === 'worker' && member.status === 'Active');
 
   // Realistic starting numbers padding
   const totalCount = maintenanceRequests.length + 9;
@@ -181,18 +182,33 @@ export default function MaintenanceHistory() {
 
                 {/* LANDLORD WORKFLOW STATUS CONTROLLER (Only visible when role is landlord) */}
                 {role === 'landlord' && (
-                  <div className="flex items-center gap-2 bg-[#eae7ea]/50 p-2 rounded-xl border border-[#c3c6cf] self-start sm:self-auto">
-                    <span className="text-[10px] text-[#73777f] font-bold uppercase">Assign State:</span>
-                    <select
-                      className="bg-white p-1 rounded font-bold text-xs border border-[#c3c6cf] focus:outline-none focus:border-[#002645]"
-                      value={ticket.status}
-                      onChange={(e) => updateRequestStatus(ticket.id, e.target.value as any)}
-                    >
-                      <option value="Submitted">Submitted</option>
-                      <option value="Acknowledged">Acknowledged</option>
-                      <option value="In Progress">In Progress</option>
-                      <option value="Resolved">Resolved</option>
-                    </select>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-[#eae7ea]/50 p-2 rounded-xl border border-[#c3c6cf] self-start sm:self-auto">
+                    <label className="flex items-center gap-2">
+                      <span className="text-[10px] text-[#73777f] font-bold uppercase">Worker:</span>
+                      <select
+                        className="bg-white p-1 rounded font-bold text-xs border border-[#c3c6cf] focus:outline-none focus:border-[#002645]"
+                        value={ticket.technicianEmail || ''}
+                        onChange={(e) => e.target.value && assignMaintenanceWorker(ticket.id, e.target.value)}
+                      >
+                        <option value="">Contact worker</option>
+                        {workers.map(worker => (
+                          <option key={worker.id} value={worker.email}>{worker.name} - {worker.specialty || 'General'}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <span className="text-[10px] text-[#73777f] font-bold uppercase">State:</span>
+                      <select
+                        className="bg-white p-1 rounded font-bold text-xs border border-[#c3c6cf] focus:outline-none focus:border-[#002645]"
+                        value={ticket.status}
+                        onChange={(e) => updateRequestStatus(ticket.id, e.target.value as any)}
+                      >
+                        <option value="Submitted">Submitted</option>
+                        <option value="Acknowledged">Acknowledged</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Resolved">Resolved</option>
+                      </select>
+                    </label>
                   </div>
                 )}
               </div>

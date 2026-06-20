@@ -49,7 +49,7 @@ export interface Tenant {
 
 export interface PlatformMember {
   id: string;
-  role: 'landlord' | 'tenant';
+  role: 'landlord' | 'tenant' | 'worker';
   name: string;
   phone: string;
   email: string;
@@ -58,6 +58,7 @@ export interface PlatformMember {
   propertyName?: string;
   unitNumber?: string;
   rentAmount?: number;
+  specialty?: string;
   joinDate: string;
   status: 'Active' | 'Pending Review';
 }
@@ -102,6 +103,8 @@ export interface MaintenanceRequest {
   date: string;
   photos: string[];
   technicianName?: string;
+  technicianEmail?: string;
+  technicianPhone?: string;
   technicianAvatar?: string;
   arrivalTime?: string;
   propertyName: string;
@@ -118,7 +121,7 @@ export interface Notification {
   unread: boolean;
 }
 
-export type AppUserRole = 'landlord' | 'tenant' | 'anonymous';
+export type AppUserRole = 'landlord' | 'tenant' | 'worker' | 'anonymous';
 
 export interface SettlementConfig {
   mpesaType: 'Paybill' | 'BuyGoods' | 'PhoneNumber';

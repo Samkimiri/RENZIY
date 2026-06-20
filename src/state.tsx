@@ -22,6 +22,7 @@ interface RenziyContextType {
   recordPayment: (payment: Omit<Payment, 'id' | 'code'>) => void;
   addMaintenanceRequest: (request: Omit<MaintenanceRequest, 'id' | 'status' | 'date' | 'tenantName' | 'propertyName' | 'unitNumber'>) => void;
   updateRequestStatus: (requestId: string, status: MaintenanceRequest['status']) => void;
+  assignMaintenanceWorker: (requestId: string, workerEmail: string) => Promise<void>;
   clearBalanceAndRecordPayment: (method: 'M-Pesa' | 'Card') => void;
   markNotificationsAsRead: () => void;
   toggleUnitLock: (unitId: string, isLocked: boolean, lockReason?: string) => Promise<void>;
@@ -35,6 +36,20 @@ interface RenziyContextType {
 }
 
 const RenziyContext = createContext<RenziyContextType | undefined>(undefined);
+const DEMO_OWNER_EMAIL = 'john@renziy.app';
+const DEMO_OWNER_PHONE = '0743475247';
+const DEMO_WORKER: PlatformMember = {
+  id: 'member-worker-demo',
+  role: 'worker',
+  name: 'Mark S.',
+  phone: '0743991122',
+  email: 'mark@renziy.app',
+  password: 'demo123',
+  avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
+  specialty: 'Plumbing and general repairs',
+  joinDate: '2026-05-23',
+  status: 'Active'
+};
 
 export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Navigation Role and Logged in user info
@@ -50,7 +65,11 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Base Properties
   const [properties, setProperties] = useState<Property[]>(() => {
     const saved = localStorage.getItem('renziy_properties');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      return (JSON.parse(saved) as Property[]).map(property => (
+        property.ownerEmail === DEMO_OWNER_EMAIL ? { ...property, contactPhone: DEMO_OWNER_PHONE } : property
+      ));
+    }
     return [
       {
         id: 'prop-1',
@@ -65,7 +84,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         specificLocation: 'Yaya Centre, Argwings Kodhek Road',
         description: 'Managed apartments close to shopping, transport, schools, and everyday services.',
         amenities: ['Security', 'Parking', 'Water', 'Wi-Fi ready', 'Near public transport'],
-        contactPhone: '0712345678',
+        contactPhone: '0743475247',
         mapQuery: 'Kilimani Nairobi Kenya',
         availableForMarketplace: true,
         ownerEmail: 'john@renziy.app'
@@ -83,7 +102,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         specificLocation: 'Links Road near City Mall',
         description: 'Coastal rental homes with quick access to beach areas, malls, and public transport.',
         amenities: ['Security', 'Parking', 'Balcony', 'Water', 'Near beach'],
-        contactPhone: '0722001122',
+        contactPhone: '0743475247',
         mapQuery: 'Nyali Mombasa Kenya',
         availableForMarketplace: true,
         ownerEmail: 'john@renziy.app'
@@ -101,7 +120,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         specificLocation: 'Westlands business district',
         description: 'Mixed-use units for tenants who want quick access to Nairobi business corridors.',
         amenities: ['Lift access', 'Security', 'Backup power', 'Parking', 'CBD access'],
-        contactPhone: '0733001122',
+        contactPhone: '0743475247',
         mapQuery: 'Westlands Nairobi Kenya',
         availableForMarketplace: true,
         ownerEmail: 'john@renziy.app'
@@ -119,7 +138,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         specificLocation: 'Waiyaki Way, Westlands',
         description: "High-rise Westlands homes inspired by Le'Mac's mixed-use residential tower profile, with city access, lift service, and lifestyle amenities.",
         amenities: ['Lift access', 'Gym', 'Backup power', 'Security', 'Parking'],
-        contactPhone: '0738112233',
+        contactPhone: '0743475247',
         mapQuery: "Le'Mac Westlands Nairobi Kenya",
         availableForMarketplace: true,
         ownerEmail: 'john@renziy.app'
@@ -137,7 +156,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         specificLocation: 'Greenpark Estate area, Athi River',
         description: 'Family-friendly homes inspired by the well-known Greenpark development corridor near Nairobi, with quieter living and road access.',
         amenities: ['Parking', 'Garden court', 'Security', 'Water', 'Family estate'],
-        contactPhone: '0744556677',
+        contactPhone: '0743475247',
         mapQuery: 'Greenpark Athi River Machakos Kenya',
         availableForMarketplace: true,
         ownerEmail: 'john@renziy.app'
@@ -155,7 +174,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         specificLocation: 'Ole Sangale Road, Madaraka',
         description: 'Practical city flats inspired by Madaraka Estate, close to CBD routes, universities, stadium access, and everyday services.',
         amenities: ['Near CBD', 'Public transport', 'Water', 'Security', 'Schools nearby'],
-        contactPhone: '0701223344',
+        contactPhone: '0743475247',
         mapQuery: 'Madaraka Estate Nairobi Kenya',
         availableForMarketplace: true,
         ownerEmail: 'john@renziy.app'
@@ -173,7 +192,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         specificLocation: 'Nyali beach residential belt',
         description: 'Coastal apartments inspired by Nyali, with quick access to malls, beach roads, and resort-style residential services.',
         amenities: ['Near beach', 'Balcony', 'Parking', 'Security', 'Water'],
-        contactPhone: '0729004455',
+        contactPhone: '0743475247',
         mapQuery: 'Nyali Beach Mombasa Kenya',
         availableForMarketplace: true,
         ownerEmail: 'john@renziy.app'
@@ -279,6 +298,8 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           'https://lh3.googleusercontent.com/aida-public/AB6AXuAMUjzaEq6ab_V_3MYMo4C6cZFsDjDbKIg_8Pat8Qld5o4TaYVhsmYYTTv0OmwgZ-4I8RGO3LgwQbmryvRw-JuQxSzRcimztLBcV-zJz6kl0MtiWfMS4IkNGZvo3yRxoALnLPBHHAsj8PmXMuQdx4lExUq6yqEyHjSqyVCrfKAqh3sKlD3ZhkMaYXItTe2XwFYBEknIP8pYnQgskVaBzn34fRnBlH2KL3P1Tph3-VjQ8taeHBuXdcS1q2xubjz3yb7Z-H2_bLb0ODzo'
         ],
         technicianName: 'Mark S.',
+        technicianEmail: 'mark@renziy.app',
+        technicianPhone: '0743991122',
         technicianAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
         arrivalTime: '2:00 PM',
         propertyName: 'Oakwood Heights',
@@ -348,13 +369,20 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const [members, setMembers] = useState<PlatformMember[]>(() => {
     const saved = localStorage.getItem('renziy_members');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const savedMembers = (JSON.parse(saved) as PlatformMember[]).map(member => (
+        member.role === 'landlord' && member.email === DEMO_OWNER_EMAIL ? { ...member, phone: DEMO_OWNER_PHONE } : member
+      ));
+      return savedMembers.some(member => member.role === 'worker' && member.email === DEMO_WORKER.email)
+        ? savedMembers
+        : [DEMO_WORKER, ...savedMembers];
+    }
     return [
       {
         id: 'member-landlord-demo',
         role: 'landlord',
         name: 'John Doe',
-        phone: '0712345678',
+        phone: '0743475247',
         email: 'john@renziy.app',
         password: 'demo123',
         avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRxmlZiyPxhMA9KhxxEY-ZornwU45XOarKthi5rZwjaUXVYAzK1Rptwz3XSUMih-aX7N40cr2Ki-5KZvD7pUHT8xTTKjuQMyyucNGma4FaFJirfRO8Nmxdo7wvHhgJnJDxwkPMa5NOJdwGCIEP9IoZoEnvk7HAYZ8jfseOFIDZ7L5DKDb2LTYFaZymzBJ-SYm2ragI8Q_dxp6yzf6AjtEmLdC6yZGqnU2ZCun5dcEqufGWVNNfnsQoC1JyHXHZfKXLK1rfwMLmEMPm',
@@ -374,6 +402,18 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         unitNumber: 'Apt 4B',
         rentAmount: 145000,
         joinDate: '2026-05-22',
+        status: 'Active'
+      },
+      {
+        id: 'member-worker-demo',
+        role: 'worker',
+        name: 'Mark S.',
+        phone: '0743991122',
+        email: 'mark@renziy.app',
+        password: 'demo123',
+        avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
+        specialty: 'Plumbing and general repairs',
+        joinDate: '2026-05-23',
         status: 'Active'
       }
     ];
@@ -662,6 +702,8 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (status === 'In Progress' && !r.technicianName) {
           techObj = {
             technicianName: 'Mark S.',
+            technicianEmail: 'mark@renziy.app',
+            technicianPhone: '0743991122',
             technicianAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
             arrivalTime: '3:30 PM'
           };
@@ -685,6 +727,56 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     } catch (err) {
       console.warn("Express API unreachable:", err);
+    }
+  };
+
+  const assignMaintenanceWorker = async (requestId: string, workerEmail: string) => {
+    const worker = members.find(member => member.role === 'worker' && member.email === workerEmail);
+    if (!worker) return;
+
+    let assignedRequest: MaintenanceRequest | undefined;
+    setMaintenanceRequests(prev => prev.map(request => {
+      if (request.id === requestId) {
+        assignedRequest = {
+          ...request,
+          status: request.status === 'Submitted' ? 'Acknowledged' : request.status,
+          technicianName: worker.name,
+          technicianEmail: worker.email,
+          technicianPhone: worker.phone,
+          technicianAvatar: worker.avatarUrl,
+          arrivalTime: '3:30 PM'
+        };
+        return assignedRequest;
+      }
+      return request;
+    }));
+
+    setNotifications(prev => [
+      {
+        id: `notif-worker-${Date.now()}`,
+        title: 'Worker Assigned',
+        message: `${worker.name} has been contacted for the repair request.`,
+        date: 'Just now',
+        type: 'maintenance',
+        unread: true
+      },
+      ...prev
+    ]);
+
+    try {
+      const res = await fetch(`/api/maintenance/${requestId}/assign-worker`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workerEmail })
+      });
+      if (res.ok) {
+        const maintRes = await fetch('/api/maintenance');
+        if (maintRes.ok) setMaintenanceRequests(await maintRes.json());
+        const notifsRes = await fetch('/api/notifications');
+        if (notifsRes.ok) setNotifications(await notifsRes.json());
+      }
+    } catch (err) {
+      console.warn("Express API worker assignment unavailable, using local workflow:", err);
     }
   };
 
@@ -1080,6 +1172,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         recordPayment,
         addMaintenanceRequest,
         updateRequestStatus,
+        assignMaintenanceWorker,
         clearBalanceAndRecordPayment,
         markNotificationsAsRead,
         toggleUnitLock,

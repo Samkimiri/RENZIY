@@ -10,13 +10,14 @@ import MaintenanceHistory from './components/MaintenanceHistory';
 import SmartLocks from './components/SmartLocks';
 import PayoutSettings from './components/PayoutSettings';
 import HousingMarketplace from './components/HousingMarketplace';
-import { Building2, LayoutDashboard, Building, Wrench, CreditCard, LogOut, Bell, ArrowLeftRight, Lock, Coins, MapPin } from 'lucide-react';
+import WorkerDashboard from './components/WorkerDashboard';
+import { Building2, LayoutDashboard, Building, Wrench, CreditCard, LogOut, Bell, ArrowLeftRight, Lock, Coins, MapPin, HardHat } from 'lucide-react';
 
 function AppContent() {
   const { role, setRole, username, setUsername, notifications, markNotificationsAsRead, units, members } = useRenziy();
   
   // Find tenant avatar dynamically
-  const myUnitInfo = units?.find(u => u.tenantName === username) || (username === 'Alex' || username === 'Alex Smith' ? units?.find(u => u.id === 'unit-1-4b') : undefined);
+  const myUnitInfo = role === 'tenant' ? units?.find(u => u.tenantName === username) || (username === 'Alex' || username === 'Alex Smith' ? units?.find(u => u.id === 'unit-1-4b') : undefined) : undefined;
   const tenantAvatar = myUnitInfo?.tenantAvatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB';
 
   // Navigation active tab inside dashboards
@@ -135,6 +136,23 @@ function AppContent() {
                   <span>Payout Setup</span>
                 </button>
               </>
+            ) : role === 'worker' ? (
+              <>
+                <button
+                  onClick={() => { setActiveTab('dashboard'); setExpressPayMethod(null); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'dashboard' ? 'bg-[#1a3c5e] text-white shadow-sm' : 'text-[#87a7ce] hover:text-white hover:bg-white/5'}`}
+                >
+                  <HardHat className="h-4 w-4" />
+                  <span>Worker Portal</span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('maintenance_list'); setExpressPayMethod(null); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'maintenance_list' ? 'bg-[#1a3c5e] text-white shadow-sm' : 'text-[#87a7ce] hover:text-white hover:bg-white/5'}`}
+                >
+                  <Wrench className="h-4 w-4" />
+                  <span>All Repair Tickets</span>
+                </button>
+              </>
             ) : (
               /* Tenant menu links */
               <>
@@ -203,7 +221,7 @@ function AppContent() {
           <div className="hidden md:flex items-center gap-2">
             <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
             <span className="text-xs font-extrabold text-[#73777f] uppercase tracking-wider">
-              Secure {role === 'landlord' ? 'Landlord' : 'Tenant'} Account Active - {username}
+              Secure {role === 'landlord' ? 'Landlord' : role === 'worker' ? 'Worker' : 'Tenant'} Account Active - {username}
             </span>
           </div>
 
@@ -211,7 +229,7 @@ function AppContent() {
             <div className="hidden sm:flex bg-[#f0edef] px-3 py-2 rounded-full items-center gap-2 border border-[#e4e2e4] shadow-inner relative select-none">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#059669]" />
               <span className="text-[10px] font-black uppercase tracking-wider text-[#002645]">
-                {role === 'landlord' ? 'Landlord Account' : 'Tenant Account'}
+                {role === 'landlord' ? 'Landlord Account' : role === 'worker' ? 'Worker Account' : 'Tenant Account'}
               </span>
             </div>
 
@@ -265,16 +283,18 @@ function AppContent() {
                 <img 
                   alt={username} 
                   className="w-full h-full object-cover" 
-                  src={role === 'landlord' 
+                  src={role === 'landlord'
                     ? 'https://lh3.googleusercontent.com/aida-public/AB6AXuAMwnvNKfivoGNvNC9N5regRXFoTzJgjvygw0djDO-V3kLxr0Hy8prK6Rf3M7eqjVCcsY4Apprti87A1_xX0S9aIJUnk6pTxgqAHsoeDAdjAJ7elxN6Qy-ESwviqRsDX6d6JgEdcqtVRI5xDlnVAeMQTUI_xej9xSBYkSlgfc36PkFJ4ZuitjAA9R5PSRRVX9At_QfcjBLMS_Ux_m71L3CiwKnebuz0RO-Esm93lzAa_uC_pu6gvY1OJGjhmsKN0dNjOdLycbyWgiqE' 
-                    : tenantAvatar
+                    : role === 'worker'
+                      ? 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb'
+                      : tenantAvatar
                   } 
                 />
               </div>
               <div className="hidden lg:block text-left leading-none">
                 <p className="text-xs font-black text-[#002645]">{username}</p>
                 <p className="text-[9px] font-bold text-[#73777f] tracking-wide mt-1 uppercase">
-                  {role === 'landlord' ? 'LANDLORD ADMINISTRATOR' : 'APT 4B RESIDENT'}
+                  {role === 'landlord' ? 'LANDLORD ADMINISTRATOR' : role === 'worker' ? 'MAINTENANCE WORKER' : 'APT 4B RESIDENT'}
                 </p>
               </div>
             </div>
@@ -323,6 +343,15 @@ function AppContent() {
                     return <PayoutSettings />;
                   default:
                     return <LandlordDashboard onNavigate={setActiveTab} />;
+                }
+              } else if (role === 'worker') {
+                switch(activeTab) {
+                  case 'dashboard':
+                    return <WorkerDashboard />;
+                  case 'maintenance_list':
+                    return <MaintenanceHistory />;
+                  default:
+                    return <WorkerDashboard />;
                 }
               } else {
                 switch(activeTab) {
@@ -397,6 +426,23 @@ function AppContent() {
               >
                 <Coins className="h-4.5 w-4.5" />
                 <span className="text-[9px] font-bold">Payouts</span>
+              </button>
+            </>
+          ) : role === 'worker' ? (
+            <>
+              <button
+                onClick={() => { setActiveTab('dashboard'); setExpressPayMethod(null); }}
+                className={mobileNavButtonClass(activeTab === 'dashboard')}
+              >
+                <HardHat className="h-5 w-5" />
+                <span className="text-[10px] font-bold">Jobs</span>
+              </button>
+              <button
+                onClick={() => { setActiveTab('maintenance_list'); setExpressPayMethod(null); }}
+                className={mobileNavButtonClass(activeTab === 'maintenance_list')}
+              >
+                <Wrench className="h-5 w-5" />
+                <span className="text-[10px] font-bold">Tickets</span>
               </button>
             </>
           ) : (
