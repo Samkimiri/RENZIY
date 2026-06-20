@@ -91,21 +91,27 @@ export default function HousingMarketplace() {
   const [specificLocation, setSpecificLocation] = useState('All');
   const [query, setQuery] = useState('');
   const [maxRent, setMaxRent] = useState('');
+  const [requestMessage, setRequestMessage] = useState('');
   const [editingPropertyId, setEditingPropertyId] = useState(properties[0]?.id || '');
+  const sessionEmail = localStorage.getItem('renziy_user_email') || '';
+  const editableProperties = role === 'landlord'
+    ? properties.filter(property => property.ownerEmail?.toLowerCase() === sessionEmail.toLowerCase())
+    : properties;
+  const defaultEditableProperty = editableProperties[0];
   const [formState, setFormState] = useState({
-    county: properties[0]?.county || 'Nairobi',
-    constituency: properties[0]?.constituency || '',
-    town: properties[0]?.town || '',
-    neighborhood: properties[0]?.neighborhood || '',
-    specificLocation: properties[0]?.specificLocation || '',
-    contactPhone: properties[0]?.contactPhone || '',
-    description: properties[0]?.description || '',
-    amenities: properties[0]?.amenities?.join(', ') || DEFAULT_AMENITIES.join(', '),
-    mapQuery: properties[0]?.mapQuery || '',
-    availableForMarketplace: properties[0]?.availableForMarketplace ?? true
+    county: defaultEditableProperty?.county || 'Nairobi',
+    constituency: defaultEditableProperty?.constituency || '',
+    town: defaultEditableProperty?.town || '',
+    neighborhood: defaultEditableProperty?.neighborhood || '',
+    specificLocation: defaultEditableProperty?.specificLocation || '',
+    contactPhone: defaultEditableProperty?.contactPhone || '',
+    description: defaultEditableProperty?.description || '',
+    amenities: defaultEditableProperty?.amenities?.join(', ') || DEFAULT_AMENITIES.join(', '),
+    mapQuery: defaultEditableProperty?.mapQuery || '',
+    availableForMarketplace: defaultEditableProperty?.availableForMarketplace ?? true
   });
 
-  const selectedProperty = properties.find(property => property.id === editingPropertyId) || properties[0];
+  const selectedProperty = editableProperties.find(property => property.id === editingPropertyId) || defaultEditableProperty;
   const selectedCountyData = KENYA_LOCATION_DATA.find(item => item.county === formState.county) || KENYA_LOCATION_DATA.find(item => item.county === county);
   const filterCountyData = KENYA_LOCATION_DATA.find(item => item.county === county);
   const constituencyOptions = county === 'All'
@@ -114,7 +120,7 @@ export default function HousingMarketplace() {
   const locationOptions = county === 'All'
     ? Array.from(new Set(KENYA_LOCATION_DATA.flatMap(item => item.locations))).sort()
     : filterCountyData?.locations || [];
-  const currentTenant = members.find(member => member.role === 'tenant' && member.name === username);
+  const currentTenant = members.find(member => member.role === 'tenant' && member.email.toLowerCase() === sessionEmail.toLowerCase());
 
   const marketplaceListings = useMemo(() => {
     return properties
@@ -209,19 +215,25 @@ export default function HousingMarketplace() {
     if (!unit || !currentTenant) return;
 
     const existingApplication = getApplicationForUnit(unitId);
-    if (!existingApplication) {
-      await submitRentalApplication({
-        propertyId: property.id,
-        propertyName: property.name,
-        unitId: unit.id,
-        unitNumber: unit.unitNumber,
-        rentAmount: unit.rentAmount,
-        ownerEmail: property.ownerEmail,
-        ownerPhone: getOwnerPhone(property),
-        tenantName: username,
-        tenantEmail: currentTenant.email,
-        tenantPhone: currentTenant.phone
-      });
+    try {
+      if (!existingApplication) {
+        await submitRentalApplication({
+          propertyId: property.id,
+          propertyName: property.name,
+          unitId: unit.id,
+          unitNumber: unit.unitNumber,
+          rentAmount: unit.rentAmount,
+          ownerEmail: property.ownerEmail,
+          ownerPhone: getOwnerPhone(property),
+          tenantName: username,
+          tenantEmail: currentTenant.email,
+          tenantPhone: currentTenant.phone
+        });
+      }
+      setRequestMessage(`Request sent for ${property.name} - Unit ${unit.unitNumber}.`);
+    } catch (err) {
+      setRequestMessage(err instanceof Error ? err.message : 'This unit could not be requested right now.');
+      return;
     }
 
     const whatsappUrl = whatsappUrlFor(property, unitId);
@@ -269,7 +281,7 @@ export default function HousingMarketplace() {
           <div className="lg:col-span-4 bg-white rounded-2xl md:rounded-3xl border border-[#e4e2e4] p-4 shadow-sm">
             <h2 className="text-xs font-black uppercase tracking-widest text-[#73777f] mb-3">Select Apartment Asset</h2>
             <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-              {properties.map(property => (
+              {editableProperties.map(property => (
                 <button
                   key={property.id}
                   type="button"
@@ -283,6 +295,11 @@ export default function HousingMarketplace() {
                   </span>
                 </button>
               ))}
+              {editableProperties.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-[#c3c6cf] bg-[#fcf8fb] p-4 text-xs font-semibold text-[#73777f]">
+                  No properties are attached to this landlord account yet.
+                </div>
+              )}
             </div>
           </div>
 
@@ -396,6 +413,11 @@ export default function HousingMarketplace() {
               </div>
             </div>
           </div>
+          {requestMessage && (
+            <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800">
+              {requestMessage}
+            </div>
+          )}
         </section>
       )}
 

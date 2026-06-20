@@ -1,22 +1,37 @@
 import React, { useState } from 'react';
 import { useRenziy } from '../state';
-import { MaintenanceRequest } from '../types';
 import { motion } from 'motion/react';
 import { Wrench, ShieldAlert, CheckCircle2, Clock, Calendar, Filter, User, HelpCircle, ArrowRightCircle } from 'lucide-react';
 
 export default function MaintenanceHistory() {
-  const { role, maintenanceRequests, members, updateRequestStatus, assignMaintenanceWorker } = useRenziy();
+  const { role, username, maintenanceRequests, members, properties, updateRequestStatus, assignMaintenanceWorker } = useRenziy();
   const [filterUrgency, setFilterUrgency] = useState<'All' | 'High-Emergency' | 'Low-Med'>('All');
   const [filterStatus, setFilterStatus] = useState<'All' | 'Active' | 'Resolved'>('All');
+  const sessionEmail = localStorage.getItem('renziy_user_email') || '';
+  const activeMember = members.find(member => member.role === role && member.email.toLowerCase() === sessionEmail.toLowerCase());
   const workers = members.filter(member => member.role === 'worker' && member.status === 'Active');
+  const landlordPropertyNames = properties
+    .filter(property => property.ownerEmail === sessionEmail || (!property.ownerEmail && sessionEmail === 'john@renziy.app'))
+    .map(property => property.name);
+  const visibleRequests = maintenanceRequests.filter(request => {
+    if (role === 'landlord') return landlordPropertyNames.includes(request.propertyName);
+    if (role === 'worker') return !request.technicianEmail || request.technicianEmail.toLowerCase() === sessionEmail.toLowerCase();
+    if (role === 'tenant') {
+      return request.tenantName === username || (
+        activeMember?.propertyName === request.propertyName &&
+        activeMember?.unitNumber === request.unitNumber
+      );
+    }
+    return false;
+  });
 
   // Realistic starting numbers padding
-  const totalCount = maintenanceRequests.length + 9;
-  const resolvedCount = maintenanceRequests.filter(r => r.status === 'Resolved').length + 6;
-  const activeCount = maintenanceRequests.filter(r => r.status !== 'Resolved').length + 3;
+  const totalCount = visibleRequests.length + 9;
+  const resolvedCount = visibleRequests.filter(r => r.status === 'Resolved').length + 6;
+  const activeCount = visibleRequests.filter(r => r.status !== 'Resolved').length + 3;
 
   // Filter requests array block
-  const filteredRequests = maintenanceRequests.filter(r => {
+  const filteredRequests = visibleRequests.filter(r => {
     // Urgency filter
     if (filterUrgency === 'High-Emergency') {
       if (r.urgency !== 'High' && r.urgency !== 'Emergency') return false;

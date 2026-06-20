@@ -21,9 +21,12 @@ export default function TenantDashboard({
     members
   } = useRenziy();
 
-  const currentTenantAccount = members.find(member => member.role === 'tenant' && member.name === username);
-  // Find active unit for the signed-in account. Only the demo tenant falls back to Apt 4B.
-  const myUnit = units?.find(u => u.tenantName === username) || (username === 'Alex' || username === 'Alex Smith' ? units?.find(u => u.id === 'unit-1-4b') : undefined);
+  const sessionEmail = localStorage.getItem('renziy_user_email') || '';
+  const currentTenantAccount = members.find(member => member.role === 'tenant' && member.email.toLowerCase() === sessionEmail.toLowerCase());
+  const myUnit = units?.find(u => (
+    currentTenantAccount?.propertyName === u.propertyName &&
+    currentTenantAccount?.unitNumber === u.unitNumber
+  )) || units?.find(u => u.tenantName === username) || (username === 'Alex' || username === 'Alex Smith' ? units?.find(u => u.id === 'unit-1-4b') : undefined);
   const isLocked = myUnit?.isLocked;
 
   // Filter tickets dynamically matched by signed-in tenant.

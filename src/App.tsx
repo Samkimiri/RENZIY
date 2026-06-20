@@ -324,13 +324,7 @@ function AppContent() {
               if (role === 'landlord') {
                 switch(activeTab) {
                   case 'dashboard':
-                    return <LandlordDashboard onNavigate={(tab) => {
-                      if (tab === 'maintenance') {
-                        setActiveTab('maintenance');
-                      } else if (tab === 'payouts') {
-                        setActiveTab('payouts');
-                      }
-                    }} />;
+                    return <LandlordDashboard onNavigate={setActiveTab} />;
                   case 'properties':
                     return <LandlordProperties />;
                   case 'marketplace':
@@ -358,13 +352,7 @@ function AppContent() {
                   case 'dashboard':
                     return <TenantDashboard 
                       onPayRent={(method) => setExpressPayMethod(method)} 
-                      onNavigate={(tab) => {
-                        if (tab === 'request_repair') {
-                          setActiveTab('request_repair');
-                        } else if (tab === 'maintenance_list') {
-                          setActiveTab('maintenance_list');
-                        }
-                      }} 
+                      onNavigate={setActiveTab}
                     />;
                   case 'request_repair':
                     return <MaintenanceForm onClose={() => setActiveTab('dashboard')} />;

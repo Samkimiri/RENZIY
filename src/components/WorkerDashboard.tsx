@@ -4,8 +4,9 @@ import { CheckCircle2, Clock, HardHat, MapPin, Phone, ShieldAlert, Wrench } from
 
 export default function WorkerDashboard() {
   const { username, members, maintenanceRequests, updateRequestStatus, assignMaintenanceWorker } = useRenziy();
-  const worker = members.find(member => member.role === 'worker' && member.name === username);
-  const workerEmail = worker?.email || localStorage.getItem('renziy_user_email') || '';
+  const sessionEmail = localStorage.getItem('renziy_user_email') || '';
+  const worker = members.find(member => member.role === 'worker' && member.email.toLowerCase() === sessionEmail.toLowerCase());
+  const workerEmail = worker?.email || sessionEmail;
   const assignedJobs = maintenanceRequests.filter(request => request.technicianEmail === workerEmail || request.technicianName === username);
   const openJobs = maintenanceRequests.filter(request => !request.technicianName && request.status !== 'Resolved');
   const activeJobs = assignedJobs.filter(request => request.status !== 'Resolved');
@@ -71,7 +72,7 @@ export default function WorkerDashboard() {
                   </div>
                   <select
                     value={job.status}
-                    onChange={(event) => updateRequestStatus(job.id, event.target.value as any)}
+                    onChange={(event) => updateRequestStatus(job.id, event.target.value as any, workerEmail)}
                     className="rounded-xl border border-[#c3c6cf] bg-white p-2 text-xs font-black text-[#002645] focus:outline-none"
                   >
                     <option value="Acknowledged">Acknowledged</option>

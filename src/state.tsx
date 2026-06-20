@@ -21,7 +21,7 @@ interface RenziyContextType {
   updateUnit: (unitId: string, tenantName?: string, rentAmount?: number, status?: Unit['status']) => void;
   recordPayment: (payment: Omit<Payment, 'id' | 'code'>) => void;
   addMaintenanceRequest: (request: Omit<MaintenanceRequest, 'id' | 'status' | 'date' | 'tenantName' | 'propertyName' | 'unitNumber'>) => void;
-  updateRequestStatus: (requestId: string, status: MaintenanceRequest['status']) => void;
+  updateRequestStatus: (requestId: string, status: MaintenanceRequest['status'], workerEmail?: string) => void;
   assignMaintenanceWorker: (requestId: string, workerEmail: string) => Promise<void>;
   clearBalanceAndRecordPayment: (method: 'M-Pesa' | 'Card') => void;
   markNotificationsAsRead: () => void;
@@ -517,6 +517,18 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const id = `prop-${Date.now()}`;
     const property: Property = { ...newProp, id };
     setProperties(prev => [...prev, property]);
+    const generatedUnits: Unit[] = Array.from({ length: Number(newProp.unitsCount) || 0 }).map((_, index) => {
+      const unitNumber = `${100 + index + 1}`;
+      return {
+        id: `unit-${id}-${unitNumber}`,
+        propertyId: id,
+        propertyName: newProp.name,
+        unitNumber,
+        rentAmount: 15000 + index * 1000,
+        status: 'Vacant'
+      };
+    });
+    setUnits(prev => [...prev, ...generatedUnits]);
 
     try {
       const res = await fetch('/api/properties', {
@@ -539,6 +551,11 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setProperties(prev => prev.map(property => (
       property.id === propertyId ? { ...property, ...details } : property
     )));
+    if (details.name) {
+      setUnits(prev => prev.map(unit => (
+        unit.propertyId === propertyId ? { ...unit, propertyName: details.name as string } : unit
+      )));
+    }
 
     try {
       const res = await fetch(`/api/properties/${propertyId}`, {
@@ -549,6 +566,8 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (res.ok) {
         const propsRes = await fetch('/api/properties');
         if (propsRes.ok) setProperties(await propsRes.json());
+        const unitsRes = await fetch('/api/units');
+        if (unitsRes.ok) setUnits(await unitsRes.json());
       }
     } catch (err) {
       console.warn("Express API property update unavailable, using local saved listing details:", err);
@@ -589,12 +608,20 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const updateUnit = async (unitId: string, tenantName?: string, rentAmount?: number, status?: Unit['status']) => {
     setUnits(prev => prev.map(u => {
       if (u.id === unitId) {
+        const shouldUpdateTenant = tenantName !== undefined;
+        const nextStatus = status !== undefined
+          ? status
+          : shouldUpdateTenant
+            ? (tenantName ? 'Occupied' : 'Vacant')
+            : u.status;
         return {
           ...u,
           rentAmount: rentAmount !== undefined ? rentAmount : u.rentAmount,
-          status: status || (tenantName ? 'Occupied' : 'Vacant'),
-          tenantName: tenantName || undefined,
-          tenantAvatar: tenantName ? u.tenantAvatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB' : undefined
+          status: nextStatus,
+          tenantName: shouldUpdateTenant ? (tenantName || undefined) : nextStatus === 'Vacant' ? undefined : u.tenantName,
+          tenantAvatar: shouldUpdateTenant
+            ? (tenantName ? u.tenantAvatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB' : undefined)
+            : nextStatus === 'Vacant' ? undefined : u.tenantAvatar
         };
       }
       return u;
@@ -694,20 +721,18 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Adjust Status of a maintenance ticket (backend-coupled PATCH API)
-  const updateRequestStatus = async (requestId: string, status: MaintenanceRequest['status']) => {
+  const updateRequestStatus = async (requestId: string, status: MaintenanceRequest['status'], workerEmail?: string) => {
+    const worker = workerEmail ? members.find(member => member.role === 'worker' && member.email === workerEmail) : undefined;
     // Optimistic adjustments
     setMaintenanceRequests(prev => prev.map(r => {
       if (r.id === requestId) {
-        let techObj = {};
-        if (status === 'In Progress' && !r.technicianName) {
-          techObj = {
-            technicianName: 'Mark S.',
-            technicianEmail: 'mark@renziy.app',
-            technicianPhone: '0743991122',
-            technicianAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
-            arrivalTime: '3:30 PM'
-          };
-        }
+        const techObj = worker ? {
+          technicianName: worker.name,
+          technicianEmail: worker.email,
+          technicianPhone: worker.phone,
+          technicianAvatar: worker.avatarUrl,
+          arrivalTime: '3:30 PM'
+        } : {};
         return { ...r, status, ...techObj };
       }
       return r;
@@ -717,7 +742,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const res = await fetch(`/api/maintenance/${requestId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status, workerEmail })
       });
       if (res.ok) {
         const maintRes = await fetch('/api/maintenance');
@@ -986,6 +1011,16 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const submitRentalApplication = async (application: Omit<RentalApplication, 'id' | 'requestedAt' | 'status'>) => {
+    const requestedUnit = units.find(unit => unit.id === application.unitId && unit.propertyId === application.propertyId);
+    const hasActiveRequest = rentalApplications.some(item => (
+      item.unitId === application.unitId &&
+      item.tenantEmail === application.tenantEmail &&
+      item.status !== 'Declined'
+    ));
+    if (!requestedUnit || requestedUnit.status !== 'Vacant' || requestedUnit.rentAmount !== application.rentAmount || hasActiveRequest) {
+      throw new Error('This unit is no longer available for a new request.');
+    }
+
     const newApplication: RentalApplication = {
       ...application,
       id: `rent-app-${Date.now()}`,
@@ -1023,7 +1058,12 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         ]);
         return savedApplication;
       }
+      setRentalApplications(prev => prev.filter(item => item.id !== newApplication.id));
+      throw new Error('Rental request could not be saved by the server.');
     } catch (err) {
+      if (err instanceof Error && err.message === 'Rental request could not be saved by the server.') {
+        throw err;
+      }
       console.warn("Express API rental application sync unavailable, using local workflow:", err);
     }
 
@@ -1032,7 +1072,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const markRentalApplicationPaid = async (applicationId: string, method: 'M-Pesa' | 'Card') => {
     const application = rentalApplications.find(item => item.id === applicationId);
-    if (!application) return;
+    if (!application || application.status !== 'Awaiting Rent') return;
 
     const paymentHash = Math.random().toString(36).substring(2, 10).toUpperCase();
     const paymentCode = `${method === 'M-Pesa' ? 'MPESA' : 'CARD'}-HOLD-${paymentHash}`;
@@ -1088,6 +1128,8 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const approveRentalApplication = async (applicationId: string) => {
     const application = rentalApplications.find(item => item.id === applicationId);
     if (!application || application.status !== 'Rent Paid') return;
+    const requestedUnit = units.find(unit => unit.id === application.unitId);
+    if (!requestedUnit || requestedUnit.status !== 'Vacant') return;
 
     setRentalApplications(prev => prev.map(item => (
       item.id === applicationId ? { ...item, status: 'Approved', approvedAt: new Date().toISOString() } : item

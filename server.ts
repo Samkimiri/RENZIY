@@ -1,4 +1,5 @@
 import express from "express";
+import fs from "fs";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 
@@ -41,7 +42,7 @@ interface Payment {
   propertyName: string;
   date: string;
   amount: number;
-  status: 'Paid' | 'Pending';
+  status: 'Paid' | 'Pending' | 'Overdue';
   paymentMethod: 'M-Pesa' | 'Card';
   code: string;
 }
@@ -452,18 +453,139 @@ let settlementConfig: SettlementConfig = {
   bankRoutingCode: 'EQTYKE'
 };
 
+interface PersistedState {
+  properties?: Property[];
+  units?: Unit[];
+  payments?: Payment[];
+  maintenanceRequests?: MaintenanceRequest[];
+  notifications?: Notification[];
+  members?: PlatformMember[];
+  rentalApplications?: RentalApplication[];
+  tenantBalance?: number;
+  settlementConfig?: SettlementConfig;
+}
+
+const dataDir = path.join(process.cwd(), ".renziy-data");
+const dataFile = path.join(dataDir, "state.json");
+
+const saveState = () => {
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    const state: PersistedState = {
+      properties,
+      units,
+      payments,
+      maintenanceRequests,
+      notifications,
+      members,
+      rentalApplications,
+      tenantBalance,
+      settlementConfig
+    };
+    fs.writeFileSync(dataFile, JSON.stringify(state, null, 2), "utf8");
+  } catch (err) {
+    console.warn("Unable to persist Renziy state:", err);
+  }
+};
+
+const loadState = () => {
+  try {
+    if (!fs.existsSync(dataFile)) return;
+    const saved = JSON.parse(fs.readFileSync(dataFile, "utf8")) as PersistedState;
+    if (Array.isArray(saved.properties)) properties = saved.properties;
+    if (Array.isArray(saved.units)) units = saved.units;
+    if (Array.isArray(saved.payments)) payments = saved.payments;
+    if (Array.isArray(saved.maintenanceRequests)) maintenanceRequests = saved.maintenanceRequests;
+    if (Array.isArray(saved.notifications)) notifications = saved.notifications;
+    if (Array.isArray(saved.members)) members = saved.members;
+    if (Array.isArray(saved.rentalApplications)) rentalApplications = saved.rentalApplications;
+    if (typeof saved.tenantBalance === "number") tenantBalance = saved.tenantBalance;
+    if (saved.settlementConfig) settlementConfig = { ...settlementConfig, ...saved.settlementConfig };
+  } catch (err) {
+    console.warn("Unable to load persisted Renziy state:", err);
+  }
+};
+
+const ensureSeedData = () => {
+  members = members.map(member => (
+    member.role === 'landlord' && member.email === 'john@renziy.app'
+      ? { ...member, phone: '0743475247' }
+      : member
+  ));
+
+  properties = properties.map(property => (
+    property.ownerEmail === 'john@renziy.app'
+      ? { ...property, contactPhone: property.contactPhone || '0743475247' }
+      : property
+  ));
+
+  if (!members.some(member => member.role === 'worker' && member.email === 'mark@renziy.app')) {
+    members.push({
+      id: 'member-worker-1',
+      name: 'Mark S.',
+      role: 'worker',
+      phone: '0743991122',
+      email: 'mark@renziy.app',
+      password: 'demo123',
+      avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
+      specialty: 'Plumbing and general repairs',
+      joinDate: '2026-05-23',
+      status: 'Active'
+    });
+  }
+};
+
+loadState();
+ensureSeedData();
+saveState();
+
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
 
+const USER_ROLES = ['landlord', 'tenant', 'worker'] as const;
+const PAYMENT_STATUSES = ['Paid', 'Pending', 'Overdue'] as const;
+const PAYMENT_METHODS = ['M-Pesa', 'Card'] as const;
+const MAINTENANCE_STATUSES = ['Submitted', 'Acknowledged', 'In Progress', 'Resolved'] as const;
+const MAINTENANCE_URGENCY = ['Low', 'Med', 'High', 'Emergency'] as const;
+
+const isOneOf = <T extends readonly string[]>(values: T, value: unknown): value is T[number] => (
+  typeof value === 'string' && values.includes(value)
+);
+
+const getActiveWorker = (workerEmail: unknown) => {
+  if (typeof workerEmail !== 'string') return undefined;
+  return members.find(member => (
+    member.role === 'worker' &&
+    member.status === 'Active' &&
+    member.email.toLowerCase() === workerEmail.toLowerCase()
+  ));
+};
+
   // API Routes
+  app.get("/api/health", (req, res) => {
+    res.json({
+      ok: true,
+      service: 'Renziy API',
+      counts: {
+        properties: properties.length,
+        units: units.length,
+        payments: payments.length,
+        maintenanceRequests: maintenanceRequests.length,
+        members: members.length,
+        rentalApplications: rentalApplications.length
+      }
+    });
+  });
+
   app.get("/api/settlement", (req, res) => {
     res.json(settlementConfig);
   });
 
   app.post("/api/settlement", (req, res) => {
     settlementConfig = { ...settlementConfig, ...req.body };
+    saveState();
     res.json(settlementConfig);
   });
 
@@ -489,13 +611,14 @@ app.use(express.json());
         propertyId: id,
         propertyName: name,
         unitNumber: unitNum,
-        rentAmount: 1500 + index * 100,
+        rentAmount: 15000 + index * 1000,
         status: index % 3 === 0 ? 'Vacant' : 'Occupied',
         tenantName: index % 3 === 0 ? undefined : ['Marcus Holloway', 'Sarah Jenkins', 'Jane Doe'][index % 3]
       };
     });
     units.push(...generatedUnits);
 
+    saveState();
     res.json({ property: newProperty, addedUnits: generatedUnits });
   });
 
@@ -525,6 +648,7 @@ app.use(express.json());
       return unit;
     });
 
+    saveState();
     res.json(updatedProperty);
   });
 
@@ -556,6 +680,7 @@ app.use(express.json());
       return res.status(404).json({ error: "Unit not found" });
     }
 
+    saveState();
     res.json(updatedUnit);
   });
 
@@ -568,12 +693,20 @@ app.use(express.json());
     let updatedUnit: Unit | null = null;
     units = units.map(u => {
       if (u.id === unitId) {
+        const shouldUpdateTenant = Object.prototype.hasOwnProperty.call(req.body, "tenantName");
+        const nextStatus = status !== undefined
+          ? status
+          : shouldUpdateTenant
+            ? (tenantName ? 'Occupied' : 'Vacant')
+            : u.status;
         updatedUnit = {
           ...u,
           rentAmount: rentAmount !== undefined ? Number(rentAmount) : u.rentAmount,
-          status: status || (tenantName ? 'Occupied' : 'Vacant'),
-          tenantName: tenantName || undefined,
-          tenantAvatar: tenantName ? u.tenantAvatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB' : undefined
+          status: nextStatus,
+          tenantName: shouldUpdateTenant ? (tenantName || undefined) : nextStatus === 'Vacant' ? undefined : u.tenantName,
+          tenantAvatar: shouldUpdateTenant
+            ? (tenantName ? u.tenantAvatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB' : undefined)
+            : nextStatus === 'Vacant' ? undefined : u.tenantAvatar
         };
         return updatedUnit;
       }
@@ -584,6 +717,7 @@ app.use(express.json());
       return res.status(404).json({ error: "Unit not found" });
     }
 
+    saveState();
     res.json(updatedUnit);
   });
 
@@ -609,6 +743,7 @@ app.use(express.json());
       return res.status(404).json({ error: "Unit not found" });
     }
 
+    saveState();
     res.json(updatedUnit);
   });
 
@@ -651,6 +786,7 @@ app.use(express.json());
       });
     }
 
+    saveState();
     res.json(updatedUnit);
   });
 
@@ -663,6 +799,16 @@ app.use(express.json());
     if (!tenantName || !amount || !paymentMethod) {
       return res.status(400).json({ error: "Missing required details" });
     }
+    if (!isOneOf(PAYMENT_METHODS, paymentMethod)) {
+      return res.status(400).json({ error: "Unsupported payment method" });
+    }
+    if (status && !isOneOf(PAYMENT_STATUSES, status)) {
+      return res.status(400).json({ error: "Unsupported payment status" });
+    }
+    const numericAmount = Number(amount);
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({ error: "Payment amount must be greater than zero" });
+    }
 
     const hash = Math.random().toString(36).substring(2, 10).toUpperCase();
     const newPayment: Payment = {
@@ -671,7 +817,7 @@ app.use(express.json());
       unitNumber: unitNumber || 'G-01',
       propertyName: propertyName || 'Portfolio Central',
       date: date || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      amount: Number(amount),
+      amount: numericAmount,
       status: status || 'Paid',
       paymentMethod,
       code: `${paymentMethod === 'M-Pesa' ? 'MPESA' : 'CARD'}-REC-${hash}`
@@ -684,6 +830,7 @@ app.use(express.json());
       tenantBalance = 0;
     }
 
+    saveState();
     res.json(newPayment);
   });
 
@@ -695,6 +842,9 @@ app.use(express.json());
     const { title, category, urgency, description, photos, tenantName } = req.body;
     if (!title || !description || !urgency) {
       return res.status(400).json({ error: "Missing repair ticket content" });
+    }
+    if (!isOneOf(MAINTENANCE_URGENCY, urgency)) {
+      return res.status(400).json({ error: "Unsupported repair urgency" });
     }
 
     const tName = tenantName || 'Unassigned Tenant';
@@ -726,6 +876,7 @@ app.use(express.json());
       unread: true
     });
 
+    saveState();
     res.json(newRequest);
   });
 
@@ -735,26 +886,24 @@ app.use(express.json());
     if (!status) {
       return res.status(400).json({ error: "Status is required" });
     }
+    if (!isOneOf(MAINTENANCE_STATUSES, status)) {
+      return res.status(400).json({ error: "Unsupported maintenance status" });
+    }
 
     let foundRequest: MaintenanceRequest | null = null;
     maintenanceRequests = maintenanceRequests.map(r => {
       if (r.id === id) {
         let techObj = {};
-        const worker = workerEmail ? members.find(member => member.role === 'worker' && member.email === workerEmail) : undefined;
+        const worker = getActiveWorker(workerEmail);
+        if (workerEmail && !worker) {
+          return r;
+        }
         if (worker) {
           techObj = {
             technicianName: worker.name,
             technicianEmail: worker.email,
             technicianPhone: worker.phone,
             technicianAvatar: worker.avatarUrl,
-            arrivalTime: '3:30 PM'
-          };
-        } else if (status === 'In Progress' && !r.technicianName) {
-          techObj = {
-            technicianName: 'Mark S.',
-            technicianEmail: 'mark@renziy.app',
-            technicianPhone: '0743991122',
-            technicianAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
             arrivalTime: '3:30 PM'
           };
         }
@@ -765,7 +914,7 @@ app.use(express.json());
     });
 
     if (!foundRequest) {
-      return res.status(404).json({ error: "Maintenance Request not found" });
+      return res.status(workerEmail ? 400 : 404).json({ error: workerEmail ? "Worker not found" : "Maintenance Request not found" });
     }
 
     const reqObj = foundRequest as MaintenanceRequest;
@@ -778,13 +927,14 @@ app.use(express.json());
       unread: true
     });
 
+    saveState();
     res.json(foundRequest);
   });
 
   app.post("/api/maintenance/:id/assign-worker", (req, res) => {
     const { id } = req.params;
     const { workerEmail } = req.body;
-    const worker = members.find(member => member.role === 'worker' && member.email === workerEmail);
+    const worker = getActiveWorker(workerEmail);
     if (!worker) {
       return res.status(404).json({ error: "Worker not found" });
     }
@@ -820,6 +970,7 @@ app.use(express.json());
       unread: true
     });
 
+    saveState();
     res.json(updatedRequest);
   });
 
@@ -829,6 +980,7 @@ app.use(express.json());
 
   app.post("/api/notifications/read", (req, res) => {
     notifications = notifications.map(n => ({ ...n, unread: false }));
+    saveState();
     res.json({ success: true });
   });
 
@@ -840,6 +992,9 @@ app.use(express.json());
     const { role, name, phone, email } = req.body;
     if (!role || !name || !phone || !email) {
       return res.status(400).json({ error: "Missing required member fields" });
+    }
+    if (!isOneOf(USER_ROLES, role)) {
+      return res.status(400).json({ error: "Unsupported member role" });
     }
 
     const member: PlatformMember = {
@@ -859,6 +1014,7 @@ app.use(express.json());
       unread: true
     });
 
+    saveState();
     res.json(member);
   });
 
@@ -870,6 +1026,24 @@ app.use(express.json());
     const { propertyId, propertyName, unitId, unitNumber, rentAmount, tenantName, tenantEmail } = req.body;
     if (!propertyId || !propertyName || !unitId || !unitNumber || !rentAmount || !tenantName || !tenantEmail) {
       return res.status(400).json({ error: "Missing rental request details" });
+    }
+    const requestedUnit = units.find(unit => unit.id === unitId && unit.propertyId === propertyId);
+    if (!requestedUnit) {
+      return res.status(404).json({ error: "Requested unit not found" });
+    }
+    if (requestedUnit.status !== 'Vacant') {
+      return res.status(409).json({ error: "Requested unit is no longer vacant" });
+    }
+    if (Number(rentAmount) !== requestedUnit.rentAmount) {
+      return res.status(400).json({ error: "Rental request amount does not match unit rent" });
+    }
+    const hasActiveRequest = rentalApplications.some(item => (
+      item.unitId === unitId &&
+      item.tenantEmail === tenantEmail &&
+      item.status !== 'Declined'
+    ));
+    if (hasActiveRequest) {
+      return res.status(409).json({ error: "Tenant already has an active request for this unit" });
     }
 
     const application: RentalApplication = {
@@ -893,16 +1067,24 @@ app.use(express.json());
       unread: true
     });
 
+    saveState();
     res.json(application);
   });
 
   app.post("/api/rental-applications/:id/pay", (req, res) => {
     const { id } = req.params;
     const { method, paymentCode } = req.body;
+    if (method && !isOneOf(PAYMENT_METHODS, method)) {
+      return res.status(400).json({ error: "Unsupported payment method" });
+    }
     let application: RentalApplication | undefined;
 
     rentalApplications = rentalApplications.map(item => {
       if (item.id === id) {
+        if (item.status !== 'Awaiting Rent') {
+          application = item;
+          return item;
+        }
         application = {
           ...item,
           status: 'Rent Paid',
@@ -915,6 +1097,9 @@ app.use(express.json());
 
     if (!application) {
       return res.status(404).json({ error: "Rental request not found" });
+    }
+    if (application.status !== 'Rent Paid') {
+      return res.status(409).json({ error: "Rental request is not awaiting rent" });
     }
 
     const paidApplication = application as RentalApplication;
@@ -939,6 +1124,7 @@ app.use(express.json());
       unread: true
     });
 
+    saveState();
     res.json(paidApplication);
   });
 
@@ -948,6 +1134,11 @@ app.use(express.json());
 
     rentalApplications = rentalApplications.map(item => {
       if (item.id === id && item.status === 'Rent Paid') {
+        const requestedUnit = units.find(unit => unit.id === item.unitId);
+        if (!requestedUnit || requestedUnit.status !== 'Vacant') {
+          application = item;
+          return item;
+        }
         application = {
           ...item,
           status: 'Approved',
@@ -960,6 +1151,9 @@ app.use(express.json());
 
     if (!application) {
       return res.status(404).json({ error: "Paid rental request not found" });
+    }
+    if (application.status !== 'Approved') {
+      return res.status(409).json({ error: "Requested unit is no longer available for approval" });
     }
 
     const approvedApplication = application as RentalApplication;
@@ -983,6 +1177,7 @@ app.use(express.json());
       unread: true
     });
 
+    saveState();
     res.json(approvedApplication);
   });
 
@@ -1002,6 +1197,7 @@ app.use(express.json());
       return res.status(404).json({ error: "Rental request not found" });
     }
 
+    saveState();
     res.json(application);
   });
 
@@ -1013,6 +1209,9 @@ app.use(express.json());
     const { method, tenantName } = req.body;
     if (!method) {
       return res.status(400).json({ error: "Missing payment method details" });
+    }
+    if (!isOneOf(PAYMENT_METHODS, method)) {
+      return res.status(400).json({ error: "Unsupported payment method" });
     }
 
     const originalAmount = tenantBalance;
@@ -1051,12 +1250,13 @@ app.use(express.json());
     notifications.unshift({
       id: `notif-${Date.now()}`,
       title: 'Rent Paid Successfully',
-      message: `Successfully processed ${method} rent payment of $${originalAmount.toLocaleString()}.`,
+      message: `Successfully processed ${method} rent payment of KES ${originalAmount.toLocaleString()}.`,
       date: 'Just now',
       type: 'payment',
       unread: true
     });
 
+    saveState();
     res.json({ success: true, payment: newPayment, originalAmount });
   });
 

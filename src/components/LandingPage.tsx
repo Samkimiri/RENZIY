@@ -75,7 +75,7 @@ export default function LandingPage() {
           return;
         }
 
-        if (existingAccount.password && existingAccount.password !== password) {
+        if (!existingAccount.password || existingAccount.password !== password) {
           setFormMessage('The password does not match this account.');
           return;
         }
