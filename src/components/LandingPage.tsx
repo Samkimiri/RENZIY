@@ -32,8 +32,11 @@ export default function LandingPage() {
     setPhone(digits.slice(0, 12));
   };
 
-  const enterAccount = (role: AccountRole, name: string, accountEmail: string) => {
+  const enterAccount = (role: AccountRole, name: string, accountEmail: string, token?: string) => {
     localStorage.setItem('renziy_user_email', accountEmail);
+    if (token) {
+      localStorage.setItem('renziy_session_token', token);
+    }
     localStorage.removeItem('renziy_game_stats');
     localStorage.removeItem('renziy_custom_avatar');
     setUsername(name);
@@ -75,12 +78,26 @@ export default function LandingPage() {
           return;
         }
 
-        if (!existingAccount.password || existingAccount.password !== password) {
-          setFormMessage('The password does not match this account.');
-          return;
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: selectedRole, email: cleanEmail, password })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            enterAccount(data.member.role, data.member.name, data.member.email, data.token);
+            return;
+          }
+        } catch (err) {
+          console.warn('Server login unavailable, trying local demo credentials:', err);
         }
 
-        enterAccount(existingAccount.role, existingAccount.name, existingAccount.email);
+        if (existingAccount.password && existingAccount.password === password) {
+          enterAccount(existingAccount.role, existingAccount.name, existingAccount.email);
+          return;
+        }
+        setFormMessage('The password does not match this account.');
         return;
       }
 

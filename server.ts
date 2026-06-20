@@ -1,4 +1,5 @@
 import express from "express";
+import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -82,6 +83,7 @@ interface PlatformMember {
   phone: string;
   email: string;
   password?: string;
+  passwordHash?: string;
   avatarUrl?: string;
   propertyName?: string;
   unitNumber?: string;
@@ -467,6 +469,114 @@ interface PersistedState {
 
 const dataDir = path.join(process.cwd(), ".renziy-data");
 const dataFile = path.join(dataDir, "state.json");
+const sessionSecret = process.env.RENZIY_SESSION_SECRET || "renziy-dev-session-secret-change-me";
+const passwordPepper = process.env.RENZIY_PASSWORD_PEPPER || "renziy-dev-password-pepper-change-me";
+const sessionTtlMs = 1000 * 60 * 60 * 8;
+const MAX_TEXT_LENGTH = 500;
+
+interface SessionPayload {
+  email: string;
+  role: PlatformMember['role'];
+  exp: number;
+}
+
+type PublicMember = Omit<PlatformMember, "password" | "passwordHash">;
+
+const normalizeEmail = (value: unknown) => typeof value === "string" ? value.trim().toLowerCase() : "";
+const sanitizeText = (value: unknown, max = MAX_TEXT_LENGTH) => (
+  typeof value === "string" ? value.replace(/[<>]/g, "").trim().slice(0, max) : ""
+);
+const sanitizePhone = (value: unknown) => sanitizeText(value, 32).replace(/[^\d+()\-\s]/g, "");
+const sanitizeUrl = (value: unknown) => {
+  const text = sanitizeText(value, 1000);
+  if (!text) return "";
+  try {
+    const url = new URL(text);
+    return ["http:", "https:"].includes(url.protocol) ? url.toString() : "";
+  } catch {
+    return "";
+  }
+};
+
+const hashPassword = (password: string, salt = crypto.randomBytes(16).toString("hex")) => {
+  const hash = crypto.pbkdf2Sync(`${password}${passwordPepper}`, salt, 120000, 32, "sha256").toString("hex");
+  return `pbkdf2_sha256$120000$${salt}$${hash}`;
+};
+
+const verifyPassword = (member: PlatformMember, password: unknown) => {
+  if (typeof password !== "string" || password.length < 6) return false;
+  if (!member.passwordHash && member.password) {
+    const expected = Buffer.from(member.password);
+    const actual = Buffer.from(password);
+    return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+  }
+  if (!member.passwordHash) return false;
+  const [algorithm, iterationsRaw, salt, expectedHash] = member.passwordHash.split("$");
+  if (algorithm !== "pbkdf2_sha256" || !iterationsRaw || !salt || !expectedHash) return false;
+  const iterations = Number(iterationsRaw);
+  const actualHash = crypto.pbkdf2Sync(`${password}${passwordPepper}`, salt, iterations, 32, "sha256").toString("hex");
+  const expected = Buffer.from(expectedHash, "hex");
+  const actual = Buffer.from(actualHash, "hex");
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+};
+
+const scrubMember = (member: PlatformMember): PublicMember => {
+  const { password, passwordHash, ...publicMember } = member;
+  return publicMember;
+};
+
+const scrubMembers = () => members.map(scrubMember);
+
+const signSession = (payload: SessionPayload) => {
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = crypto.createHmac("sha256", sessionSecret).update(body).digest("base64url");
+  return `${body}.${signature}`;
+};
+
+const readSession = (req: express.Request): SessionPayload | null => {
+  const auth = req.header("authorization") || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  const [body, signature] = token.split(".");
+  if (!body || !signature) return null;
+  const expectedSignature = crypto.createHmac("sha256", sessionSecret).update(body).digest("base64url");
+  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as SessionPayload;
+    if (!payload.email || !payload.role || payload.exp < Date.now()) return null;
+    const activeMember = members.find(member => (
+      member.status === "Active" &&
+      member.role === payload.role &&
+      member.email.toLowerCase() === payload.email.toLowerCase()
+    ));
+    return activeMember ? payload : null;
+  } catch {
+    return null;
+  }
+};
+
+const requireRole = (req: express.Request, res: express.Response, roles: PlatformMember['role'][]) => {
+  const session = readSession(req);
+  if (!session) {
+    res.status(401).json({ error: "Signed-in session required" });
+    return null;
+  }
+  if (!roles.includes(session.role)) {
+    res.status(403).json({ error: "This account cannot perform that action" });
+    return null;
+  }
+  return session;
+};
+
+const sanitizeMemberInput = (input: Partial<PlatformMember>) => ({
+  ...input,
+  name: sanitizeText(input.name, 120),
+  phone: sanitizePhone(input.phone),
+  email: normalizeEmail(input.email),
+  propertyName: sanitizeText(input.propertyName, 160) || undefined,
+  unitNumber: sanitizeText(input.unitNumber, 80) || undefined,
+  specialty: sanitizeText(input.specialty, 160) || undefined,
+  avatarUrl: sanitizeUrl(input.avatarUrl) || undefined
+});
 
 const saveState = () => {
   try {
@@ -512,6 +622,13 @@ const ensureSeedData = () => {
       ? { ...member, phone: '0743475247' }
       : member
   ));
+  members = members.map(member => {
+    if (member.password && !member.passwordHash) {
+      const { password, ...rest } = member;
+      return { ...rest, passwordHash: hashPassword(password) };
+    }
+    return member;
+  });
 
   properties = properties.map(property => (
     property.ownerEmail === 'john@renziy.app'
@@ -526,7 +643,7 @@ const ensureSeedData = () => {
       role: 'worker',
       phone: '0743991122',
       email: 'mark@renziy.app',
-      password: 'demo123',
+      passwordHash: hashPassword('demo123'),
       avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
       specialty: 'Plumbing and general repairs',
       joinDate: '2026-05-23',
@@ -542,7 +659,46 @@ saveState();
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+app.disable("x-powered-by");
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; frame-src https://www.google.com https://maps.google.com; connect-src 'self' https://wa.me https://www.google.com https://maps.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
+  );
+  if (req.path.startsWith("/api/")) {
+    res.setHeader("Cache-Control", "no-store");
+  }
+  next();
+});
+app.use(express.json({ limit: "100kb" }));
+app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof SyntaxError) {
+    return res.status(400).json({ error: "Invalid JSON payload" });
+  }
+  next(err);
+});
+
+const writeBuckets = new Map<string, { count: number; resetAt: number }>();
+app.use("/api", (req, res, next) => {
+  if (req.method === "GET") return next();
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  const key = `${ip}:${req.path}`;
+  const now = Date.now();
+  const bucket = writeBuckets.get(key);
+  if (!bucket || bucket.resetAt < now) {
+    writeBuckets.set(key, { count: 1, resetAt: now + 60_000 });
+    return next();
+  }
+  if (bucket.count >= 60) {
+    return res.status(429).json({ error: "Too many requests. Try again shortly." });
+  }
+  bucket.count += 1;
+  next();
+});
 
 const USER_ROLES = ['landlord', 'tenant', 'worker'] as const;
 const PAYMENT_STATUSES = ['Paid', 'Pending', 'Overdue'] as const;
@@ -563,6 +719,16 @@ const getActiveWorker = (workerEmail: unknown) => {
   ));
 };
 
+const propertyBelongsTo = (propertyId: string, email: string) => {
+  const property = properties.find(item => item.id === propertyId);
+  return Boolean(property && property.ownerEmail?.toLowerCase() === email.toLowerCase());
+};
+
+const unitBelongsTo = (unitId: string, email: string) => {
+  const unit = units.find(item => item.id === unitId);
+  return Boolean(unit && propertyBelongsTo(unit.propertyId, email));
+};
+
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({
@@ -579,11 +745,71 @@ const getActiveWorker = (workerEmail: unknown) => {
     });
   });
 
+  app.post("/api/auth/login", (req, res) => {
+    const role = req.body.role;
+    const email = normalizeEmail(req.body.email);
+    if (!isOneOf(USER_ROLES, role) || !email || typeof req.body.password !== "string") {
+      return res.status(400).json({ error: "Email, password, and account type are required" });
+    }
+    const member = members.find(item => (
+      item.role === role &&
+      item.email.toLowerCase() === email &&
+      item.status === "Active"
+    ));
+    if (!member || !verifyPassword(member, req.body.password)) {
+      return res.status(401).json({ error: "Invalid email, password, or account type" });
+    }
+    if (member.password && !member.passwordHash) {
+      const { password, ...rest } = member;
+      const securedMember = { ...rest, passwordHash: hashPassword(password) };
+      members = members.map(item => item.id === member.id ? securedMember : item);
+      saveState();
+    }
+    const token = signSession({ email: member.email, role: member.role, exp: Date.now() + sessionTtlMs });
+    res.json({ token, member: scrubMember(member) });
+  });
+
+  app.post("/api/auth/register", (req, res) => {
+    const role = req.body.role;
+    const password = typeof req.body.password === "string" ? req.body.password : "";
+    const input = sanitizeMemberInput(req.body);
+    if (!isOneOf(USER_ROLES, role) || !input.name || !input.phone || !input.email || password.length < 6) {
+      return res.status(400).json({ error: "Name, phone, email, account type, and a 6+ character password are required" });
+    }
+    const existing = members.find(member => member.role === role && member.email.toLowerCase() === input.email.toLowerCase());
+    if (existing) {
+      return res.status(409).json({ error: "This email already has that account type" });
+    }
+    const member: PlatformMember = {
+      ...input,
+      role,
+      id: req.body.id || `member-${Date.now()}`,
+      passwordHash: hashPassword(password),
+      joinDate: new Date().toISOString().split('T')[0],
+      status: 'Active'
+    } as PlatformMember;
+
+    members = [member, ...members];
+    notifications.unshift({
+      id: `notif-member-${Date.now()}`,
+      title: 'New Platform Member',
+      message: `${member.name} joined Renziy as a ${member.role}.`,
+      date: 'Just now',
+      type: 'lease',
+      unread: true
+    });
+    saveState();
+    const token = signSession({ email: member.email, role: member.role, exp: Date.now() + sessionTtlMs });
+    res.json({ token, member: scrubMember(member) });
+  });
+
   app.get("/api/settlement", (req, res) => {
     res.json(settlementConfig);
   });
 
   app.post("/api/settlement", (req, res) => {
+    const session = requireRole(req, res, ['landlord']);
+    if (!session) return;
     settlementConfig = { ...settlementConfig, ...req.body };
     saveState();
     res.json(settlementConfig);
@@ -594,13 +820,23 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.post("/api/properties", (req, res) => {
+    const session = requireRole(req, res, ['landlord']);
+    if (!session) return;
     const { name, address, unitsCount, imageUrl } = req.body;
     if (!name || !address || !unitsCount) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     const id = `prop-${Date.now()}`;
-    const newProperty: Property = { ...req.body, id, name, address, unitsCount, imageUrl };
+    const newProperty: Property = {
+      ...req.body,
+      id,
+      name: sanitizeText(name, 120),
+      address: sanitizeText(address, 180),
+      unitsCount: Number(unitsCount),
+      imageUrl: sanitizeUrl(imageUrl),
+      ownerEmail: session.email
+    };
     properties.push(newProperty);
 
     // Auto generate internal units
@@ -623,11 +859,13 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.patch("/api/properties/:id", (req, res) => {
+    const session = requireRole(req, res, ['landlord']);
+    if (!session) return;
     const { id } = req.params;
     let updatedProperty: Property | null = null;
 
     properties = properties.map(property => {
-      if (property.id === id) {
+      if (property.id === id && property.ownerEmail?.toLowerCase() === session.email.toLowerCase()) {
         updatedProperty = { ...property, ...req.body };
         return updatedProperty;
       }
@@ -657,9 +895,14 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.post("/api/units/assign", (req, res) => {
+    const session = requireRole(req, res, ['landlord']);
+    if (!session) return;
     const { unitId, tenantName } = req.body;
     if (!unitId || !tenantName) {
       return res.status(400).json({ error: "Missing required parameters" });
+    }
+    if (!unitBelongsTo(unitId, session.email)) {
+      return res.status(403).json({ error: "You can only update units in your portfolio" });
     }
 
     let updatedUnit: Unit | null = null;
@@ -685,9 +928,14 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.post("/api/units/update", (req, res) => {
+    const session = requireRole(req, res, ['landlord']);
+    if (!session) return;
     const { unitId, tenantName, rentAmount, status } = req.body;
     if (!unitId) {
       return res.status(400).json({ error: "Missing unitId" });
+    }
+    if (!unitBelongsTo(unitId, session.email)) {
+      return res.status(403).json({ error: "You can only update units in your portfolio" });
     }
 
     let updatedUnit: Unit | null = null;
@@ -722,6 +970,8 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.post("/api/units/update-avatar", (req, res) => {
+    const session = requireRole(req, res, ['tenant', 'landlord']);
+    if (!session) return;
     const { unitId, tenantAvatar } = req.body;
     if (!unitId || !tenantAvatar) {
       return res.status(400).json({ error: "Missing unitId or tenantAvatar" });
@@ -748,9 +998,14 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.post("/api/units/lock", (req, res) => {
+    const session = requireRole(req, res, ['landlord']);
+    if (!session) return;
     const { unitId, isLocked, lockReason } = req.body;
     if (!unitId) {
       return res.status(400).json({ error: "Missing unitId" });
+    }
+    if (!unitBelongsTo(unitId, session.email)) {
+      return res.status(403).json({ error: "You can only lock units in your portfolio" });
     }
 
     let updatedUnit: Unit | null = null;
@@ -795,6 +1050,8 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.post("/api/payments", (req, res) => {
+    const session = requireRole(req, res, ['tenant', 'landlord']);
+    if (!session) return;
     const { tenantName, unitNumber, propertyName, date, amount, status, paymentMethod } = req.body;
     if (!tenantName || !amount || !paymentMethod) {
       return res.status(400).json({ error: "Missing required details" });
@@ -839,6 +1096,8 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.post("/api/maintenance", (req, res) => {
+    const session = requireRole(req, res, ['tenant']);
+    if (!session) return;
     const { title, category, urgency, description, photos, tenantName } = req.body;
     if (!title || !description || !urgency) {
       return res.status(400).json({ error: "Missing repair ticket content" });
@@ -847,7 +1106,8 @@ const getActiveWorker = (workerEmail: unknown) => {
       return res.status(400).json({ error: "Unsupported repair urgency" });
     }
 
-    const tName = tenantName || 'Unassigned Tenant';
+    const tenantMember = members.find(member => member.role === 'tenant' && member.email.toLowerCase() === session.email.toLowerCase());
+    const tName = tenantMember?.name || tenantName || 'Unassigned Tenant';
     const activeUnit = units.find(u => u.tenantName === tName);
 
     const newRequest: MaintenanceRequest = {
@@ -881,6 +1141,8 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.patch("/api/maintenance/:id", (req, res) => {
+    const session = requireRole(req, res, ['landlord', 'worker']);
+    if (!session) return;
     const { id } = req.params;
     const { status, workerEmail } = req.body;
     if (!status) {
@@ -893,6 +1155,12 @@ const getActiveWorker = (workerEmail: unknown) => {
     let foundRequest: MaintenanceRequest | null = null;
     maintenanceRequests = maintenanceRequests.map(r => {
       if (r.id === id) {
+        const requestProperty = properties.find(property => property.name === r.propertyName);
+        const landlordOwnsRequest = requestProperty?.ownerEmail?.toLowerCase() === session.email.toLowerCase();
+        const workerOwnsRequest = r.technicianEmail?.toLowerCase() === session.email.toLowerCase();
+        if ((session.role === 'landlord' && !landlordOwnsRequest) || (session.role === 'worker' && !workerOwnsRequest)) {
+          return r;
+        }
         let techObj = {};
         const worker = getActiveWorker(workerEmail);
         if (workerEmail && !worker) {
@@ -932,6 +1200,8 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.post("/api/maintenance/:id/assign-worker", (req, res) => {
+    const session = requireRole(req, res, ['landlord', 'worker']);
+    if (!session) return;
     const { id } = req.params;
     const { workerEmail } = req.body;
     const worker = getActiveWorker(workerEmail);
@@ -942,6 +1212,10 @@ const getActiveWorker = (workerEmail: unknown) => {
     let updatedRequest: MaintenanceRequest | null = null;
     maintenanceRequests = maintenanceRequests.map(r => {
       if (r.id === id) {
+        const requestProperty = properties.find(property => property.name === r.propertyName);
+        if (session.role === 'landlord' && requestProperty?.ownerEmail?.toLowerCase() !== session.email.toLowerCase()) {
+          return r;
+        }
         updatedRequest = {
           ...r,
           status: r.status === 'Submitted' ? 'Acknowledged' : r.status,
@@ -979,16 +1253,20 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.post("/api/notifications/read", (req, res) => {
+    const session = requireRole(req, res, ['tenant', 'landlord', 'worker']);
+    if (!session) return;
     notifications = notifications.map(n => ({ ...n, unread: false }));
     saveState();
     res.json({ success: true });
   });
 
   app.get("/api/members", (req, res) => {
-    res.json(members);
+    res.json(scrubMembers());
   });
 
   app.post("/api/members", (req, res) => {
+    const session = requireRole(req, res, ['landlord']);
+    if (!session) return;
     const { role, name, phone, email } = req.body;
     if (!role || !name || !phone || !email) {
       return res.status(400).json({ error: "Missing required member fields" });
@@ -997,8 +1275,10 @@ const getActiveWorker = (workerEmail: unknown) => {
       return res.status(400).json({ error: "Unsupported member role" });
     }
 
+    const sanitized = sanitizeMemberInput(req.body);
     const member: PlatformMember = {
-      ...req.body,
+      ...sanitized,
+      role,
       id: req.body.id || `member-${Date.now()}`,
       joinDate: req.body.joinDate || new Date().toISOString().split('T')[0],
       status: req.body.status || 'Active'
@@ -1015,7 +1295,7 @@ const getActiveWorker = (workerEmail: unknown) => {
     });
 
     saveState();
-    res.json(member);
+    res.json(scrubMember(member));
   });
 
   app.get("/api/rental-applications", (req, res) => {
@@ -1023,6 +1303,8 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.post("/api/rental-applications", (req, res) => {
+    const session = requireRole(req, res, ['tenant']);
+    if (!session) return;
     const { propertyId, propertyName, unitId, unitNumber, rentAmount, tenantName, tenantEmail } = req.body;
     if (!propertyId || !propertyName || !unitId || !unitNumber || !rentAmount || !tenantName || !tenantEmail) {
       return res.status(400).json({ error: "Missing rental request details" });
@@ -1072,6 +1354,8 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.post("/api/rental-applications/:id/pay", (req, res) => {
+    const session = requireRole(req, res, ['tenant']);
+    if (!session) return;
     const { id } = req.params;
     const { method, paymentCode } = req.body;
     if (method && !isOneOf(PAYMENT_METHODS, method)) {
@@ -1129,11 +1413,16 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.post("/api/rental-applications/:id/approve", (req, res) => {
+    const session = requireRole(req, res, ['landlord']);
+    if (!session) return;
     const { id } = req.params;
     let application: RentalApplication | undefined;
 
     rentalApplications = rentalApplications.map(item => {
       if (item.id === id && item.status === 'Rent Paid') {
+        if (item.ownerEmail?.toLowerCase() !== session.email.toLowerCase()) {
+          return item;
+        }
         const requestedUnit = units.find(unit => unit.id === item.unitId);
         if (!requestedUnit || requestedUnit.status !== 'Vacant') {
           application = item;
@@ -1182,11 +1471,13 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.post("/api/rental-applications/:id/decline", (req, res) => {
+    const session = requireRole(req, res, ['landlord']);
+    if (!session) return;
     const { id } = req.params;
     let application: RentalApplication | undefined;
 
     rentalApplications = rentalApplications.map(item => {
-      if (item.id === id) {
+      if (item.id === id && item.ownerEmail?.toLowerCase() === session.email.toLowerCase()) {
         application = { ...item, status: 'Declined' };
         return application;
       }
@@ -1206,6 +1497,8 @@ const getActiveWorker = (workerEmail: unknown) => {
   });
 
   app.post("/api/balance/pay", (req, res) => {
+    const session = requireRole(req, res, ['tenant']);
+    if (!session) return;
     const { method, tenantName } = req.body;
     if (!method) {
       return res.status(400).json({ error: "Missing payment method details" });

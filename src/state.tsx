@@ -51,6 +51,13 @@ const DEMO_WORKER: PlatformMember = {
   status: 'Active'
 };
 
+const authHeaders = () => {
+  const token = localStorage.getItem('renziy_session_token');
+  return token
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    : { 'Content-Type': 'application/json' };
+};
+
 export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Navigation Role and Logged in user info
   const [role, setRoleState] = useState<AppUserRole>(() => {
@@ -533,7 +540,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch('/api/properties', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(newProp)
       });
       if (res.ok) {
@@ -560,7 +567,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch(`/api/properties/${propertyId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(details)
       });
       if (res.ok) {
@@ -592,7 +599,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch('/api/units/assign', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ unitId, tenantName })
       });
       if (res.ok) {
@@ -630,7 +637,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch('/api/units/update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ unitId, tenantName, rentAmount, status })
       });
       if (res.ok) {
@@ -659,7 +666,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch('/api/payments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(p)
       });
       if (res.ok) {
@@ -706,7 +713,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch('/api/maintenance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ ...req, tenantName: username })
       });
       if (res.ok) {
@@ -741,7 +748,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch(`/api/maintenance/${requestId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ status, workerEmail })
       });
       if (res.ok) {
@@ -791,7 +798,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch(`/api/maintenance/${requestId}/assign-worker`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ workerEmail })
       });
       if (res.ok) {
@@ -840,7 +847,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch('/api/balance/pay', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ method, tenantName: username })
       });
       if (res.ok) {
@@ -893,7 +900,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch('/api/units/lock', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ unitId, isLocked, lockReason })
       });
       if (res.ok) {
@@ -912,7 +919,8 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     try {
       const res = await fetch('/api/notifications/read', {
-        method: 'POST'
+        method: 'POST',
+        headers: authHeaders()
       });
       if (res.ok) {
         const notifsRes = await fetch('/api/notifications');
@@ -933,7 +941,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch('/api/settlement', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(newConfig)
       });
       if (res.ok) {
@@ -959,7 +967,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch('/api/units/update-avatar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ unitId, tenantAvatar })
       });
       if (res.ok) {
@@ -993,13 +1001,17 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     ]);
 
     try {
-      const res = await fetch('/api/members', {
+      const res = await fetch(member.password ? '/api/auth/register' : '/api/members', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(newMember)
       });
       if (res.ok) {
-        const savedMember = await res.json();
+        const data = await res.json();
+        if (data.token) {
+          localStorage.setItem('renziy_session_token', data.token);
+        }
+        const savedMember = data.member || data;
         setMembers(prev => [savedMember, ...prev.filter(m => m.id !== newMember.id && (m.email !== member.email || m.role !== member.role))]);
         return savedMember;
       }
@@ -1047,7 +1059,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch('/api/rental-applications', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(newApplication)
       });
       if (res.ok) {
@@ -1107,7 +1119,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch(`/api/rental-applications/${applicationId}/pay`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ method, paymentCode })
       });
       if (res.ok) {
@@ -1157,7 +1169,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     ]);
 
     try {
-      const res = await fetch(`/api/rental-applications/${applicationId}/approve`, { method: 'POST' });
+      const res = await fetch(`/api/rental-applications/${applicationId}/approve`, { method: 'POST', headers: authHeaders() });
       if (res.ok) {
         const [applicationsRes, unitsRes, membersRes, notifsRes] = await Promise.all([
           fetch('/api/rental-applications'),
@@ -1181,7 +1193,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     )));
 
     try {
-      const res = await fetch(`/api/rental-applications/${applicationId}/decline`, { method: 'POST' });
+      const res = await fetch(`/api/rental-applications/${applicationId}/decline`, { method: 'POST', headers: authHeaders() });
       if (res.ok) {
         const applicationsRes = await fetch('/api/rental-applications');
         if (applicationsRes.ok) setRentalApplications(await applicationsRes.json());

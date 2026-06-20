@@ -47,6 +47,7 @@ function AppContent() {
 
     if (!activeMember) {
       localStorage.removeItem('renziy_user_email');
+      localStorage.removeItem('renziy_session_token');
       setRole('anonymous');
       setActiveTab('dashboard');
       setExpressPayMethod(null);
@@ -60,6 +61,7 @@ function AppContent() {
 
   const handleSignOut = () => {
     localStorage.removeItem('renziy_user_email');
+    localStorage.removeItem('renziy_session_token');
     localStorage.removeItem('renziy_game_stats');
     localStorage.removeItem('renziy_custom_avatar');
     setRole('anonymous');
