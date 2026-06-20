@@ -3,6 +3,48 @@ import { useRenziy } from '../state';
 import { ArrowRight, Smartphone, CreditCard, Wrench, ShieldAlert, Sparkles, CheckCircle2, ChevronRight, Bell, Calendar, HelpCircle, Clock, Lock, Unlock, AlertTriangle, Camera, X, Home } from 'lucide-react';
 import { motion } from 'motion/react';
 
+const resizeAvatarFile = (file: File) => new Promise<string>((resolve, reject) => {
+  if (!file.type.startsWith('image/')) {
+    reject(new Error('Please select a valid image file.'));
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onerror = () => reject(new Error('Could not read that image.'));
+  reader.onload = () => {
+    const image = new Image();
+    image.onerror = () => reject(new Error('Could not load that image.'));
+    image.onload = () => {
+      const size = 480;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        reject(new Error('Could not prepare that image.'));
+        return;
+      }
+
+      const sourceSize = Math.min(image.width, image.height);
+      const sourceX = (image.width - sourceSize) / 2;
+      const sourceY = (image.height - sourceSize) / 2;
+      context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    image.src = String(reader.result || '');
+  };
+  reader.readAsDataURL(file);
+});
+
+const personalizeNotificationMessage = (message: string, name: string) => {
+  const firstName = name.trim().split(/\s+/)[0] || 'there';
+  if (!message || message.toLowerCase().startsWith(firstName.toLowerCase())) return message;
+  if (message.startsWith('Your ')) {
+    return `${firstName}, your ${message.slice(5)}`;
+  }
+  return `${firstName}, ${message.charAt(0).toLowerCase()}${message.slice(1)}`;
+};
+
 export default function TenantDashboard({
   onPayRent,
   onNavigate
@@ -17,6 +59,7 @@ export default function TenantDashboard({
     maintenanceRequests,
     markNotificationsAsRead,
     units,
+    updateProfileAvatar,
     updateTenantAvatar,
     members
   } = useRenziy();
@@ -36,6 +79,11 @@ export default function TenantDashboard({
 
   // Unread count
   const unreadCount = notifications.filter(n => n.unread).length;
+  const firstName = username.trim().split(/\s+/)[0] || username;
+  const personalizedNotifications = notifications.map(notification => ({
+    ...notification,
+    message: personalizeNotificationMessage(notification.message, username)
+  }));
 
   // Photo upload states
   const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
@@ -43,17 +91,12 @@ export default function TenantDashboard({
   const [showUploadPanel, setShowUploadPanel] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      alert("Please select a valid image file.");
-      return;
+  const handleFile = async (file: File) => {
+    try {
+      setPhotoPreview(await resizeAvatarFile(file));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Please select a valid image file.');
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setPhotoPreview(result);
-    };
-    reader.readAsDataURL(file);
   };
 
   const onDragOver = (e: React.DragEvent) => {
@@ -83,7 +126,11 @@ export default function TenantDashboard({
 
   const handleSaveAvatar = async () => {
     if (photoPreview && myUnit) {
-      await updateTenantAvatar(myUnit.id, photoPreview);
+      if (currentTenantAccount) {
+        await updateProfileAvatar(currentTenantAccount.id, photoPreview, myUnit.id);
+      } else {
+        await updateTenantAvatar(myUnit.id, photoPreview);
+      }
       setPhotoPreview(null);
       setShowUploadPanel(false);
     }
@@ -394,7 +441,7 @@ export default function TenantDashboard({
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-sm font-extrabold uppercase text-[#002645] tracking-wider flex items-center gap-2">
                   <Bell className="h-4 w-4" />
-                  <span>Alert Feed</span>
+                  <span>{firstName}'s Alert Feed</span>
                 </h3>
                 {unreadCount > 0 && (
                   <button
@@ -407,7 +454,7 @@ export default function TenantDashboard({
               </div>
 
               <div className="space-y-3">
-                {notifications.map(n => {
+                {personalizedNotifications.map(n => {
                   const isLockWarning = n.title.includes('Lockout') || n.title.includes('CRITICAL') || n.message.toLowerCase().includes('lock');
                   return (
                     <div

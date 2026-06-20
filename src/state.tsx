@@ -27,7 +27,10 @@ interface RenziyContextType {
   markNotificationsAsRead: () => void;
   toggleUnitLock: (unitId: string, isLocked: boolean, lockReason?: string) => Promise<void>;
   updateSettlementConfig: (config: Partial<SettlementConfig>) => Promise<void>;
+  updateProfileAvatar: (memberId: string, avatarUrl: string, unitId?: string) => Promise<void>;
   updateTenantAvatar: (unitId: string, tenantAvatar: string) => Promise<void>;
+  requestPasswordReset: (role: PlatformMember['role'], email: string) => Promise<{ email: string; phone: string; resetCode?: string }>;
+  confirmPasswordReset: (role: PlatformMember['role'], email: string, code: string, password: string) => Promise<void>;
   registerMember: (member: Omit<PlatformMember, 'id' | 'joinDate' | 'status'>) => Promise<PlatformMember>;
   submitRentalApplication: (application: Omit<RentalApplication, 'id' | 'requestedAt' | 'status'>) => Promise<RentalApplication>;
   markRentalApplicationPaid: (applicationId: string, method: 'M-Pesa' | 'Card') => Promise<void>;
@@ -453,6 +456,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       bankRoutingCode: 'EQTYKE'
     };
   });
+  const [passwordResetChallenges, setPasswordResetChallenges] = useState<Record<string, { code: string; expiresAt: number }>>({});
 
   // Fetch all initial states from physical server storage
   useEffect(() => {
@@ -979,6 +983,146 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const updateProfileAvatar = async (memberId: string, avatarUrl: string, unitId?: string) => {
+    let updatedMember: PlatformMember | undefined;
+
+    setMembers(prev => prev.map(member => {
+      if (member.id !== memberId) return member;
+      updatedMember = { ...member, avatarUrl };
+      return updatedMember;
+    }));
+
+    if (updatedMember?.role === 'tenant' && unitId) {
+      setUnits(prev => prev.map(unit => (
+        unit.id === unitId ? { ...unit, tenantAvatar: avatarUrl } : unit
+      )));
+    }
+
+    if (updatedMember?.role === 'worker') {
+      setMaintenanceRequests(prev => prev.map(request => (
+        request.technicianEmail?.toLowerCase() === updatedMember?.email.toLowerCase()
+          ? { ...request, technicianAvatar: avatarUrl }
+          : request
+      )));
+    }
+
+    try {
+      const res = await fetch('/api/members/avatar', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ memberId, avatarUrl, unitId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMembers(prev => prev.map(member => member.id === data.member.id ? data.member : member));
+        if (data.unit) {
+          setUnits(prev => prev.map(unit => unit.id === data.unit.id ? data.unit : unit));
+        }
+        if (data.maintenanceRequests) {
+          setMaintenanceRequests(data.maintenanceRequests);
+        }
+      }
+    } catch (err) {
+      console.warn("Express API profile avatar update failed:", err);
+    }
+  };
+
+  const maskEmail = (value: string) => {
+    const [name, domain] = value.split('@');
+    if (!name || !domain) return value;
+    return `${name.slice(0, 2)}${'*'.repeat(Math.max(name.length - 2, 2))}@${domain}`;
+  };
+
+  const maskPhone = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    return digits.length > 4 ? `${digits.slice(0, 3)}****${digits.slice(-2)}` : value;
+  };
+
+  const resetKey = (role: PlatformMember['role'], email: string) => `${role}:${email.trim().toLowerCase()}`;
+
+  const requestPasswordReset = async (role: PlatformMember['role'], email: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    const matchingMember = members.find(member => (
+      member.role === role &&
+      member.email.toLowerCase() === normalizedEmail
+    ));
+
+    if (!matchingMember) {
+      throw new Error('No matching account was found for that role and email address.');
+    }
+
+    try {
+      const res = await fetch('/api/auth/request-password-reset', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ role, email: normalizedEmail })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.delivery as { email: string; phone: string; resetCode?: string };
+      }
+
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.error || 'Password reset code could not be sent.');
+    } catch (err) {
+      if (err instanceof Error && err.message !== 'Failed to fetch') {
+        throw err;
+      }
+      console.warn("Express API password reset unavailable, using local reset code:", err);
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      setPasswordResetChallenges(prev => ({
+        ...prev,
+        [resetKey(role, normalizedEmail)]: { code, expiresAt: Date.now() + 10 * 60 * 1000 }
+      }));
+      return {
+        email: maskEmail(matchingMember.email),
+        phone: maskPhone(matchingMember.phone),
+        resetCode: code
+      };
+    }
+  };
+
+  const confirmPasswordReset = async (role: PlatformMember['role'], email: string, code: string, password: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    try {
+      const res = await fetch('/api/auth/confirm-password-reset', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ role, email: normalizedEmail, code, password })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMembers(prev => prev.map(member => member.id === data.member.id ? data.member : member));
+        return;
+      }
+
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.error || 'Password reset failed.');
+    } catch (err) {
+      if (err instanceof Error && err.message !== 'Failed to fetch') {
+        throw err;
+      }
+
+      const key = resetKey(role, normalizedEmail);
+      const challenge = passwordResetChallenges[key];
+      if (!challenge || challenge.expiresAt < Date.now() || challenge.code !== code.trim()) {
+        throw new Error('The reset code is invalid or expired.');
+      }
+
+      setMembers(prev => prev.map(member => (
+        member.role === role && member.email.toLowerCase() === normalizedEmail
+          ? { ...member, password }
+          : member
+      )));
+      setPasswordResetChallenges(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+  };
+
   const registerMember = async (member: Omit<PlatformMember, 'id' | 'joinDate' | 'status'>) => {
     const newMember: PlatformMember = {
       ...member,
@@ -1231,7 +1375,10 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         markNotificationsAsRead,
         toggleUnitLock,
         updateSettlementConfig,
+        updateProfileAvatar,
         updateTenantAvatar,
+        requestPasswordReset,
+        confirmPasswordReset,
         registerMember,
         submitRentalApplication,
         markRentalApplicationPaid,

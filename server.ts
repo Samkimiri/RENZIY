@@ -481,6 +481,13 @@ interface SessionPayload {
 }
 
 type PublicMember = Omit<PlatformMember, "password" | "passwordHash">;
+type PasswordResetChallenge = {
+  memberId: string;
+  codeHash: string;
+  expiresAt: number;
+  attempts: number;
+};
+const passwordResetChallenges = new Map<string, PasswordResetChallenge>();
 
 const normalizeEmail = (value: unknown) => typeof value === "string" ? value.trim().toLowerCase() : "";
 const sanitizeText = (value: unknown, max = MAX_TEXT_LENGTH) => (
@@ -497,11 +504,33 @@ const sanitizeUrl = (value: unknown) => {
     return "";
   }
 };
+const sanitizeAvatarUrl = (value: unknown) => {
+  if (typeof value !== "string") return "";
+  const text = value.trim();
+  if (!text) return "";
+  if (/^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=]+$/i.test(text)) {
+    return text.length <= 2_500_000 ? text : "";
+  }
+  return sanitizeUrl(text);
+};
 
 const hashPassword = (password: string, salt = crypto.randomBytes(16).toString("hex")) => {
   const hash = crypto.pbkdf2Sync(`${password}${passwordPepper}`, salt, 120000, 32, "sha256").toString("hex");
   return `pbkdf2_sha256$120000$${salt}$${hash}`;
 };
+
+const maskEmail = (value: string) => {
+  const [name, domain] = value.split("@");
+  if (!name || !domain) return value;
+  return `${name.slice(0, 2)}${"*".repeat(Math.max(name.length - 2, 2))}@${domain}`;
+};
+
+const maskPhone = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  return digits.length > 4 ? `${digits.slice(0, 3)}****${digits.slice(-2)}` : value;
+};
+
+const resetKey = (role: PlatformMember['role'], email: string) => `${role}:${email.toLowerCase()}`;
 
 const verifyPassword = (member: PlatformMember, password: unknown) => {
   if (typeof password !== "string" || password.length < 6) return false;
@@ -575,7 +604,7 @@ const sanitizeMemberInput = (input: Partial<PlatformMember>) => ({
   propertyName: sanitizeText(input.propertyName, 160) || undefined,
   unitNumber: sanitizeText(input.unitNumber, 80) || undefined,
   specialty: sanitizeText(input.specialty, 160) || undefined,
-  avatarUrl: sanitizeUrl(input.avatarUrl) || undefined
+  avatarUrl: sanitizeAvatarUrl(input.avatarUrl) || undefined
 });
 
 const saveState = () => {
@@ -674,7 +703,7 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.use(express.json({ limit: "100kb" }));
+app.use(express.json({ limit: "3mb" }));
 app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err instanceof SyntaxError) {
     return res.status(400).json({ error: "Invalid JSON payload" });
@@ -767,6 +796,77 @@ const unitBelongsTo = (unitId: string, email: string) => {
     }
     const token = signSession({ email: member.email, role: member.role, exp: Date.now() + sessionTtlMs });
     res.json({ token, member: scrubMember(member) });
+  });
+
+  app.post("/api/auth/request-password-reset", (req, res) => {
+    const role = req.body.role;
+    const email = normalizeEmail(req.body.email);
+    if (!isOneOf(USER_ROLES, role) || !email) {
+      return res.status(400).json({ error: "Role and email are required" });
+    }
+
+    const member = members.find(item => (
+      item.role === role &&
+      item.email.toLowerCase() === email &&
+      item.status === "Active"
+    ));
+    if (!member) {
+      return res.status(404).json({ error: "No active account matches that role and email" });
+    }
+
+    const resetCode = crypto.randomInt(100000, 1000000).toString();
+    passwordResetChallenges.set(resetKey(role, email), {
+      memberId: member.id,
+      codeHash: hashPassword(resetCode),
+      expiresAt: Date.now() + 10 * 60 * 1000,
+      attempts: 0
+    });
+
+    res.json({
+      success: true,
+      delivery: {
+        email: maskEmail(member.email),
+        phone: maskPhone(member.phone),
+        resetCode
+      }
+    });
+  });
+
+  app.post("/api/auth/confirm-password-reset", (req, res) => {
+    const role = req.body.role;
+    const email = normalizeEmail(req.body.email);
+    const code = sanitizeText(req.body.code, 12).replace(/\D/g, "");
+    const password = typeof req.body.password === "string" ? req.body.password : "";
+    if (!isOneOf(USER_ROLES, role) || !email || !code || password.length < 6) {
+      return res.status(400).json({ error: "Role, email, reset code, and a 6+ character password are required" });
+    }
+
+    const key = resetKey(role, email);
+    const challenge = passwordResetChallenges.get(key);
+    if (!challenge || challenge.expiresAt < Date.now()) {
+      passwordResetChallenges.delete(key);
+      return res.status(400).json({ error: "The reset code is invalid or expired" });
+    }
+
+    if (challenge.attempts >= 5 || !verifyPassword({ passwordHash: challenge.codeHash } as PlatformMember, code)) {
+      passwordResetChallenges.set(key, { ...challenge, attempts: challenge.attempts + 1 });
+      return res.status(400).json({ error: "The reset code is invalid or expired" });
+    }
+
+    const member = members.find(item => item.id === challenge.memberId && item.role === role && item.email.toLowerCase() === email);
+    if (!member) {
+      passwordResetChallenges.delete(key);
+      return res.status(404).json({ error: "Account not found" });
+    }
+    const securedMember: PlatformMember = {
+      ...member,
+      password: undefined,
+      passwordHash: hashPassword(password)
+    };
+    members = members.map(item => item.id === member.id ? securedMember : item);
+    passwordResetChallenges.delete(key);
+    saveState();
+    res.json({ success: true, member: scrubMember(securedMember) });
   });
 
   app.post("/api/auth/register", (req, res) => {
@@ -1262,6 +1362,60 @@ const unitBelongsTo = (unitId: string, email: string) => {
 
   app.get("/api/members", (req, res) => {
     res.json(scrubMembers());
+  });
+
+  app.post("/api/members/avatar", (req, res) => {
+    const session = requireRole(req, res, ['tenant', 'landlord', 'worker']);
+    if (!session) return;
+
+    const memberId = sanitizeText(req.body.memberId, 80);
+    const avatarUrl = sanitizeAvatarUrl(req.body.avatarUrl);
+    const unitId = sanitizeText(req.body.unitId, 80);
+    if (!memberId || !avatarUrl) {
+      return res.status(400).json({ error: "Missing memberId or avatarUrl" });
+    }
+
+    const member = members.find(item => item.id === memberId);
+    if (!member) {
+      return res.status(404).json({ error: "Member not found" });
+    }
+    if (member.email.toLowerCase() !== session.email.toLowerCase() || member.role !== session.role) {
+      return res.status(403).json({ error: "You can only update your own profile picture" });
+    }
+
+    let updatedMember: PlatformMember | null = null;
+    members = members.map(item => {
+      if (item.id !== memberId) return item;
+      updatedMember = { ...item, avatarUrl };
+      return updatedMember;
+    });
+
+    let updatedUnit: Unit | null = null;
+    if (updatedMember?.role === 'tenant') {
+      units = units.map(unit => {
+        const unitMatchesRequest = unitId && unit.id === unitId;
+        const unitMatchesMember = unit.tenantName === updatedMember?.name
+          || (updatedMember?.propertyName === unit.propertyName && updatedMember?.unitNumber === unit.unitNumber);
+        if (!unitMatchesRequest && !unitMatchesMember) return unit;
+        updatedUnit = { ...unit, tenantAvatar: avatarUrl };
+        return updatedUnit;
+      });
+    }
+
+    if (updatedMember?.role === 'worker') {
+      maintenanceRequests = maintenanceRequests.map(request => (
+        request.technicianEmail?.toLowerCase() === updatedMember?.email.toLowerCase()
+          ? { ...request, technicianAvatar: avatarUrl }
+          : request
+      ));
+    }
+
+    saveState();
+    res.json({
+      member: scrubMember(updatedMember as PlatformMember),
+      unit: updatedUnit,
+      maintenanceRequests: updatedMember?.role === 'worker' ? maintenanceRequests : undefined
+    });
   });
 
   app.post("/api/members", (req, res) => {

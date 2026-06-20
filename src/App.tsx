@@ -11,15 +11,57 @@ import SmartLocks from './components/SmartLocks';
 import PayoutSettings from './components/PayoutSettings';
 import HousingMarketplace from './components/HousingMarketplace';
 import WorkerDashboard from './components/WorkerDashboard';
-import { Building2, LayoutDashboard, Building, Wrench, CreditCard, LogOut, Bell, ArrowLeftRight, Lock, Coins, MapPin, HardHat } from 'lucide-react';
+import { Building2, LayoutDashboard, Building, Wrench, CreditCard, LogOut, Bell, ArrowLeftRight, Lock, Coins, MapPin, HardHat, Camera, X } from 'lucide-react';
+
+const defaultTenantAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB';
+const defaultLandlordAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAMwnvNKfivoGNvNC9N5regRXFoTzJgjvygw0djDO-V3kLxr0Hy8prK6Rf3M7eqjVCcsY4Apprti87A1_xX0S9aIJUnk6pTxgqAHsoeDAdjAJ7elxN6Qy-ESwviqRsDX6d6JgEdcqtVRI5xDlnVAeMQTUI_xej9xSBYkSlgfc36PkFJ4ZuitjAA9R5PSRRVX9At_QfcjBLMS_Ux_m71L3CiwKnebuz0RO-Esm93lzAa_uC_pu6gvY1OJGjhmsKN0dNjOdLycbyWgiqE';
+const defaultWorkerAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb';
+
+const resizeAvatarFile = (file: File) => new Promise<string>((resolve, reject) => {
+  if (!file.type.startsWith('image/')) {
+    reject(new Error('Please select a valid image file.'));
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onerror = () => reject(new Error('Could not read that image.'));
+  reader.onload = () => {
+    const image = new Image();
+    image.onerror = () => reject(new Error('Could not load that image.'));
+    image.onload = () => {
+      const size = 480;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        reject(new Error('Could not prepare that image.'));
+        return;
+      }
+
+      const sourceSize = Math.min(image.width, image.height);
+      const sourceX = (image.width - sourceSize) / 2;
+      const sourceY = (image.height - sourceSize) / 2;
+      context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    image.src = String(reader.result || '');
+  };
+  reader.readAsDataURL(file);
+});
+
+const personalizeNotificationMessage = (message: string, name: string) => {
+  const firstName = name.trim().split(/\s+/)[0] || 'there';
+  if (!message || message.toLowerCase().startsWith(firstName.toLowerCase())) return message;
+  if (message.startsWith('Your ')) {
+    return `${firstName}, your ${message.slice(5)}`;
+  }
+  return `${firstName}, ${message.charAt(0).toLowerCase()}${message.slice(1)}`;
+};
 
 function AppContent() {
-  const { role, setRole, username, setUsername, notifications, markNotificationsAsRead, units, members } = useRenziy();
+  const { role, setRole, username, setUsername, notifications, markNotificationsAsRead, units, members, updateProfileAvatar } = useRenziy();
   
-  // Find tenant avatar dynamically
-  const myUnitInfo = role === 'tenant' ? units?.find(u => u.tenantName === username) || (username === 'Alex' || username === 'Alex Smith' ? units?.find(u => u.id === 'unit-1-4b') : undefined) : undefined;
-  const tenantAvatar = myUnitInfo?.tenantAvatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB';
-
   // Navigation active tab inside dashboards
   const [activeTab, setActiveTab] = useState('dashboard');
   
@@ -28,6 +70,10 @@ function AppContent() {
 
   // Notifications bell dropdown popover
   const [showNotifMenu, setShowNotifMenu] = useState(false);
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isAvatarSaving, setIsAvatarSaving] = useState(false);
+  const avatarInputRef = React.useRef<HTMLInputElement>(null);
 
   const unreadNotifCount = notifications.filter(n => n.unread).length;
   const mobileNavButtonClass = (active: boolean) => `min-w-[68px] flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 cursor-pointer transition-all ${active ? 'bg-[#E8F4FD] text-[#002645]' : 'text-[#73777f] hover:bg-[#f6f3f5]'}`;
@@ -41,6 +87,38 @@ function AppContent() {
     ));
   }, [members, role, sessionEmail]);
   const hasVerifiedAccount = role !== 'anonymous' && Boolean(activeMember);
+  const myUnitInfo = role === 'tenant'
+    ? units?.find(u => (
+        activeMember?.propertyName === u.propertyName &&
+        activeMember?.unitNumber === u.unitNumber
+      )) || units?.find(u => u.tenantName === username) || (username === 'Alex' || username === 'Alex Smith' ? units?.find(u => u.id === 'unit-1-4b') : undefined)
+    : undefined;
+  const profileAvatar = activeMember?.avatarUrl
+    || (role === 'tenant' ? myUnitInfo?.tenantAvatar || defaultTenantAvatar : role === 'worker' ? defaultWorkerAvatar : defaultLandlordAvatar);
+  const firstName = username.trim().split(/\s+/)[0] || username;
+  const personalizedNotifications = useMemo(() => (
+    notifications.map(notification => ({
+      ...notification,
+      message: personalizeNotificationMessage(notification.message, username)
+    }))
+  ), [notifications, username]);
+
+  const handleAvatarFile = async (file: File) => {
+    try {
+      setAvatarPreview(await resizeAvatarFile(file));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Please select a valid image file.');
+    }
+  };
+
+  const handleSaveProfileAvatar = async () => {
+    if (!activeMember || !avatarPreview) return;
+    setIsAvatarSaving(true);
+    await updateProfileAvatar(activeMember.id, avatarPreview, myUnitInfo?.id);
+    setIsAvatarSaving(false);
+    setAvatarPreview(null);
+    setShowAvatarMenu(false);
+  };
 
   useEffect(() => {
     if (role === 'anonymous') return;
@@ -254,7 +332,7 @@ function AppContent() {
               {showNotifMenu && (
                 <div className="absolute right-0 mt-3 w-80 bg-white border border-[#e4e2e4] rounded-2xl shadow-xl z-50 p-4 space-y-3 font-sans">
                   <div className="flex justify-between items-center border-b border-[#f0edef] pb-2">
-                    <span className="text-xs font-bold text-[#002645] uppercase tracking-wider">Lodge Alerts</span>
+                    <span className="text-xs font-bold text-[#002645] uppercase tracking-wider">{firstName}'s Alerts</span>
                     <button 
                       onClick={() => setShowNotifMenu(false)}
                       className="text-[10px] text-[#73777f] font-bold hover:underline"
@@ -263,7 +341,7 @@ function AppContent() {
                     </button>
                   </div>
                   <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-                    {notifications.map(n => (
+                    {personalizedNotifications.map(n => (
                       <div key={n.id} className="text-xs leading-relaxed">
                         <p className="font-bold text-[#1b1b1d]">{n.title}</p>
                         <p className="text-[#43474e] text-[11px] mt-0.5">{n.message}</p>
@@ -271,7 +349,7 @@ function AppContent() {
                       </div>
                     ))}
                     {notifications.length === 0 && (
-                      <p className="text-center text-xs text-[#73777f] py-4">No logged notification logs found.</p>
+                      <p className="text-center text-xs text-[#73777f] py-4">{firstName}, no notifications yet.</p>
                     )}
                   </div>
                 </div>
@@ -279,20 +357,35 @@ function AppContent() {
             </div>
 
             {/* User Profile Info Card */}
+            <button
+              type="button"
+              onClick={() => setShowAvatarMenu(true)}
+              className="sm:hidden relative w-9 h-9 rounded-full bg-[#002645]/10 overflow-hidden flex items-center justify-center shrink-0 border border-[#e4e2e4]"
+              title="Change profile picture"
+            >
+              <img alt={username} className="w-full h-full object-cover" src={profileAvatar} />
+              <span className="absolute -right-0.5 -bottom-0.5 w-4 h-4 rounded-full bg-[#002645] text-white flex items-center justify-center border border-white">
+                <Camera className="h-2.5 w-2.5" />
+              </span>
+            </button>
+
             <div className="hidden sm:flex items-center gap-2.5 pr-1 pl-2.5 border-l border-[#e4e2e4]">
               {/* Profile Avatar Image depending on role */}
-              <div className="w-8 h-8 rounded-full bg-[#002645]/10 overflow-hidden flex items-center justify-center shrink-0 border border-[#e4e2e4]">
+              <button
+                type="button"
+                onClick={() => setShowAvatarMenu(true)}
+                className="relative w-8 h-8 rounded-full bg-[#002645]/10 overflow-hidden flex items-center justify-center shrink-0 border border-[#e4e2e4] cursor-pointer group"
+                title="Change profile picture"
+              >
                 <img 
                   alt={username} 
                   className="w-full h-full object-cover" 
-                  src={role === 'landlord'
-                    ? 'https://lh3.googleusercontent.com/aida-public/AB6AXuAMwnvNKfivoGNvNC9N5regRXFoTzJgjvygw0djDO-V3kLxr0Hy8prK6Rf3M7eqjVCcsY4Apprti87A1_xX0S9aIJUnk6pTxgqAHsoeDAdjAJ7elxN6Qy-ESwviqRsDX6d6JgEdcqtVRI5xDlnVAeMQTUI_xej9xSBYkSlgfc36PkFJ4ZuitjAA9R5PSRRVX9At_QfcjBLMS_Ux_m71L3CiwKnebuz0RO-Esm93lzAa_uC_pu6gvY1OJGjhmsKN0dNjOdLycbyWgiqE' 
-                    : role === 'worker'
-                      ? 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb'
-                      : tenantAvatar
-                  } 
+                  src={profileAvatar} 
                 />
-              </div>
+                <span className="absolute inset-0 bg-[#002645]/50 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                  <Camera className="h-3.5 w-3.5" />
+                </span>
+              </button>
               <div className="hidden lg:block text-left leading-none">
                 <p className="text-xs font-black text-[#002645]">{username}</p>
                 <p className="text-[9px] font-bold text-[#73777f] tracking-wide mt-1 uppercase">
@@ -311,6 +404,74 @@ function AppContent() {
             </button>
           </div>
         </header>
+
+        {showAvatarMenu && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-3xl w-full max-w-sm p-5 border border-[#e4e2e4] shadow-2xl space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Camera className="h-5 w-5 text-[#002645]" />
+                  <h2 className="text-sm font-black text-[#002645]">Profile picture</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAvatarMenu(false);
+                    setAvatarPreview(null);
+                  }}
+                  className="p-2 rounded-xl text-[#73777f] hover:bg-[#f0edef]"
+                  title="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-[#E8F4FD] bg-slate-100 shadow-sm">
+                  <img src={avatarPreview || profileAvatar} alt={username} className="w-full h-full object-cover" />
+                </div>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) handleAvatarFile(file);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  className="w-full py-2.5 rounded-xl border border-[#c3c6cf] text-xs font-black text-[#002645] hover:bg-[#f6f3f5]"
+                >
+                  Choose Photo
+                </button>
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAvatarMenu(false);
+                    setAvatarPreview(null);
+                  }}
+                  className="px-4 py-2 rounded-xl border border-[#c3c6cf] text-xs font-bold text-[#43474e] hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveProfileAvatar}
+                  disabled={!avatarPreview || isAvatarSaving}
+                  className={`px-4 py-2 rounded-xl text-xs font-black text-white ${avatarPreview && !isAvatarSaving ? 'bg-[#002645] hover:brightness-110' : 'bg-slate-300 cursor-not-allowed'}`}
+                >
+                  {isAvatarSaving ? 'Saving...' : 'Save Photo'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* WORKSPACE AREA CONTAINER SCREEN ROUTING */}
         <main className="p-3 sm:p-4 md:p-10 pb-28 md:pb-10 flex-1 overflow-y-auto max-w-7xl w-full mx-auto">

@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useRenziy } from '../state';
-import { ArrowRight, BarChart3, Building2, CheckCircle2, HardHat, Home, Lock, Mail, MapPin, Phone, ShieldCheck, Smartphone, UserRound } from 'lucide-react';
+import { ArrowRight, BarChart3, Building2, CheckCircle2, HardHat, HelpCircle, Home, Lock, Mail, MapPin, Phone, ShieldCheck, Smartphone, UserRound } from 'lucide-react';
 
-type AccountMode = 'signin' | 'signup';
+type AccountMode = 'signin' | 'signup' | 'reset';
 type AccountRole = 'landlord' | 'tenant' | 'worker';
 
 const defaultAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB';
@@ -10,13 +10,16 @@ const defaultAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbV
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
 export default function LandingPage() {
-  const { members, registerMember, setRole, setUsername, addProperty } = useRenziy();
+  const { members, registerMember, requestPasswordReset, confirmPasswordReset, setRole, setUsername, addProperty } = useRenziy();
   const [authMode, setAuthMode] = useState<AccountMode>('signin');
   const [selectedRole, setSelectedRole] = useState<AccountRole>('tenant');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [resetDelivery, setResetDelivery] = useState<{ email: string; phone: string; resetCode?: string } | null>(null);
   const [propertyName, setPropertyName] = useState('');
   const [unitNumber, setUnitNumber] = useState('');
   const [loading, setLoading] = useState(false);
@@ -72,6 +75,42 @@ export default function LandingPage() {
     const existingAccount = members.find(member => member.email.toLowerCase() === cleanEmail && member.role === selectedRole);
 
     try {
+      if (authMode === 'reset') {
+        if (!existingAccount) {
+          setFormMessage('No account was found for that email and account type.');
+          return;
+        }
+
+        if (!resetDelivery) {
+          const delivery = await requestPasswordReset(selectedRole, cleanEmail);
+          setResetDelivery(delivery);
+          setFormMessage(`Reset code sent to ${delivery.email} and ${delivery.phone}.${delivery.resetCode ? ` Demo code: ${delivery.resetCode}` : ''}`);
+          return;
+        }
+
+        if (!resetCode.trim()) {
+          setFormMessage('Enter the reset code sent to your email and phone.');
+          return;
+        }
+        if (password.length < 6) {
+          setFormMessage('Choose a new password with at least 6 characters.');
+          return;
+        }
+        if (password !== confirmPassword) {
+          setFormMessage('The new passwords do not match.');
+          return;
+        }
+
+        await confirmPasswordReset(selectedRole, cleanEmail, resetCode, password);
+        setPassword('');
+        setConfirmPassword('');
+        setResetCode('');
+        setResetDelivery(null);
+        setAuthMode('signin');
+        setFormMessage('Password reset successfully. Sign in with your new password.');
+        return;
+      }
+
       if (authMode === 'signin') {
         if (!existingAccount) {
           setFormMessage('No account was found for that email and account type. Create the account first.');
@@ -98,6 +137,11 @@ export default function LandingPage() {
           return;
         }
         setFormMessage('The password does not match this account.');
+        return;
+      }
+
+      if (password.length < 6) {
+        setFormMessage('Choose a password with at least 6 characters.');
         return;
       }
 
@@ -197,7 +241,11 @@ export default function LandingPage() {
                   <button
                     key={role}
                     type="button"
-                    onClick={() => setSelectedRole(role)}
+                    onClick={() => {
+                      setSelectedRole(role);
+                      setResetDelivery(null);
+                      setResetCode('');
+                    }}
                     className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${selectedRole === role ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
                   >
                     {role === 'tenant' ? 'Tenant' : role === 'landlord' ? 'Landlord' : 'Worker'}
@@ -211,12 +259,14 @@ export default function LandingPage() {
                     {selectedRole === 'tenant' ? 'Resident access' : selectedRole === 'landlord' ? 'Owner access' : 'Worker access'}
                   </span>
                   <h2 className="text-2xl font-extrabold text-white mt-1">
-                    {authMode === 'signin' ? 'Sign in to your account' : 'Create your account'}
+                    {authMode === 'signin' ? 'Sign in to your account' : authMode === 'reset' ? 'Reset your password' : 'Create your account'}
                   </h2>
                   <p className="text-xs text-slate-400 mt-1">
                     {authMode === 'signin'
                       ? 'Use the same role you selected when creating the account.'
-                      : 'Choose tenant, landlord, or worker before submitting.'}
+                      : authMode === 'reset'
+                        ? 'We will send a reset code to the email and phone saved on your account.'
+                        : 'Choose tenant, landlord, or worker before submitting.'}
                   </p>
                 </div>
                 <div className="hidden sm:flex h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 items-center justify-center text-emerald-400">
@@ -261,17 +311,42 @@ export default function LandingPage() {
                   <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">Email address</span>
                   <span className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-emerald-500 bg-slate-900 transition-all">
                     <Mail className="h-4 w-4 text-slate-500 mr-3" />
-                    <input className="w-full bg-transparent text-xs text-white font-bold focus:outline-none" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@example.com" type="email" required />
+                    <input className="w-full bg-transparent text-xs text-white font-bold focus:outline-none" value={email} onChange={event => {
+                      setEmail(event.target.value);
+                      setResetDelivery(null);
+                      setResetCode('');
+                    }} placeholder="you@example.com" type="email" required />
                   </span>
                 </label>
 
-                <label className="block space-y-1">
-                  <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">Password</span>
-                  <span className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-emerald-500 bg-slate-900 transition-all">
-                    <Lock className="h-4 w-4 text-slate-500 mr-3" />
-                    <input className="w-full bg-transparent text-xs text-white font-bold focus:outline-none" value={password} onChange={event => setPassword(event.target.value)} placeholder="Enter password" type="password" required />
-                  </span>
-                </label>
+                {(authMode !== 'reset' || resetDelivery) && (
+                  <label className="block space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">{authMode === 'reset' ? 'New password' : 'Password'}</span>
+                    <span className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-emerald-500 bg-slate-900 transition-all">
+                      <Lock className="h-4 w-4 text-slate-500 mr-3" />
+                      <input className="w-full bg-transparent text-xs text-white font-bold focus:outline-none" value={password} onChange={event => setPassword(event.target.value)} placeholder={authMode === 'reset' ? 'New password' : 'Enter password'} type="password" required />
+                    </span>
+                  </label>
+                )}
+
+                {authMode === 'reset' && resetDelivery && (
+                  <>
+                    <label className="block space-y-1">
+                      <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">Reset code</span>
+                      <span className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-emerald-500 bg-slate-900 transition-all">
+                        <Mail className="h-4 w-4 text-slate-500 mr-3" />
+                        <input className="w-full bg-transparent text-xs text-white font-bold focus:outline-none" value={resetCode} onChange={event => setResetCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit code" inputMode="numeric" required />
+                      </span>
+                    </label>
+                    <label className="block space-y-1">
+                      <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">Confirm new password</span>
+                      <span className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-emerald-500 bg-slate-900 transition-all">
+                        <Lock className="h-4 w-4 text-slate-500 mr-3" />
+                        <input className="w-full bg-transparent text-xs text-white font-bold focus:outline-none" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} placeholder="Repeat new password" type="password" required />
+                      </span>
+                    </label>
+                  </>
+                )}
 
                 {formMessage && (
                   <div className="rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-xs font-bold text-amber-100">
@@ -280,15 +355,44 @@ export default function LandingPage() {
                 )}
 
                 <button type="submit" disabled={loading} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-700 disabled:text-slate-400 text-slate-950 py-3 rounded-xl font-black active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer">
-                  <span>{loading ? 'Processing...' : authMode === 'signin' ? 'Sign In' : 'Create Account'}</span>
+                  <span>{loading ? 'Processing...' : authMode === 'signin' ? 'Sign In' : authMode === 'reset' ? resetDelivery ? 'Reset Password' : 'Send Reset Code' : 'Create Account'}</span>
                   {!loading && <ArrowRight className="h-4 w-4" />}
                 </button>
               </form>
 
               <div className="mt-5 pt-5 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <button onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')} className="text-xs text-emerald-400 font-bold hover:underline text-left">
-                  {authMode === 'signin' ? 'Create a new account' : 'Already have an account? Sign in'}
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormMessage('');
+                      setResetDelivery(null);
+                      setResetCode('');
+                      setPassword('');
+                      setConfirmPassword('');
+                      setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
+                    }}
+                    className="text-xs text-emerald-400 font-bold hover:underline text-left"
+                  >
+                    {authMode === 'signin' ? 'Create a new account' : 'Already have an account? Sign in'}
+                  </button>
+                  {authMode !== 'signup' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormMessage('');
+                        setResetDelivery(null);
+                        setResetCode('');
+                        setPassword('');
+                        setConfirmPassword('');
+                        setAuthMode(authMode === 'reset' ? 'signin' : 'reset');
+                      }}
+                      className="text-xs text-slate-300 font-bold hover:text-white hover:underline text-left"
+                    >
+                      {authMode === 'reset' ? 'Back to sign in' : 'Forgot password?'}
+                    </button>
+                  )}
+                </div>
                 <p className="text-[10px] text-slate-500">
                   {accountsForRole.length} {selectedRole} account{accountsForRole.length === 1 ? '' : 's'} registered
                 </p>
@@ -313,12 +417,47 @@ export default function LandingPage() {
             );
           })}
         </section>
+
+        <section id="faq" className="px-4 md:px-10 pb-14 max-w-7xl mx-auto">
+          <div className="bg-slate-950/82 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+            <div className="max-w-xl">
+              <div className="inline-flex items-center gap-2 text-emerald-300 text-[10px] font-black uppercase tracking-widest">
+                <HelpCircle className="h-4 w-4" />
+                FAQ
+              </div>
+              <h2 className="text-2xl font-black text-white mt-3">Understand Renziy before you sign in.</h2>
+              <p className="text-sm text-slate-400 leading-relaxed mt-2">
+                Quick answers about rent payments, landlord tools, worker dispatch, smart locks, and account recovery.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+              {[
+                ['Who uses Renziy?', 'Tenants, landlords, and maintenance workers each get a separate workspace.'],
+                ['Can tenants pay rent?', 'Tenants can view balances and start M-Pesa or card rent payments from their portal.'],
+                ['What can landlords manage?', 'Landlords can manage properties, units, tenants, repairs, locks, and payout details.'],
+                ['How does password reset work?', 'A reset code is sent to the email and phone saved on the account.']
+              ].map(([question, answer]) => (
+                <details key={question} className="group rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+                  <summary className="cursor-pointer text-xs font-black text-white list-none flex items-center justify-between gap-3">
+                    <span>{question}</span>
+                    <ArrowRight className="h-3.5 w-3.5 text-emerald-400 transition-transform group-open:rotate-90" />
+                  </summary>
+                  <p className="text-[11px] text-slate-400 leading-relaxed mt-3">{answer}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
       </main>
 
       <footer className="bg-slate-950/90 text-slate-300 py-8 px-4 md:px-10 border-t border-slate-800">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between gap-4 text-xs text-slate-500">
           <span>Renziy Property Management</span>
-          <span>Corporate tenant and landlord access for Kenya rental operations.</span>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+            <a href="#faq" className="text-emerald-400 font-bold hover:text-emerald-300 hover:underline">FAQs</a>
+            <span>Corporate tenant and landlord access for Kenya rental operations.</span>
+          </div>
         </div>
       </footer>
     </div>
