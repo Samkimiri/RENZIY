@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRenziy } from '../state';
+import { rememberLocalLogin, verifyLocalLogin } from '../authMemory';
 import { ArrowRight, BarChart3, Building2, CheckCircle2, Eye, EyeOff, HardHat, HelpCircle, Home, Lock, Mail, MapPin, Phone, ShieldCheck, Smartphone, UserRound } from 'lucide-react';
 
 type AccountMode = 'signin' | 'signup' | 'reset';
@@ -111,6 +112,8 @@ export default function LandingPage() {
         }
 
         await confirmPasswordReset(selectedRole, cleanEmail, resetCode, password);
+        const accountName = existingAccount?.name || fullName.trim() || cleanEmail;
+        await rememberLocalLogin(selectedRole, cleanEmail, accountName, password);
         setPassword('');
         setConfirmPassword('');
         setResetCode('');
@@ -129,6 +132,7 @@ export default function LandingPage() {
           });
           if (res.ok) {
             const data = await res.json();
+            await rememberLocalLogin(data.member.role, data.member.email, data.member.name, password);
             if (rememberMe) {
               localStorage.setItem('renziy_remembered_email', cleanEmail);
             } else {
@@ -138,13 +142,34 @@ export default function LandingPage() {
             return;
           }
           const data = await res.json().catch(() => null);
+          const localLogin = await verifyLocalLogin(selectedRole, cleanEmail, password);
+          if (localLogin) {
+            if (rememberMe) {
+              localStorage.setItem('renziy_remembered_email', cleanEmail);
+            } else {
+              localStorage.removeItem('renziy_remembered_email');
+            }
+            enterAccount(localLogin.role, existingAccount?.name || localLogin.name, localLogin.email);
+            return;
+          }
           setFormMessage(data?.error || 'The password does not match this account.');
           return;
         } catch (err) {
           console.warn('Server login unavailable:', err);
         }
 
-        setFormMessage('Could not reach the secure login service. Please try again when the server is online.');
+        const localLogin = await verifyLocalLogin(selectedRole, cleanEmail, password);
+        if (localLogin) {
+          if (rememberMe) {
+            localStorage.setItem('renziy_remembered_email', cleanEmail);
+          } else {
+            localStorage.removeItem('renziy_remembered_email');
+          }
+          enterAccount(localLogin.role, existingAccount?.name || localLogin.name, localLogin.email);
+          return;
+        }
+
+        setFormMessage('The password does not match this account, and the secure login service could not verify it.');
         return;
       }
 
@@ -185,6 +210,7 @@ export default function LandingPage() {
         createStarterPortfolio(cleanEmail, fullName.trim());
       }
 
+      await rememberLocalLogin(created.role, created.email, created.name, password);
       enterAccount(created.role, created.name, created.email);
     } finally {
       setLoading(false);
