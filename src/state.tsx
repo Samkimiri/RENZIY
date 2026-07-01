@@ -16,10 +16,10 @@ interface RenziyContextType {
   rentalApplications: RentalApplication[];
   tenantBalance: number;
   settlementConfig: SettlementConfig;
-  addProperty: (property: Omit<Property, 'id'>) => void;
+  addProperty: (property: Omit<Property, 'id'>) => Promise<void>;
   updatePropertyDetails: (propertyId: string, details: Partial<Property>) => Promise<void>;
-  addTenantToUnit: (unitId: string, tenantName: string) => void;
-  updateUnit: (unitId: string, tenantName?: string, rentAmount?: number, status?: Unit['status']) => void;
+  addTenantToUnit: (unitId: string, tenantName: string) => Promise<void>;
+  updateUnit: (unitId: string, tenantName?: string, rentAmount?: number, status?: Unit['status']) => Promise<void>;
   recordPayment: (payment: Omit<Payment, 'id' | 'code'>) => void;
   addMaintenanceRequest: (request: Omit<MaintenanceRequest, 'id' | 'status' | 'date' | 'tenantName' | 'propertyName' | 'unitNumber'>) => void;
   updateRequestStatus: (requestId: string, status: MaintenanceRequest['status'], workerEmail?: string) => void;
@@ -48,7 +48,6 @@ const DEFAULT_WORKER: PlatformMember = {
   name: 'Mark S.',
   phone: '0743991122',
   email: 'mark@renziy.app',
-  password: 'demo123',
   avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
   specialty: 'Plumbing and general repairs',
   joinDate: '2026-05-23',
@@ -353,7 +352,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return [
       {
         id: 'notif-lockout-alert',
-        title: '⚠️ CRITICAL: Door Lockout Warning',
+        title: 'Critical Door Lockout Warning',
         message: 'Your rent payment of KES 145,000 is now overdue. Continued failure to settle this balance will result in your unit smart lock being engaged remotely.',
         date: 'Just now',
         type: 'payment',
@@ -395,7 +394,6 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         name: 'John Doe',
         phone: '0743475247',
         email: 'john@renziy.app',
-        password: 'demo123',
         avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRxmlZiyPxhMA9KhxxEY-ZornwU45XOarKthi5rZwjaUXVYAzK1Rptwz3XSUMih-aX7N40cr2Ki-5KZvD7pUHT8xTTKjuQMyyucNGma4FaFJirfRO8Nmxdo7wvHhgJnJDxwkPMa5NOJdwGCIEP9IoZoEnvk7HAYZ8jfseOFIDZ7L5DKDb2LTYFaZymzBJ-SYm2ragI8Q_dxp6yzf6AjtEmLdC6yZGqnU2ZCun5dcEqufGWVNNfnsQoC1JyHXHZfKXLK1rfwMLmEMPm',
         propertyName: 'Oakwood Heights',
         joinDate: '2026-05-20',
@@ -407,7 +405,6 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         name: 'Alex Smith',
         phone: '0712456789',
         email: 'alex@renziy.app',
-        password: 'demo123',
         avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB',
         propertyName: 'Oakwood Heights',
         unitNumber: 'Apt 4B',
@@ -421,7 +418,6 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         name: 'Mark S.',
         phone: '0743991122',
         email: 'mark@renziy.app',
-        password: 'demo123',
         avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
         specialty: 'Plumbing and general repairs',
         joinDate: '2026-05-23',
@@ -459,69 +455,77 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
   const [passwordResetChallenges, setPasswordResetChallenges] = useState<Record<string, { code: string; expiresAt: number }>>({});
 
+  const publishSharedDataChange = () => {
+    localStorage.setItem('renziy_shared_data_version', Date.now().toString());
+  };
+
+  const refreshSharedData = async () => {
+    try {
+      const [
+        propsRes,
+        unitsRes,
+        paymentsRes,
+        maintRes,
+        notifsRes,
+        membersRes,
+        rentalApplicationsRes,
+        balRes,
+        settRes
+      ] = await Promise.all([
+        fetch('/api/properties'),
+        fetch('/api/units'),
+        fetch('/api/payments'),
+        fetch('/api/maintenance'),
+        fetch('/api/notifications'),
+        fetch('/api/members'),
+        fetch('/api/rental-applications'),
+        fetch('/api/balance'),
+        fetch('/api/settlement')
+      ]);
+
+      if (propsRes.ok) setProperties(await propsRes.json());
+      if (unitsRes.ok) setUnits(await unitsRes.json());
+      if (paymentsRes.ok) setPayments(await paymentsRes.json());
+      if (maintRes.ok) setMaintenanceRequests(await maintRes.json());
+      if (notifsRes.ok) setNotifications(await notifsRes.json());
+      if (membersRes.ok) setMembers(await membersRes.json());
+      if (rentalApplicationsRes.ok) setRentalApplications(await rentalApplicationsRes.json());
+      if (balRes.ok) {
+        const balData = await balRes.json();
+        setTenantBalance(balData.tenantBalance);
+      }
+      if (settRes.ok) setSettlementConfig(await settRes.json());
+    } catch (err) {
+      console.warn("Shared Renziy data refresh unavailable, using local state:", err);
+    }
+  };
+
+  const syncAfterMutation = async () => {
+    await refreshSharedData();
+    publishSharedDataChange();
+  };
+
   // Fetch all initial states from physical server storage
   useEffect(() => {
-    const loadAllData = async () => {
-      try {
-        const propsRes = await fetch('/api/properties');
-        if (propsRes.ok) setProperties(await propsRes.json());
-
-        const unitsRes = await fetch('/api/units');
-        if (unitsRes.ok) setUnits(await unitsRes.json());
-
-        const paymentsRes = await fetch('/api/payments');
-        if (paymentsRes.ok) setPayments(await paymentsRes.json());
-
-        const maintRes = await fetch('/api/maintenance');
-        if (maintRes.ok) setMaintenanceRequests(await maintRes.json());
-
-        const notifsRes = await fetch('/api/notifications');
-        if (notifsRes.ok) setNotifications(await notifsRes.json());
-
-        const membersRes = await fetch('/api/members');
-        if (membersRes.ok) setMembers(await membersRes.json());
-
-        const rentalApplicationsRes = await fetch('/api/rental-applications');
-        if (rentalApplicationsRes.ok) setRentalApplications(await rentalApplicationsRes.json());
-
-        const balRes = await fetch('/api/balance');
-        if (balRes.ok) {
-          const balData = await balRes.json();
-          setTenantBalance(balData.tenantBalance);
-        }
-
-        const settRes = await fetch('/api/settlement');
-        if (settRes.ok) setSettlementConfig(await settRes.json());
-      } catch (err) {
-        console.error("API backend not reachable yet, operating off local fallback arrays:", err);
-      }
-    };
-    loadAllData();
+    refreshSharedData();
   }, []);
 
   useEffect(() => {
     if (role === 'anonymous') return;
 
-    const refreshSharedHousingData = async () => {
-      try {
-        const [propsRes, unitsRes, applicationsRes] = await Promise.all([
-          fetch('/api/properties'),
-          fetch('/api/units'),
-          fetch('/api/rental-applications')
-        ]);
-        if (propsRes.ok) setProperties(await propsRes.json());
-        if (unitsRes.ok) setUnits(await unitsRes.json());
-        if (applicationsRes.ok) setRentalApplications(await applicationsRes.json());
-      } catch (err) {
-        console.warn("Shared housing refresh unavailable, using local state:", err);
+    const handleSharedDataChange = (event: StorageEvent) => {
+      if (event.key === 'renziy_shared_data_version') {
+        refreshSharedData();
       }
     };
 
-    const refreshId = window.setInterval(refreshSharedHousingData, 15000);
-    window.addEventListener('focus', refreshSharedHousingData);
+    const refreshId = window.setInterval(refreshSharedData, 5000);
+    window.addEventListener('focus', refreshSharedData);
+    window.addEventListener('storage', handleSharedDataChange);
     return () => {
       window.clearInterval(refreshId);
-      window.removeEventListener('focus', refreshSharedHousingData);
+      window.removeEventListener('focus', refreshSharedData);
+      window.removeEventListener('storage', handleSharedDataChange);
     };
   }, [role]);
 
@@ -576,10 +580,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify({ ...newProp, unitsCount })
       });
       if (res.ok) {
-        const propsRes = await fetch('/api/properties');
-        if (propsRes.ok) setProperties(await propsRes.json());
-        const unitsRes = await fetch('/api/units');
-        if (unitsRes.ok) setUnits(await unitsRes.json());
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API unreachable. Operating in local mode:", err);
@@ -603,10 +604,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify(details)
       });
       if (res.ok) {
-        const propsRes = await fetch('/api/properties');
-        if (propsRes.ok) setProperties(await propsRes.json());
-        const unitsRes = await fetch('/api/units');
-        if (unitsRes.ok) setUnits(await unitsRes.json());
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API property update unavailable, using local saved listing details:", err);
@@ -635,8 +633,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify({ unitId, tenantName })
       });
       if (res.ok) {
-        const unitsRes = await fetch('/api/units');
-        if (unitsRes.ok) setUnits(await unitsRes.json());
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API unreachable:", err);
@@ -673,8 +670,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify({ unitId, tenantName, rentAmount, status })
       });
       if (res.ok) {
-        const unitsRes = await fetch('/api/units');
-        if (unitsRes.ok) setUnits(await unitsRes.json());
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API unreachable:", err);
@@ -702,13 +698,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify(p)
       });
       if (res.ok) {
-        const paymentsRes = await fetch('/api/payments');
-        if (paymentsRes.ok) setPayments(await paymentsRes.json());
-        const balRes = await fetch('/api/balance');
-        if (balRes.ok) {
-          const balData = await balRes.json();
-          setTenantBalance(balData.tenantBalance);
-        }
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API unreachable:", err);
@@ -749,10 +739,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify({ ...req, tenantName: username })
       });
       if (res.ok) {
-        const maintRes = await fetch('/api/maintenance');
-        if (maintRes.ok) setMaintenanceRequests(await maintRes.json());
-        const notifsRes = await fetch('/api/notifications');
-        if (notifsRes.ok) setNotifications(await notifsRes.json());
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API unreachable:", err);
@@ -784,10 +771,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify({ status, workerEmail })
       });
       if (res.ok) {
-        const maintRes = await fetch('/api/maintenance');
-        if (maintRes.ok) setMaintenanceRequests(await maintRes.json());
-        const notifsRes = await fetch('/api/notifications');
-        if (notifsRes.ok) setNotifications(await notifsRes.json());
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API unreachable:", err);
@@ -834,10 +818,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify({ workerEmail })
       });
       if (res.ok) {
-        const maintRes = await fetch('/api/maintenance');
-        if (maintRes.ok) setMaintenanceRequests(await maintRes.json());
-        const notifsRes = await fetch('/api/notifications');
-        if (notifsRes.ok) setNotifications(await notifsRes.json());
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API worker assignment unavailable, using local workflow:", err);
@@ -883,15 +864,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify({ method, tenantName: username })
       });
       if (res.ok) {
-        const paymentsRes = await fetch('/api/payments');
-        if (paymentsRes.ok) setPayments(await paymentsRes.json());
-        const balRes = await fetch('/api/balance');
-        if (balRes.ok) {
-          const balData = await balRes.json();
-          setTenantBalance(balData.tenantBalance);
-        }
-        const notifsRes = await fetch('/api/notifications');
-        if (notifsRes.ok) setNotifications(await notifsRes.json());
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API unreachable:", err);
@@ -917,7 +890,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setNotifications(prev => [
         {
           id: `notif-${Date.now()}`,
-          title: isLocked ? '🚫 Smart Lock Engaged' : '🔑 Smart Lock Released',
+          title: isLocked ? 'Smart Lock Engaged' : 'Smart Lock Released',
           message: isLocked
             ? `Your unit ${matchedUnit.unitNumber} at ${matchedUnit.propertyName} has been locked. Reason: ${lockReason || "Rent payment overdue"}.`
             : `Your unit ${matchedUnit.unitNumber} at ${matchedUnit.propertyName} has been unlocked.`,
@@ -936,10 +909,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify({ unitId, isLocked, lockReason })
       });
       if (res.ok) {
-        const unitsRes = await fetch('/api/units');
-        if (unitsRes.ok) setUnits(await unitsRes.json());
-        const notifsRes = await fetch('/api/notifications');
-        if (notifsRes.ok) setNotifications(await notifsRes.json());
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API smart lock sync failed, using fallback:", err);
@@ -977,7 +947,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify(newConfig)
       });
       if (res.ok) {
-        setSettlementConfig(await res.json());
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API unreachable:", err);
@@ -1003,8 +973,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify({ unitId, tenantAvatar })
       });
       if (res.ok) {
-        const updated = await res.json();
-        setUnits(prev => prev.map(u => u.id === unitId ? updated : u));
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API unit avatar update failed:", err);
@@ -1041,14 +1010,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify({ memberId, avatarUrl, unitId })
       });
       if (res.ok) {
-        const data = await res.json();
-        setMembers(prev => prev.map(member => member.id === data.member.id ? data.member : member));
-        if (data.unit) {
-          setUnits(prev => prev.map(unit => unit.id === data.unit.id ? data.unit : unit));
-        }
-        if (data.maintenanceRequests) {
-          setMaintenanceRequests(data.maintenanceRequests);
-        }
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API profile avatar update failed:", err);
@@ -1125,6 +1087,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (res.ok) {
         const data = await res.json();
         setMembers(prev => prev.map(member => member.id === data.member.id ? data.member : member));
+        await syncAfterMutation();
         return;
       }
 
@@ -1163,6 +1126,18 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     setMembers(prev => [newMember, ...prev.filter(m => m.email !== member.email || m.role !== member.role)]);
+    if (newMember.role === 'tenant' && newMember.propertyName && newMember.unitNumber) {
+      setUnits(prev => prev.map(unit => (
+        unit.propertyName === newMember.propertyName && unit.unitNumber === newMember.unitNumber
+          ? {
+              ...unit,
+              status: 'Occupied',
+              tenantName: newMember.name,
+              tenantAvatar: newMember.avatarUrl || unit.tenantAvatar
+            }
+          : unit
+      )));
+    }
     setNotifications(prev => [
       {
         id: `notif-member-${Date.now()}`,
@@ -1188,6 +1163,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
         const savedMember = data.member || data;
         setMembers(prev => [savedMember, ...prev.filter(m => m.id !== newMember.id && (m.email !== member.email || m.role !== member.role))]);
+        await syncAfterMutation();
         return savedMember;
       }
     } catch (err) {
@@ -1243,6 +1219,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           savedApplication,
           ...prev.filter(item => item.id !== newApplication.id && !(item.unitId === application.unitId && item.tenantEmail === application.tenantEmail && item.status !== 'Declined'))
         ]);
+        await syncAfterMutation();
         return savedApplication;
       }
       setRentalApplications(prev => prev.filter(item => item.id !== newApplication.id));
@@ -1298,14 +1275,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify({ method, paymentCode })
       });
       if (res.ok) {
-        const [applicationsRes, paymentsRes, notifsRes] = await Promise.all([
-          fetch('/api/rental-applications'),
-          fetch('/api/payments'),
-          fetch('/api/notifications')
-        ]);
-        if (applicationsRes.ok) setRentalApplications(await applicationsRes.json());
-        if (paymentsRes.ok) setPayments(await paymentsRes.json());
-        if (notifsRes.ok) setNotifications(await notifsRes.json());
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API rental payment sync unavailable, using local workflow:", err);
@@ -1346,16 +1316,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch(`/api/rental-applications/${applicationId}/approve`, { method: 'POST', headers: authHeaders() });
       if (res.ok) {
-        const [applicationsRes, unitsRes, membersRes, notifsRes] = await Promise.all([
-          fetch('/api/rental-applications'),
-          fetch('/api/units'),
-          fetch('/api/members'),
-          fetch('/api/notifications')
-        ]);
-        if (applicationsRes.ok) setRentalApplications(await applicationsRes.json());
-        if (unitsRes.ok) setUnits(await unitsRes.json());
-        if (membersRes.ok) setMembers(await membersRes.json());
-        if (notifsRes.ok) setNotifications(await notifsRes.json());
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API rental approval sync unavailable, using local workflow:", err);
@@ -1370,8 +1331,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await fetch(`/api/rental-applications/${applicationId}/decline`, { method: 'POST', headers: authHeaders() });
       if (res.ok) {
-        const applicationsRes = await fetch('/api/rental-applications');
-        if (applicationsRes.ok) setRentalApplications(await applicationsRes.json());
+        await syncAfterMutation();
       }
     } catch (err) {
       console.warn("Express API rental decline sync unavailable, using local workflow:", err);

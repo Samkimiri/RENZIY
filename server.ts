@@ -5,6 +5,8 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { normalizeUnitCount } from "./src/unitLimits";
 
+const seedAccountPassword = process.env.RENZIY_SEED_PASSWORD || crypto.randomBytes(18).toString("base64url");
+
 interface Property {
   id: string;
   name: string;
@@ -376,7 +378,7 @@ let maintenanceRequests: MaintenanceRequest[] = [
 let notifications: Notification[] = [
   {
     id: 'notif-lockout-alert',
-    title: '⚠️ CRITICAL: Door Lockout Warning',
+    title: 'Critical Door Lockout Warning',
     message: 'Your rent payment of KES 145,000 is now overdue. Continued failure to settle this balance will result in your unit smart lock being engaged remotely.',
     date: 'Just now',
     type: 'payment',
@@ -407,7 +409,7 @@ let members: PlatformMember[] = [
     name: 'John Doe',
     phone: '0743475247',
     email: 'john@renziy.app',
-    password: 'demo123',
+    password: seedAccountPassword,
     avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRxmlZiyPxhMA9KhxxEY-ZornwU45XOarKthi5rZwjaUXVYAzK1Rptwz3XSUMih-aX7N40cr2Ki-5KZvD7pUHT8xTTKjuQMyyucNGma4FaFJirfRO8Nmxdo7wvHhgJnJDxwkPMa5NOJdwGCIEP9IoZoEnvk7HAYZ8jfseOFIDZ7L5DKDb2LTYFaZymzBJ-SYm2ragI8Q_dxp6yzf6AjtEmLdC6yZGqnU2ZCun5dcEqufGWVNNfnsQoC1JyHXHZfKXLK1rfwMLmEMPm',
     propertyName: 'Oakwood Heights',
     joinDate: '2026-05-20',
@@ -419,7 +421,7 @@ let members: PlatformMember[] = [
     name: 'Alex Smith',
     phone: '0712456789',
     email: 'alex@renziy.app',
-    password: 'demo123',
+    password: seedAccountPassword,
     avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB',
     propertyName: 'Oakwood Heights',
     unitNumber: 'Apt 4B',
@@ -433,7 +435,7 @@ let members: PlatformMember[] = [
     name: 'Mark S.',
     phone: '0743991122',
     email: 'mark@renziy.app',
-    password: 'demo123',
+    password: seedAccountPassword,
     avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
     specialty: 'Plumbing and general repairs',
     joinDate: '2026-05-23',
@@ -673,7 +675,7 @@ const ensureSeedData = () => {
       role: 'worker',
       phone: '0743991122',
       email: 'mark@renziy.app',
-      passwordHash: hashPassword('demo123'),
+      passwordHash: hashPassword(seedAccountPassword),
       avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
       specialty: 'Plumbing and general repairs',
       joinDate: '2026-05-23',
@@ -1136,7 +1138,7 @@ const unitBelongsTo = (unitId: string, email: string) => {
     if (uObj.tenantName) {
       notifications.unshift({
         id: `notif-${Date.now()}`,
-        title: isLocked ? '🚫 Smart Lock Engaged' : '🔑 Smart Lock Released',
+      title: isLocked ? 'Smart Lock Engaged' : 'Smart Lock Released',
         message: isLocked
           ? `Your unit ${uObj.unitNumber} at ${uObj.propertyName} has been locked by the landlord. Reason: ${uObj.lockReason}. Settle your payments immediately to reactivate.`
           : `Your unit ${uObj.unitNumber} at ${uObj.propertyName} has been unlocked. Thank you for your payment.`,
@@ -1444,6 +1446,18 @@ const unitBelongsTo = (unitId: string, email: string) => {
     };
 
     members = [member, ...members.filter(m => m.email !== member.email || m.role !== member.role)];
+    if (member.role === 'tenant' && member.propertyName && member.unitNumber) {
+      units = units.map(unit => (
+        unit.propertyName === member.propertyName && unit.unitNumber === member.unitNumber
+          ? {
+              ...unit,
+              status: 'Occupied',
+              tenantName: member.name,
+              tenantAvatar: member.avatarUrl || unit.tenantAvatar
+            }
+          : unit
+      ));
+    }
     notifications.unshift({
       id: `notif-member-${Date.now()}`,
       title: 'New Platform Member',

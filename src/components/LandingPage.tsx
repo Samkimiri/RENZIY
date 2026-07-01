@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRenziy } from '../state';
-import { ArrowRight, BarChart3, Building2, CheckCircle2, HardHat, HelpCircle, Home, Lock, Mail, MapPin, Phone, ShieldCheck, Smartphone, UserRound } from 'lucide-react';
+import { ArrowRight, BarChart3, Building2, CheckCircle2, Eye, EyeOff, HardHat, HelpCircle, Home, Lock, Mail, MapPin, Phone, ShieldCheck, Smartphone, UserRound } from 'lucide-react';
 
 type AccountMode = 'signin' | 'signup' | 'reset';
 type AccountRole = 'landlord' | 'tenant' | 'worker';
@@ -25,6 +25,8 @@ export default function LandingPage() {
   const [loading, setLoading] = useState(false);
   const [formMessage, setFormMessage] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const accountsForRole = useMemo(
     () => members.filter(member => member.role === selectedRole),
@@ -138,18 +140,9 @@ export default function LandingPage() {
             return;
           }
         } catch (err) {
-          console.warn('Server login unavailable, trying saved local credentials:', err);
+          console.warn('Server login unavailable:', err);
         }
 
-        if (existingAccount.password && existingAccount.password === password) {
-          if (rememberMe) {
-            localStorage.setItem('renziy_remembered_email', cleanEmail);
-          } else {
-            localStorage.removeItem('renziy_remembered_email');
-          }
-          enterAccount(existingAccount.role, existingAccount.name, existingAccount.email);
-          return;
-        }
         setFormMessage('The password does not match this account.');
         return;
       }
@@ -264,6 +257,8 @@ export default function LandingPage() {
                       setSelectedRole(role);
                       setResetDelivery(null);
                       setResetCode('');
+                      setShowPassword(false);
+                      setShowConfirmPassword(false);
                     }}
                     className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${selectedRole === role ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
                   >
@@ -343,7 +338,16 @@ export default function LandingPage() {
                     <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">{authMode === 'reset' ? 'New password' : 'Password'}</span>
                     <span className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-emerald-500 bg-slate-900 transition-all">
                       <Lock className="h-4 w-4 text-slate-500 mr-3" />
-                      <input className="w-full bg-transparent text-xs text-white font-bold focus:outline-none" value={password} onChange={event => setPassword(event.target.value)} placeholder={authMode === 'reset' ? 'New password' : 'Enter password'} type="password" required />
+                      <input className="w-full bg-transparent text-xs text-white font-bold focus:outline-none" value={password} onChange={event => setPassword(event.target.value)} placeholder={authMode === 'reset' ? 'New password' : 'Enter password'} type={showPassword ? 'text' : 'password'} required />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(prev => !prev)}
+                        className="ml-3 text-slate-400 hover:text-white transition-colors"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        title={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </span>
                   </label>
                 )}
@@ -385,7 +389,16 @@ export default function LandingPage() {
                       <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">Confirm new password</span>
                       <span className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-emerald-500 bg-slate-900 transition-all">
                         <Lock className="h-4 w-4 text-slate-500 mr-3" />
-                        <input className="w-full bg-transparent text-xs text-white font-bold focus:outline-none" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} placeholder="Repeat new password" type="password" required />
+                        <input className="w-full bg-transparent text-xs text-white font-bold focus:outline-none" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} placeholder="Repeat new password" type={showConfirmPassword ? 'text' : 'password'} required />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(prev => !prev)}
+                          className="ml-3 text-slate-400 hover:text-white transition-colors"
+                          aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                          title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
                       </span>
                     </label>
                   </>
@@ -413,6 +426,8 @@ export default function LandingPage() {
                       setResetCode('');
                       setPassword('');
                       setConfirmPassword('');
+                      setShowPassword(false);
+                      setShowConfirmPassword(false);
                       setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
                     }}
                     className="text-xs text-emerald-400 font-bold hover:underline text-left"
@@ -428,6 +443,8 @@ export default function LandingPage() {
                         setResetCode('');
                         setPassword('');
                         setConfirmPassword('');
+                        setShowPassword(false);
+                        setShowConfirmPassword(false);
                         setAuthMode(authMode === 'reset' ? 'signin' : 'reset');
                       }}
                       className="text-xs text-slate-300 font-bold hover:text-white hover:underline text-left"

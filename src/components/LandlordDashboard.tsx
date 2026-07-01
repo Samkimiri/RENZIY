@@ -117,7 +117,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
     e.preventDefault();
     if (!selectedUnitId || !newTenantName || !newTenantPhone || !newTenantEmail) return;
     const selectedUnit = portfolioUnits.find(u => u.id === selectedUnitId);
-    addTenantToUnit(selectedUnitId, newTenantName);
+    await addTenantToUnit(selectedUnitId, newTenantName);
     await registerMember({
       role: 'tenant',
       name: newTenantName,

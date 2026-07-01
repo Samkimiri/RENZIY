@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRenziy } from '../state';
 import { motion, AnimatePresence } from 'motion/react';
-import { Smartphone, CreditCard, ArrowLeft, ShieldCheck, CheckCircle2, ShoppingBag, Download, Landmark, HelpCircle, RefreshCw } from 'lucide-react';
+import { Smartphone, CreditCard, ArrowLeft, ShieldCheck, CheckCircle2, ShoppingBag, Download, Landmark, HelpCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
 export default function PaymentFlow({ 
   initialMethod, 
@@ -20,6 +20,7 @@ export default function PaymentFlow({
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
+  const [showCardCvv, setShowCardCvv] = useState(false);
 
   // Generated Transaction variables
   const [txRef, setTxRef] = useState('');
@@ -107,7 +108,7 @@ export default function PaymentFlow({
               <span className="text-[10px] font-bold uppercase tracking-widest text-[#73777f]">Secure Ingress Gate</span>
               <h2 className="text-2xl font-black text-[#002645] mt-1">Rent Payment</h2>
               <p className="text-xs text-[#43474e] mt-1 font-semibold">
-                Property: <span className="text-[#002645] font-extrabold">Oakwood Heights — Apt 4B</span>
+                Property: <span className="text-[#002645] font-extrabold">Oakwood Heights - Apt 4B</span>
               </p>
             </div>
 
@@ -191,7 +192,7 @@ export default function PaymentFlow({
                   </div>
                   <div>
                     <p className="text-xs text-slate-300 font-sans leading-none pb-1">Dynamic billing number</p>
-                    <p className="text-lg tracking-wider font-extrabold">{cardNumber || '•••• •••• •••• ••••'}</p>
+                    <p className="text-lg tracking-wider font-extrabold">{cardNumber || '**** **** **** ****'}</p>
                   </div>
                   <div className="flex justify-between items-end">
                     <div>
@@ -240,21 +241,32 @@ export default function PaymentFlow({
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold uppercase text-[#002645] tracking-wider px-1">CVV Security</label>
-                    <input 
-                      type="password"
-                      maxLength={3}
-                      className="w-full bg-[#f6f3f5] rounded-xl p-3 text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#002645]/20 text-[#1b1b1d] font-semibold text-center"
-                      placeholder="•••"
-                      value={cardCvv}
-                      onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, ''))}
-                      required
-                    />
+                    <div className="flex items-center bg-[#f6f3f5] rounded-xl focus-within:ring-2 focus-within:ring-[#002645]/20">
+                      <input
+                        type={showCardCvv ? 'text' : 'password'}
+                        maxLength={3}
+                        className="w-full bg-transparent rounded-xl p-3 text-sm border-none focus:outline-none text-[#1b1b1d] font-semibold text-center"
+                        placeholder="***"
+                        value={cardCvv}
+                        onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, ''))}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCardCvv(prev => !prev)}
+                        className="px-3 text-[#73777f] hover:text-[#002645] transition-colors"
+                        aria-label={showCardCvv ? 'Hide CVV' : 'Show CVV'}
+                        title={showCardCvv ? 'Hide CVV' : 'Show CVV'}
+                      >
+                        {showCardCvv ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
                 <div className="p-3 bg-emerald-50/40 text-[10px] text-emerald-800 rounded-xl border border-emerald-200 text-left space-y-1 font-semibold">
                   <span className="font-extrabold uppercase tracking-widest text-emerald-700 block text-[9px]">Direct Merchant Settlement</span>
-                  <span>Funds are settled safely to <span className="underline font-bold text-[#002645]">{settlementConfig.bankAccountName}</span> at <span className="font-bold text-[#002645]">{settlementConfig.bankName}</span> (A/C: {settlementConfig.bankAccountNumber.slice(0, 4) + '••••' + settlementConfig.bankAccountNumber.slice(-3)}).</span>
+                  <span>Funds are settled safely to <span className="underline font-bold text-[#002645]">{settlementConfig.bankAccountName}</span> at <span className="font-bold text-[#002645]">{settlementConfig.bankName}</span> (A/C: {settlementConfig.bankAccountNumber.slice(0, 4) + '****' + settlementConfig.bankAccountNumber.slice(-3)}).</span>
                 </div>
 
                 <button 
