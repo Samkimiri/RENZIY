@@ -3,11 +3,14 @@ import { useRenziy } from '../state';
 import { ArrowRight, BarChart3, Building2, CheckCircle2, Eye, EyeOff, HardHat, HelpCircle, Home, Lock, Mail, MapPin, Phone, ShieldCheck, Smartphone, UserRound } from 'lucide-react';
 
 type AccountMode = 'signin' | 'signup' | 'reset';
-type AccountRole = 'landlord' | 'tenant' | 'worker';
+type AccountRole = 'admin' | 'landlord' | 'tenant' | 'worker';
 
 const defaultAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB';
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
+const accountRoleLabel = (role: AccountRole) => (
+  role === 'admin' ? 'Owner' : role === 'tenant' ? 'Tenant' : role === 'landlord' ? 'Landlord' : 'Worker'
+);
 
 export default function LandingPage() {
   const { members, registerMember, requestPasswordReset, confirmPasswordReset, setRole, setUsername, addProperty } = useRenziy();
@@ -118,11 +121,6 @@ export default function LandingPage() {
       }
 
       if (authMode === 'signin') {
-        if (!existingAccount) {
-          setFormMessage('No account was found for that email and account type. Create the account first.');
-          return;
-        }
-
         try {
           const res = await fetch('/api/auth/login', {
             method: 'POST',
@@ -139,11 +137,19 @@ export default function LandingPage() {
             enterAccount(data.member.role, data.member.name, data.member.email, data.token);
             return;
           }
+          const data = await res.json().catch(() => null);
+          setFormMessage(data?.error || 'The password does not match this account.');
+          return;
         } catch (err) {
           console.warn('Server login unavailable:', err);
         }
 
-        setFormMessage('The password does not match this account.');
+        setFormMessage('Could not reach the secure login service. Please try again when the server is online.');
+        return;
+      }
+
+      if (selectedRole === 'admin') {
+        setFormMessage('Owner accounts are created only by the Renziy server. Use the owner sign-in tab.');
         return;
       }
 
@@ -249,7 +255,7 @@ export default function LandingPage() {
           <div id="auth-section" className="w-full lg:w-1/2">
             <div className="bg-slate-950/88 backdrop-blur-md rounded-[2rem] p-5 md:p-7 border border-slate-800 shadow-2xl">
               <div className="flex gap-2 p-1 bg-slate-900 rounded-2xl border border-slate-800 mb-5">
-                {(['tenant', 'landlord', 'worker'] as AccountRole[]).map(role => (
+                {(['tenant', 'landlord', 'worker', 'admin'] as AccountRole[]).map(role => (
                   <button
                     key={role}
                     type="button"
@@ -259,10 +265,13 @@ export default function LandingPage() {
                       setResetCode('');
                       setShowPassword(false);
                       setShowConfirmPassword(false);
+                      if (role === 'admin' && authMode === 'signup') {
+                        setAuthMode('signin');
+                      }
                     }}
                     className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${selectedRole === role ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
                   >
-                    {role === 'tenant' ? 'Tenant' : role === 'landlord' ? 'Landlord' : 'Worker'}
+                    {accountRoleLabel(role)}
                   </button>
                 ))}
               </div>
@@ -270,7 +279,7 @@ export default function LandingPage() {
               <div className="flex items-start justify-between gap-4 mb-5">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
-                    {selectedRole === 'tenant' ? 'Resident access' : selectedRole === 'landlord' ? 'Owner access' : 'Worker access'}
+                    {selectedRole === 'admin' ? 'App owner access' : selectedRole === 'tenant' ? 'Resident access' : selectedRole === 'landlord' ? 'Owner access' : 'Worker access'}
                   </span>
                   <h2 className="text-2xl font-extrabold text-white mt-1">
                     {authMode === 'signin' ? 'Sign in to your account' : authMode === 'reset' ? 'Reset your password' : 'Create your account'}
@@ -284,7 +293,7 @@ export default function LandingPage() {
                   </p>
                 </div>
                 <div className="hidden sm:flex h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 items-center justify-center text-emerald-400">
-                  {selectedRole === 'tenant' ? <Home className="h-6 w-6" /> : selectedRole === 'landlord' ? <Building2 className="h-6 w-6" /> : <HardHat className="h-6 w-6" />}
+                  {selectedRole === 'admin' ? <ShieldCheck className="h-6 w-6" /> : selectedRole === 'tenant' ? <Home className="h-6 w-6" /> : selectedRole === 'landlord' ? <Building2 className="h-6 w-6" /> : <HardHat className="h-6 w-6" />}
                 </div>
               </div>
 
@@ -428,6 +437,10 @@ export default function LandingPage() {
                       setConfirmPassword('');
                       setShowPassword(false);
                       setShowConfirmPassword(false);
+                      if (selectedRole === 'admin' && authMode === 'signin') {
+                        setFormMessage('Owner access is created on the server. Sign in with the owner login details.');
+                        return;
+                      }
                       setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
                     }}
                     className="text-xs text-emerald-400 font-bold hover:underline text-left"

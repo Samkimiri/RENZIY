@@ -6,6 +6,8 @@ import { createServer as createViteServer } from "vite";
 import { normalizeUnitCount } from "./src/unitLimits";
 
 const seedAccountPassword = process.env.RENZIY_SEED_PASSWORD || crypto.randomBytes(18).toString("base64url");
+const adminAccountEmail = (process.env.RENZIY_ADMIN_EMAIL || "admin@renziy.app").trim().toLowerCase();
+const adminAccountPassword = process.env.RENZIY_ADMIN_PASSWORD || "RenziyOwner2026!";
 
 interface Property {
   id: string;
@@ -81,7 +83,7 @@ interface Notification {
 
 interface PlatformMember {
   id: string;
-  role: 'landlord' | 'tenant' | 'worker';
+  role: 'admin' | 'landlord' | 'tenant' | 'worker';
   name: string;
   phone: string;
   email: string;
@@ -404,6 +406,18 @@ let notifications: Notification[] = [
 
 let members: PlatformMember[] = [
   {
+    id: 'member-admin-owner',
+    role: 'admin',
+    name: 'Renziy Owner',
+    phone: '0743475247',
+    email: adminAccountEmail,
+    password: adminAccountPassword,
+    avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=480&q=80',
+    specialty: 'Platform owner',
+    joinDate: '2026-07-02',
+    status: 'Active'
+  },
+  {
     id: 'member-landlord-default',
     role: 'landlord',
     name: 'John Doe',
@@ -649,6 +663,21 @@ const loadState = () => {
 };
 
 const ensureSeedData = () => {
+  if (!members.some(member => member.role === 'admin' && member.email === adminAccountEmail)) {
+    members.unshift({
+      id: 'member-admin-owner',
+      name: 'Renziy Owner',
+      role: 'admin',
+      phone: '0743475247',
+      email: adminAccountEmail,
+      passwordHash: hashPassword(adminAccountPassword),
+      avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=480&q=80',
+      specialty: 'Platform owner',
+      joinDate: '2026-07-02',
+      status: 'Active'
+    });
+  }
+
   members = members.map(member => (
     member.role === 'landlord' && member.email === 'john@renziy.app'
       ? { ...member, phone: '0743475247' }
@@ -732,7 +761,8 @@ app.use("/api", (req, res, next) => {
   next();
 });
 
-const USER_ROLES = ['landlord', 'tenant', 'worker'] as const;
+const USER_ROLES = ['admin', 'landlord', 'tenant', 'worker'] as const;
+const SELF_REGISTRATION_ROLES = ['landlord', 'tenant', 'worker'] as const;
 const PAYMENT_STATUSES = ['Paid', 'Pending', 'Overdue'] as const;
 const PAYMENT_METHODS = ['M-Pesa', 'Card'] as const;
 const MAINTENANCE_STATUSES = ['Submitted', 'Acknowledged', 'In Progress', 'Resolved'] as const;
@@ -878,7 +908,7 @@ const unitBelongsTo = (unitId: string, email: string) => {
     const role = req.body.role;
     const password = typeof req.body.password === "string" ? req.body.password : "";
     const input = sanitizeMemberInput(req.body);
-    if (!isOneOf(USER_ROLES, role) || !input.name || !input.phone || !input.email || password.length < 6) {
+    if (!isOneOf(SELF_REGISTRATION_ROLES, role) || !input.name || !input.phone || !input.email || password.length < 6) {
       return res.status(400).json({ error: "Name, phone, email, account type, and a 6+ character password are required" });
     }
     const existing = members.find(member => member.role === role && member.email.toLowerCase() === input.email.toLowerCase());
@@ -913,7 +943,7 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.post("/api/settlement", (req, res) => {
-    const session = requireRole(req, res, ['landlord']);
+    const session = requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     settlementConfig = { ...settlementConfig, ...req.body };
     saveState();
@@ -925,7 +955,7 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.post("/api/properties", (req, res) => {
-    const session = requireRole(req, res, ['landlord']);
+    const session = requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { name, address, unitsCount, imageUrl } = req.body;
     if (!name || !address || !unitsCount) {
@@ -966,13 +996,13 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.patch("/api/properties/:id", (req, res) => {
-    const session = requireRole(req, res, ['landlord']);
+    const session = requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { id } = req.params;
     let updatedProperty: Property | null = null;
 
     properties = properties.map(property => {
-      if (property.id === id && property.ownerEmail?.toLowerCase() === session.email.toLowerCase()) {
+      if (property.id === id && (session.role === 'admin' || property.ownerEmail?.toLowerCase() === session.email.toLowerCase())) {
         updatedProperty = { ...property, ...req.body, availableForMarketplace: true };
         return updatedProperty;
       }
@@ -1002,13 +1032,13 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.post("/api/units/assign", (req, res) => {
-    const session = requireRole(req, res, ['landlord']);
+    const session = requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { unitId, tenantName } = req.body;
     if (!unitId || !tenantName) {
       return res.status(400).json({ error: "Missing required parameters" });
     }
-    if (!unitBelongsTo(unitId, session.email)) {
+    if (session.role !== 'admin' && !unitBelongsTo(unitId, session.email)) {
       return res.status(403).json({ error: "You can only update units in your portfolio" });
     }
 
@@ -1035,13 +1065,13 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.post("/api/units/update", (req, res) => {
-    const session = requireRole(req, res, ['landlord']);
+    const session = requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { unitId, tenantName, rentAmount, status } = req.body;
     if (!unitId) {
       return res.status(400).json({ error: "Missing unitId" });
     }
-    if (!unitBelongsTo(unitId, session.email)) {
+    if (session.role !== 'admin' && !unitBelongsTo(unitId, session.email)) {
       return res.status(403).json({ error: "You can only update units in your portfolio" });
     }
 
@@ -1077,7 +1107,7 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.post("/api/units/update-avatar", (req, res) => {
-    const session = requireRole(req, res, ['tenant', 'landlord']);
+    const session = requireRole(req, res, ['tenant', 'landlord', 'admin']);
     if (!session) return;
     const { unitId, tenantAvatar } = req.body;
     if (!unitId || !tenantAvatar) {
@@ -1105,13 +1135,13 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.post("/api/units/lock", (req, res) => {
-    const session = requireRole(req, res, ['landlord']);
+    const session = requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { unitId, isLocked, lockReason } = req.body;
     if (!unitId) {
       return res.status(400).json({ error: "Missing unitId" });
     }
-    if (!unitBelongsTo(unitId, session.email)) {
+    if (session.role !== 'admin' && !unitBelongsTo(unitId, session.email)) {
       return res.status(403).json({ error: "You can only lock units in your portfolio" });
     }
 
@@ -1248,7 +1278,7 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.patch("/api/maintenance/:id", (req, res) => {
-    const session = requireRole(req, res, ['landlord', 'worker']);
+    const session = requireRole(req, res, ['landlord', 'worker', 'admin']);
     if (!session) return;
     const { id } = req.params;
     const { status, workerEmail } = req.body;
@@ -1307,7 +1337,7 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.post("/api/maintenance/:id/assign-worker", (req, res) => {
-    const session = requireRole(req, res, ['landlord', 'worker']);
+    const session = requireRole(req, res, ['landlord', 'worker', 'admin']);
     if (!session) return;
     const { id } = req.params;
     const { workerEmail } = req.body;
@@ -1360,7 +1390,7 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.post("/api/notifications/read", (req, res) => {
-    const session = requireRole(req, res, ['tenant', 'landlord', 'worker']);
+    const session = requireRole(req, res, ['tenant', 'landlord', 'worker', 'admin']);
     if (!session) return;
     notifications = notifications.map(n => ({ ...n, unread: false }));
     saveState();
@@ -1372,7 +1402,7 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.post("/api/members/avatar", (req, res) => {
-    const session = requireRole(req, res, ['tenant', 'landlord', 'worker']);
+    const session = requireRole(req, res, ['tenant', 'landlord', 'worker', 'admin']);
     if (!session) return;
 
     const memberId = sanitizeText(req.body.memberId, 80);
@@ -1426,7 +1456,7 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.post("/api/members", (req, res) => {
-    const session = requireRole(req, res, ['landlord']);
+    const session = requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { role, name, phone, email } = req.body;
     if (!role || !name || !phone || !email) {
@@ -1434,6 +1464,9 @@ const unitBelongsTo = (unitId: string, email: string) => {
     }
     if (!isOneOf(USER_ROLES, role)) {
       return res.status(400).json({ error: "Unsupported member role" });
+    }
+    if (role === 'admin' && session.role !== 'admin') {
+      return res.status(403).json({ error: "Only the app owner can create admin accounts" });
     }
 
     const sanitized = sanitizeMemberInput(req.body);
@@ -1586,14 +1619,14 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.post("/api/rental-applications/:id/approve", (req, res) => {
-    const session = requireRole(req, res, ['landlord']);
+    const session = requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { id } = req.params;
     let application: RentalApplication | undefined;
 
     rentalApplications = rentalApplications.map(item => {
       if (item.id === id && item.status === 'Rent Paid') {
-        if (item.ownerEmail?.toLowerCase() !== session.email.toLowerCase()) {
+        if (session.role !== 'admin' && item.ownerEmail?.toLowerCase() !== session.email.toLowerCase()) {
           return item;
         }
         const requestedUnit = units.find(unit => unit.id === item.unitId);
@@ -1644,13 +1677,13 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.post("/api/rental-applications/:id/decline", (req, res) => {
-    const session = requireRole(req, res, ['landlord']);
+    const session = requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { id } = req.params;
     let application: RentalApplication | undefined;
 
     rentalApplications = rentalApplications.map(item => {
-      if (item.id === id && item.ownerEmail?.toLowerCase() === session.email.toLowerCase()) {
+      if (item.id === id && (session.role === 'admin' || item.ownerEmail?.toLowerCase() === session.email.toLowerCase())) {
         application = { ...item, status: 'Declined' };
         return application;
       }

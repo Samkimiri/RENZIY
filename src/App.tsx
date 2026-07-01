@@ -11,7 +11,8 @@ import SmartLocks from './components/SmartLocks';
 import PayoutSettings from './components/PayoutSettings';
 import HousingMarketplace from './components/HousingMarketplace';
 import WorkerDashboard from './components/WorkerDashboard';
-import { Building2, LayoutDashboard, Building, Wrench, CreditCard, LogOut, Bell, ArrowLeftRight, Lock, Coins, MapPin, HardHat, Camera, X } from 'lucide-react';
+import AdminDashboard from './components/AdminDashboard';
+import { Building2, LayoutDashboard, Building, Wrench, CreditCard, LogOut, Bell, ArrowLeftRight, Lock, Coins, MapPin, HardHat, Camera, X, ShieldCheck } from 'lucide-react';
 
 const defaultTenantAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB';
 const defaultLandlordAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAMwnvNKfivoGNvNC9N5regRXFoTzJgjvygw0djDO-V3kLxr0Hy8prK6Rf3M7eqjVCcsY4Apprti87A1_xX0S9aIJUnk6pTxgqAHsoeDAdjAJ7elxN6Qy-ESwviqRsDX6d6JgEdcqtVRI5xDlnVAeMQTUI_xej9xSBYkSlgfc36PkFJ4ZuitjAA9R5PSRRVX9At_QfcjBLMS_Ux_m71L3CiwKnebuz0RO-Esm93lzAa_uC_pu6gvY1OJGjhmsKN0dNjOdLycbyWgiqE';
@@ -58,6 +59,14 @@ const personalizeNotificationMessage = (message: string, name: string) => {
   }
   return `${firstName}, ${message.charAt(0).toLowerCase()}${message.slice(1)}`;
 };
+
+const accountLabel = (role: string) => (
+  role === 'admin' ? 'Owner Admin' : role === 'landlord' ? 'Landlord' : role === 'worker' ? 'Worker' : 'Tenant'
+);
+
+const profileRoleLabel = (role: string) => (
+  role === 'admin' ? 'APP OWNER' : role === 'landlord' ? 'LANDLORD ADMINISTRATOR' : role === 'worker' ? 'MAINTENANCE WORKER' : 'APT 4B RESIDENT'
+);
 
 function AppContent() {
   const { role, setRole, username, setUsername, notifications, markNotificationsAsRead, units, members, updateProfileAvatar } = useRenziy();
@@ -170,7 +179,17 @@ function AppContent() {
               Workspace Platform
             </span>
 
-            {role === 'landlord' ? (
+            {role === 'admin' ? (
+              <>
+                <button
+                  onClick={() => { setActiveTab('dashboard'); setExpressPayMethod(null); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'dashboard' ? 'bg-[#1a3c5e] text-white shadow-sm' : 'text-[#87a7ce] hover:text-white hover:bg-white/5'}`}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  <span>Owner Console</span>
+                </button>
+              </>
+            ) : role === 'landlord' ? (
               /* Landlord Menu Links */
               <>
                 <button 
@@ -301,7 +320,7 @@ function AppContent() {
           <div className="hidden md:flex items-center gap-2">
             <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
             <span className="text-xs font-extrabold text-[#73777f] uppercase tracking-wider">
-              Secure {role === 'landlord' ? 'Landlord' : role === 'worker' ? 'Worker' : 'Tenant'} Account Active - {username}
+              Secure {accountLabel(role)} Account Active - {username}
             </span>
           </div>
 
@@ -309,7 +328,7 @@ function AppContent() {
             <div className="hidden sm:flex bg-[#f0edef] px-3 py-2 rounded-full items-center gap-2 border border-[#e4e2e4] shadow-inner relative select-none">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#059669]" />
               <span className="text-[10px] font-black uppercase tracking-wider text-[#002645]">
-                {role === 'landlord' ? 'Landlord Account' : role === 'worker' ? 'Worker Account' : 'Tenant Account'}
+                {accountLabel(role)} Account
               </span>
             </div>
 
@@ -389,7 +408,7 @@ function AppContent() {
               <div className="hidden lg:block text-left leading-none">
                 <p className="text-xs font-black text-[#002645]">{username}</p>
                 <p className="text-[9px] font-bold text-[#73777f] tracking-wide mt-1 uppercase">
-                  {role === 'landlord' ? 'LANDLORD ADMINISTRATOR' : role === 'worker' ? 'MAINTENANCE WORKER' : 'APT 4B RESIDENT'}
+                  {profileRoleLabel(role)}
                 </p>
               </div>
             </div>
@@ -484,6 +503,9 @@ function AppContent() {
           ) : (
             /* Standard Tabs Routing */
             (() => {
+              if (role === 'admin') {
+                return <AdminDashboard />;
+              }
               if (role === 'landlord') {
                 switch(activeTab) {
                   case 'dashboard':
@@ -533,7 +555,17 @@ function AppContent() {
 
         {/* MOBILE NAVIGATION BAR TABS (Visible only on SM/XS screens, hidden on MD+) */}
         <nav className="md:hidden border-t border-[#e4e2e4] bg-white h-[76px] fixed bottom-0 left-0 right-0 z-40 flex items-center gap-1 overflow-x-auto px-2 pt-1 pb-2 shadow-lg">
-          {role === 'landlord' ? (
+          {role === 'admin' ? (
+            <>
+              <button
+                onClick={() => { setActiveTab('dashboard'); setExpressPayMethod(null); }}
+                className={mobileNavButtonClass(activeTab === 'dashboard')}
+              >
+                <ShieldCheck className="h-5 w-5" />
+                <span className="text-[10px] font-bold">Owner</span>
+              </button>
+            </>
+          ) : role === 'landlord' ? (
             /* Landlord links */
             <>
               <button 

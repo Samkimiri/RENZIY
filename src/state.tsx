@@ -42,6 +42,17 @@ interface RenziyContextType {
 const RenziyContext = createContext<RenziyContextType | undefined>(undefined);
 const DEFAULT_OWNER_EMAIL = 'john@renziy.app';
 const DEFAULT_OWNER_PHONE = '0743475247';
+const DEFAULT_ADMIN: PlatformMember = {
+  id: 'member-admin-owner',
+  role: 'admin',
+  name: 'Renziy Owner',
+  phone: '0743475247',
+  email: 'admin@renziy.app',
+  avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=480&q=80',
+  specialty: 'Platform owner',
+  joinDate: '2026-07-02',
+  status: 'Active'
+};
 const DEFAULT_WORKER: PlatformMember = {
   id: 'member-worker-default',
   role: 'worker',
@@ -383,11 +394,15 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const savedMembers = (JSON.parse(saved) as PlatformMember[]).map(member => (
         member.role === 'landlord' && member.email === DEFAULT_OWNER_EMAIL ? { ...member, phone: DEFAULT_OWNER_PHONE } : member
       ));
-      return savedMembers.some(member => member.role === 'worker' && member.email === DEFAULT_WORKER.email)
+      const withAdmin = savedMembers.some(member => member.role === 'admin' && member.email === DEFAULT_ADMIN.email)
         ? savedMembers
-        : [DEFAULT_WORKER, ...savedMembers];
+        : [DEFAULT_ADMIN, ...savedMembers];
+      return withAdmin.some(member => member.role === 'worker' && member.email === DEFAULT_WORKER.email)
+        ? withAdmin
+        : [DEFAULT_WORKER, ...withAdmin];
     }
     return [
+      DEFAULT_ADMIN,
       {
         id: 'member-landlord-default',
         role: 'landlord',

@@ -49,7 +49,7 @@ export interface Tenant {
 
 export interface PlatformMember {
   id: string;
-  role: 'landlord' | 'tenant' | 'worker';
+  role: 'admin' | 'landlord' | 'tenant' | 'worker';
   name: string;
   phone: string;
   email: string;
@@ -121,7 +121,7 @@ export interface Notification {
   unread: boolean;
 }
 
-export type AppUserRole = 'landlord' | 'tenant' | 'worker' | 'anonymous';
+export type AppUserRole = 'admin' | 'landlord' | 'tenant' | 'worker' | 'anonymous';
 
 export interface SettlementConfig {
   mpesaType: 'Paybill' | 'BuyGoods' | 'PhoneNumber';
