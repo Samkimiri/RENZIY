@@ -2,8 +2,14 @@ import express from "express";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { normalizeUnitCount } from "./src/unitLimits";
+
+// .env.local takes priority (dotenv.config never overwrites a key already
+// set in process.env, so loading it first lets it win over .env).
+dotenv.config({ path: path.join(process.cwd(), ".env.local") });
+dotenv.config({ path: path.join(process.cwd(), ".env") });
 
 const isProduction = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
 const devSecretsFile = path.join(process.cwd(), ".renziy-data", ".dev-secrets.json");
