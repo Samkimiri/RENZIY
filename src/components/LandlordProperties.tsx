@@ -65,13 +65,15 @@ export default function LandlordProperties() {
   };
 
   const saveEditUnit = (unitId: string) => {
-    updateUnit(unitId, editTenantName, editRentAmount, editTenantName ? 'Occupied' : 'Vacant');
-    setEditingUnitId(null);
+    updateUnit(unitId, editTenantName, editRentAmount, editTenantName ? 'Occupied' : 'Vacant')
+      .then(() => setEditingUnitId(null))
+      .catch(err => alert(err instanceof Error ? err.message : 'Could not update this unit.'));
   };
 
   const handleEvictTenant = (unitId: string) => {
     if (confirm("Are you sure you want to disconnect this tenant's active association?")) {
-      updateUnit(unitId, '', undefined, 'Vacant');
+      updateUnit(unitId, '', undefined, 'Vacant')
+        .catch(err => alert(err instanceof Error ? err.message : 'Could not update this unit.'));
     }
   };
 

@@ -5,9 +5,53 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { normalizeUnitCount } from "./src/unitLimits";
 
+const isProduction = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
+const devSecretsFile = path.join(process.cwd(), ".renziy-data", ".dev-secrets.json");
+
+const loadDevSecrets = (): Record<string, string> => {
+  try {
+    return JSON.parse(fs.readFileSync(devSecretsFile, "utf8"));
+  } catch {
+    return {};
+  }
+};
+
+const saveDevSecret = (key: string, value: string) => {
+  try {
+    fs.mkdirSync(path.dirname(devSecretsFile), { recursive: true });
+    const secrets = loadDevSecrets();
+    secrets[key] = value;
+    fs.writeFileSync(devSecretsFile, JSON.stringify(secrets, null, 2), "utf8");
+  } catch (err) {
+    console.warn("Unable to persist generated dev secret:", err);
+  }
+};
+
+// Session signing and password hashing must never fall back to a value that's
+// public in this repo. Refuse to start in production without a real secret;
+// in development, generate one once and persist it locally (gitignored) so
+// sessions and password hashes survive a dev server restart.
+const requireSecret = (envName: string): string => {
+  const fromEnv = process.env[envName];
+  if (fromEnv) return fromEnv;
+  if (isProduction) {
+    throw new Error(`${envName} must be set in production. Refusing to start with a default secret.`);
+  }
+  const existing = loadDevSecrets()[envName];
+  if (existing) return existing;
+  const generated = crypto.randomBytes(32).toString("hex");
+  saveDevSecret(envName, generated);
+  console.warn(`[dev] ${envName} not set - generated a random development secret (saved to .renziy-data/.dev-secrets.json, which is gitignored). Set ${envName} explicitly before deploying.`);
+  return generated;
+};
+
 const seedAccountPassword = process.env.RENZIY_SEED_PASSWORD || crypto.randomBytes(18).toString("base64url");
 const adminAccountEmail = (process.env.RENZIY_ADMIN_EMAIL || "admin@renziy.app").trim().toLowerCase();
-const adminAccountPassword = process.env.RENZIY_ADMIN_PASSWORD || "RenziyOwner2026!";
+const adminAccountPassword = process.env.RENZIY_ADMIN_PASSWORD || (() => {
+  const generated = crypto.randomBytes(12).toString("base64url");
+  console.warn(`[dev] RENZIY_ADMIN_PASSWORD not set - generated one-time admin password: ${generated}. Set RENZIY_ADMIN_PASSWORD before deploying.`);
+  return generated;
+})();
 
 interface Property {
   id: string;
@@ -486,8 +530,8 @@ interface PersistedState {
 
 const dataDir = path.join(process.cwd(), ".renziy-data");
 const dataFile = path.join(dataDir, "state.json");
-const sessionSecret = process.env.RENZIY_SESSION_SECRET || "renziy-dev-session-secret-change-me";
-const passwordPepper = process.env.RENZIY_PASSWORD_PEPPER || "renziy-dev-password-pepper-change-me";
+const sessionSecret = requireSecret("RENZIY_SESSION_SECRET");
+const passwordPepper = requireSecret("RENZIY_PASSWORD_PEPPER");
 const sessionTtlMs = 1000 * 60 * 60 * 8;
 const MAX_TEXT_LENGTH = 500;
 
@@ -611,6 +655,29 @@ const requireRole = (req: express.Request, res: express.Response, roles: Platfor
     return null;
   }
   return session;
+};
+
+const sanitizePropertyInput = (body: Record<string, unknown>) => {
+  const fields: Partial<Property> = {};
+  if (typeof body.name === "string") fields.name = sanitizeText(body.name, 120);
+  if (typeof body.address === "string") fields.address = sanitizeText(body.address, 180);
+  if (typeof body.imageUrl === "string") fields.imageUrl = sanitizeUrl(body.imageUrl);
+  if (typeof body.county === "string") fields.county = sanitizeText(body.county, 80);
+  if (typeof body.constituency === "string") fields.constituency = sanitizeText(body.constituency, 80);
+  if (typeof body.town === "string") fields.town = sanitizeText(body.town, 80);
+  if (typeof body.neighborhood === "string") fields.neighborhood = sanitizeText(body.neighborhood, 120);
+  if (typeof body.specificLocation === "string") fields.specificLocation = sanitizeText(body.specificLocation, 160);
+  if (typeof body.description === "string") fields.description = sanitizeText(body.description, 500);
+  if (Array.isArray(body.amenities)) {
+    fields.amenities = body.amenities
+      .filter((item): item is string => typeof item === "string")
+      .map(item => sanitizeText(item, 60))
+      .slice(0, 20);
+  }
+  if (typeof body.contactPhone === "string") fields.contactPhone = sanitizePhone(body.contactPhone);
+  if (typeof body.mapQuery === "string") fields.mapQuery = sanitizeText(body.mapQuery, 200);
+  if (body.unitsCount !== undefined) fields.unitsCount = normalizeUnitCount(body.unitsCount);
+  return fields;
 };
 
 const sanitizeMemberInput = (input: Partial<PlatformMember>) => ({
@@ -791,6 +858,18 @@ const unitBelongsTo = (unitId: string, email: string) => {
   return Boolean(unit && propertyBelongsTo(unit.propertyId, email));
 };
 
+// Any signed-in account may call endpoints guarded by this - use requireRole
+// instead when only specific roles should be allowed.
+const requireSession = (req: express.Request, res: express.Response) => requireRole(req, res, [...USER_ROLES]);
+
+const findOwnMember = (session: SessionPayload) => members.find(member => (
+  member.role === session.role && member.email.toLowerCase() === session.email.toLowerCase()
+));
+
+const portfolioPropertyNames = (email: string) => properties
+  .filter(property => property.ownerEmail?.toLowerCase() === email.toLowerCase())
+  .map(property => property.name);
+
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({
@@ -856,12 +935,17 @@ const unitBelongsTo = (unitId: string, email: string) => {
       attempts: 0
     });
 
+    // TODO: wire up a real email/SMS delivery integration before production.
+    // The code must never be returned in the API response outside development -
+    // doing so lets anyone who knows an account's email take it over instantly.
+    console.log(`[password-reset] code for ${member.email} (${role}): ${resetCode} - expires ${new Date(expiresAt).toISOString()}`);
+
     res.json({
       success: true,
       delivery: {
         email: maskEmail(member.email),
         phone: maskPhone(member.phone),
-        resetCode,
+        ...(isProduction ? {} : { resetCode }),
         expiresAt
       }
     });
@@ -938,42 +1022,62 @@ const unitBelongsTo = (unitId: string, email: string) => {
     res.json({ token, member: scrubMember(member) });
   });
 
+  const SETTLEMENT_MPESA_TYPES = ['Paybill', 'BuyGoods', 'PhoneNumber'] as const;
+
   app.get("/api/settlement", (req, res) => {
+    if (!requireSession(req, res)) return;
     res.json(settlementConfig);
   });
 
   app.post("/api/settlement", (req, res) => {
     const session = requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
-    settlementConfig = { ...settlementConfig, ...req.body };
+    const body = req.body as Partial<SettlementConfig>;
+    const updates: Partial<SettlementConfig> = {};
+    if (body.mpesaType !== undefined) {
+      if (!isOneOf(SETTLEMENT_MPESA_TYPES, body.mpesaType)) {
+        return res.status(400).json({ error: "Unsupported M-Pesa settlement type" });
+      }
+      updates.mpesaType = body.mpesaType;
+    }
+    if (body.mpesaDetails !== undefined) updates.mpesaDetails = sanitizeText(body.mpesaDetails, 120);
+    if (body.mpesaAccountName !== undefined) updates.mpesaAccountName = sanitizeText(body.mpesaAccountName, 120);
+    if (body.paybillAccount !== undefined) updates.paybillAccount = sanitizeText(body.paybillAccount, 120);
+    if (body.bankName !== undefined) updates.bankName = sanitizeText(body.bankName, 120);
+    if (body.bankAccountName !== undefined) updates.bankAccountName = sanitizeText(body.bankAccountName, 120);
+    if (body.bankAccountNumber !== undefined) updates.bankAccountNumber = sanitizeText(body.bankAccountNumber, 40);
+    if (body.bankRoutingCode !== undefined) updates.bankRoutingCode = sanitizeText(body.bankRoutingCode, 40);
+
+    settlementConfig = { ...settlementConfig, ...updates };
     saveState();
     res.json(settlementConfig);
   });
 
   app.get("/api/properties", (req, res) => {
+    if (!requireSession(req, res)) return;
     res.json(properties);
   });
 
   app.post("/api/properties", (req, res) => {
     const session = requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
-    const { name, address, unitsCount, imageUrl } = req.body;
+    const { name, address, unitsCount } = req.body;
     if (!name || !address || !unitsCount) {
       return res.status(400).json({ error: "Missing required fields" });
     }
+    const sanitized = sanitizePropertyInput(req.body);
     const normalizedUnitsCount = normalizeUnitCount(unitsCount);
 
     const id = `prop-${Date.now()}`;
     const newProperty: Property = {
-      ...req.body,
+      ...sanitized,
       id,
       name: sanitizeText(name, 120),
       address: sanitizeText(address, 180),
       unitsCount: normalizedUnitsCount,
-      imageUrl: sanitizeUrl(imageUrl),
       availableForMarketplace: true,
       ownerEmail: session.email
-    };
+    } as Property;
     properties.push(newProperty);
 
     // Auto generate internal units
@@ -999,11 +1103,12 @@ const unitBelongsTo = (unitId: string, email: string) => {
     const session = requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { id } = req.params;
+    const sanitized = sanitizePropertyInput(req.body);
     let updatedProperty: Property | null = null;
 
     properties = properties.map(property => {
       if (property.id === id && (session.role === 'admin' || property.ownerEmail?.toLowerCase() === session.email.toLowerCase())) {
-        updatedProperty = { ...property, ...req.body, availableForMarketplace: true };
+        updatedProperty = { ...property, ...sanitized, availableForMarketplace: true };
         return updatedProperty;
       }
       return property;
@@ -1028,7 +1133,23 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.get("/api/units", (req, res) => {
-    res.json(units);
+    const session = requireSession(req, res);
+    if (!session) return;
+    const viewerMember = session.role === 'tenant' ? findOwnMember(session) : undefined;
+    const visibleUnits = units.map(unit => {
+      if (session.role === 'admin') return unit;
+      if (session.role === 'landlord' && propertyBelongsTo(unit.propertyId, session.email)) return unit;
+      const isOwnUnit = Boolean(viewerMember && (
+        unit.tenantName === viewerMember.name ||
+        (viewerMember.propertyName === unit.propertyName && viewerMember.unitNumber === unit.unitNumber)
+      ));
+      if (isOwnUnit) return unit;
+      // Marketplace browsing needs vacancy/rent/property data platform-wide,
+      // but strangers have no reason to see who lives in an occupied unit.
+      const { tenantName, tenantAvatar, lockReason, ...publicUnit } = unit;
+      return publicUnit;
+    });
+    res.json(visibleUnits);
   });
 
   app.post("/api/units/assign", (req, res) => {
@@ -1183,7 +1304,15 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.get("/api/payments", (req, res) => {
-    res.json(payments);
+    const session = requireRole(req, res, ['admin', 'landlord', 'tenant']);
+    if (!session) return;
+    if (session.role === 'admin') return res.json(payments);
+    if (session.role === 'landlord') {
+      const ownedNames = portfolioPropertyNames(session.email);
+      return res.json(payments.filter(payment => ownedNames.includes(payment.propertyName)));
+    }
+    const viewerMember = findOwnMember(session);
+    res.json(payments.filter(payment => payment.tenantName === viewerMember?.name));
   });
 
   app.post("/api/payments", (req, res) => {
@@ -1229,7 +1358,21 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.get("/api/maintenance", (req, res) => {
-    res.json(maintenanceRequests);
+    const session = requireSession(req, res);
+    if (!session) return;
+    if (session.role === 'admin') return res.json(maintenanceRequests);
+    if (session.role === 'landlord') {
+      const ownedNames = portfolioPropertyNames(session.email);
+      return res.json(maintenanceRequests.filter(request => ownedNames.includes(request.propertyName)));
+    }
+    if (session.role === 'worker') {
+      return res.json(maintenanceRequests.filter(request => (
+        request.technicianEmail?.toLowerCase() === session.email.toLowerCase() ||
+        (!request.technicianEmail && request.status !== 'Resolved')
+      )));
+    }
+    const viewerMember = findOwnMember(session);
+    res.json(maintenanceRequests.filter(request => request.tenantName === viewerMember?.name));
   });
 
   app.post("/api/maintenance", (req, res) => {
@@ -1386,6 +1529,12 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.get("/api/notifications", (req, res) => {
+    // NOTE: notifications aren't tagged with a recipient in the data model yet,
+    // so this can only gate on "is signed in", not filter to the caller's own
+    // notifications. Every signed-in user currently sees the same feed.
+    // Scoping this properly needs a recipientEmail/audience field added when
+    // each notification is created - tracked as follow-up work.
+    if (!requireSession(req, res)) return;
     res.json(notifications);
   });
 
@@ -1398,7 +1547,25 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.get("/api/members", (req, res) => {
-    res.json(scrubMembers());
+    const session = requireSession(req, res);
+    if (!session) return;
+    if (session.role === 'admin') return res.json(scrubMembers());
+    if (session.role === 'landlord') {
+      const ownedNames = portfolioPropertyNames(session.email);
+      const visible = members.filter(member => {
+        if (member.role === 'admin') return false;
+        if (member.role === 'landlord') return member.email.toLowerCase() === session.email.toLowerCase();
+        return member.role === 'worker' || !member.propertyName || ownedNames.includes(member.propertyName);
+      });
+      return res.json(visible.map(scrubMember));
+    }
+    // Tenants and workers only need their own record plus the worker
+    // directory (technician contact info is not sensitive the way tenant
+    // payment/PII data is, and landlords/tenants both need it).
+    const visible = members.filter(member => (
+      member.role === 'worker' || member.email.toLowerCase() === session.email.toLowerCase()
+    ));
+    res.json(visible.map(scrubMember));
   });
 
   app.post("/api/members/avatar", (req, res) => {
@@ -1505,7 +1672,19 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.get("/api/rental-applications", (req, res) => {
-    res.json(rentalApplications);
+    const session = requireRole(req, res, ['admin', 'landlord', 'tenant']);
+    if (!session) return;
+    if (session.role === 'admin') return res.json(rentalApplications);
+    if (session.role === 'landlord') {
+      const ownedIds = properties.filter(p => p.ownerEmail?.toLowerCase() === session.email.toLowerCase()).map(p => p.id);
+      const ownedNames = portfolioPropertyNames(session.email);
+      return res.json(rentalApplications.filter(item => (
+        ownedIds.includes(item.propertyId) ||
+        ownedNames.includes(item.propertyName) ||
+        item.ownerEmail?.toLowerCase() === session.email.toLowerCase()
+      )));
+    }
+    res.json(rentalApplications.filter(item => item.tenantEmail.toLowerCase() === session.email.toLowerCase()));
   });
 
   app.post("/api/rental-applications", (req, res) => {
@@ -1699,6 +1878,10 @@ const unitBelongsTo = (unitId: string, email: string) => {
   });
 
   app.get("/api/balance", (req, res) => {
+    // NOTE: tenantBalance is a single platform-wide value, not per-tenant -
+    // a pre-existing data model gap, not something scoping reads can fix on
+    // its own. Tracked as follow-up work alongside real payment integration.
+    if (!requireSession(req, res)) return;
     res.json({ tenantBalance });
   });
 

@@ -96,45 +96,53 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
     return p.status === paymentFilter;
   });
 
-  const handleCreateProperty = (e: React.FormEvent) => {
+  const handleCreateProperty = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPropName || !newPropAddress) return;
     const unitsCount = normalizeUnitCount(newPropUnits);
-    addProperty({
-      name: newPropName,
-      address: newPropAddress,
-      unitsCount,
-      imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0-lP6mcA6HIE4LbzTr765rwiEop89MIpJdvoyF11DN-epOhG7wzLR2vlsvvbIs-eHfUJNUdibFBNajQHHbWzJeqHMFacPNozVQz5c_cpg8uv7fiB71TnE1n_AKhKhic2o8RClwzPHlK1tGsw0MkRGgTOyoCDxd_DliMftNntarn6QL0T4rOntvVbWuKWKfj7-n8nt8R7oxKRysKqzqbaLI_o1dRnqkJ-65xCIUfuKl4jxyeydhAO2IpAgSOxBrOIkfgdT45kPYn1w',
-      ownerEmail: currentUserEmail
-    });
-    setNewPropName('');
-    setNewPropAddress('');
-    setNewPropUnits(4);
-    setShowPropertyModal(false);
+    try {
+      await addProperty({
+        name: newPropName,
+        address: newPropAddress,
+        unitsCount,
+        imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0-lP6mcA6HIE4LbzTr765rwiEop89MIpJdvoyF11DN-epOhG7wzLR2vlsvvbIs-eHfUJNUdibFBNajQHHbWzJeqHMFacPNozVQz5c_cpg8uv7fiB71TnE1n_AKhKhic2o8RClwzPHlK1tGsw0MkRGgTOyoCDxd_DliMftNntarn6QL0T4rOntvVbWuKWKfj7-n8nt8R7oxKRysKqzqbaLI_o1dRnqkJ-65xCIUfuKl4jxyeydhAO2IpAgSOxBrOIkfgdT45kPYn1w',
+        ownerEmail: currentUserEmail
+      });
+      setNewPropName('');
+      setNewPropAddress('');
+      setNewPropUnits(4);
+      setShowPropertyModal(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Could not save this property.');
+    }
   };
 
   const handleRegisterTenant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUnitId || !newTenantName || !newTenantPhone || !newTenantEmail) return;
     const selectedUnit = portfolioUnits.find(u => u.id === selectedUnitId);
-    await addTenantToUnit(selectedUnitId, newTenantName);
-    await registerMember({
-      role: 'tenant',
-      name: newTenantName,
-      phone: newTenantPhone,
-      email: newTenantEmail.toLowerCase(),
-      propertyName: selectedUnit?.propertyName,
-      unitNumber: selectedUnit?.unitNumber,
-      rentAmount: selectedUnit?.rentAmount
-    });
-    setSelectedUnitId('');
-    setNewTenantName('');
-    setNewTenantPhone('');
-    setNewTenantEmail('');
-    setShowTenantModal(false);
+    try {
+      await addTenantToUnit(selectedUnitId, newTenantName);
+      await registerMember({
+        role: 'tenant',
+        name: newTenantName,
+        phone: newTenantPhone,
+        email: newTenantEmail.toLowerCase(),
+        propertyName: selectedUnit?.propertyName,
+        unitNumber: selectedUnit?.unitNumber,
+        rentAmount: selectedUnit?.rentAmount
+      });
+      setSelectedUnitId('');
+      setNewTenantName('');
+      setNewTenantPhone('');
+      setNewTenantEmail('');
+      setShowTenantModal(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Could not register this tenant.');
+    }
   };
 
-  const handleRecordPayment = (e: React.FormEvent) => {
+  const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!paymentAmount) return;
 
@@ -144,15 +152,20 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
     const propName = associatedUnit?.propertyName || 'General Portfolio';
     const unitNo = associatedUnit?.unitNumber || 'Generic';
 
-    recordPayment({
-      tenantName: tenant,
-      unitNumber: unitNo,
-      propertyName: propName,
-      amount: Number(paymentAmount),
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      status: 'Paid',
-      paymentMethod
-    });
+    try {
+      await recordPayment({
+        tenantName: tenant,
+        unitNumber: unitNo,
+        propertyName: propName,
+        amount: Number(paymentAmount),
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        status: 'Paid',
+        paymentMethod
+      });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Could not record this payment.');
+      return;
+    }
 
     setPaymentUnitId('');
     setPaymentAmount('');
@@ -324,7 +337,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                 <div className="mt-4 flex flex-col sm:flex-row gap-2">
                   <button
                     type="button"
-                    onClick={() => approveRentalApplication(application.id)}
+                    onClick={() => approveRentalApplication(application.id).catch(err => alert(err instanceof Error ? err.message : 'Could not approve this request.'))}
                     disabled={application.status !== 'Rent Paid'}
                     className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-black text-white hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 transition-all"
                   >
@@ -332,7 +345,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                   </button>
                   <button
                     type="button"
-                    onClick={() => declineRentalApplication(application.id)}
+                    onClick={() => declineRentalApplication(application.id).catch(err => alert(err instanceof Error ? err.message : 'Could not decline this request.'))}
                     disabled={application.status === 'Approved' || application.status === 'Declined'}
                     className="flex-1 rounded-xl border border-red-200 px-4 py-2.5 text-xs font-black text-red-700 hover:bg-red-50 disabled:bg-slate-100 disabled:text-slate-400 transition-all"
                   >

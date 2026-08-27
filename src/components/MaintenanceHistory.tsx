@@ -203,7 +203,7 @@ export default function MaintenanceHistory() {
                       <select
                         className="bg-white p-1 rounded font-bold text-xs border border-[#c3c6cf] focus:outline-none focus:border-[#002645]"
                         value={ticket.technicianEmail || ''}
-                        onChange={(e) => e.target.value && assignMaintenanceWorker(ticket.id, e.target.value)}
+                        onChange={(e) => e.target.value && assignMaintenanceWorker(ticket.id, e.target.value).catch(err => alert(err instanceof Error ? err.message : 'Could not assign this worker.'))}
                       >
                         <option value="">Contact worker</option>
                         {workers.map(worker => (
@@ -216,7 +216,7 @@ export default function MaintenanceHistory() {
                       <select
                         className="bg-white p-1 rounded font-bold text-xs border border-[#c3c6cf] focus:outline-none focus:border-[#002645]"
                         value={ticket.status}
-                        onChange={(e) => updateRequestStatus(ticket.id, e.target.value as any)}
+                        onChange={(e) => updateRequestStatus(ticket.id, e.target.value as any).catch(err => alert(err instanceof Error ? err.message : 'Could not update this request.'))}
                       >
                         <option value="Submitted">Submitted</option>
                         <option value="Acknowledged">Acknowledged</option>

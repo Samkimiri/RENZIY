@@ -126,13 +126,17 @@ export default function TenantDashboard({
 
   const handleSaveAvatar = async () => {
     if (photoPreview && myUnit) {
-      if (currentTenantAccount) {
-        await updateProfileAvatar(currentTenantAccount.id, photoPreview, myUnit.id);
-      } else {
-        await updateTenantAvatar(myUnit.id, photoPreview);
+      try {
+        if (currentTenantAccount) {
+          await updateProfileAvatar(currentTenantAccount.id, photoPreview, myUnit.id);
+        } else {
+          await updateTenantAvatar(myUnit.id, photoPreview);
+        }
+        setPhotoPreview(null);
+        setShowUploadPanel(false);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Could not update this photo.');
       }
-      setPhotoPreview(null);
-      setShowUploadPanel(false);
     }
   };
 

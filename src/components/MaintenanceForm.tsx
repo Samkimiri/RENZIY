@@ -38,19 +38,22 @@ export default function MaintenanceForm({ onClose }: { onClose: () => void }) {
     setPhotos(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !description) return;
 
-    addMaintenanceRequest({
-      title,
-      category,
-      urgency,
-      description,
-      photos
-    });
-
-    onClose();
+    try {
+      await addMaintenanceRequest({
+        title,
+        category,
+        urgency,
+        description,
+        photos
+      });
+      onClose();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Could not submit this repair request.');
+    }
   };
 
   return (

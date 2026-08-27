@@ -112,8 +112,12 @@ export default function SmartLocks() {
     }
 
     // Call state update
-    await toggleUnitLock(unit.id, engageLock, engageLock ? lockReason : undefined);
-    
+    try {
+      await toggleUnitLock(unit.id, engageLock, engageLock ? lockReason : undefined);
+    } catch (err) {
+      setTransmissionSteps(prev => [...prev, `Error: ${err instanceof Error ? err.message : 'Could not update this lock.'}`]);
+    }
+
     // Keep dialog open briefly then close
     await new Promise(resolve => setTimeout(resolve, 800));
     setTransmitting(false);

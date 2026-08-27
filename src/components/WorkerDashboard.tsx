@@ -72,7 +72,7 @@ export default function WorkerDashboard() {
                   </div>
                   <select
                     value={job.status}
-                    onChange={(event) => updateRequestStatus(job.id, event.target.value as any, workerEmail)}
+                    onChange={(event) => updateRequestStatus(job.id, event.target.value as any, workerEmail).catch(err => alert(err instanceof Error ? err.message : 'Could not update this job.'))}
                     className="rounded-xl border border-[#c3c6cf] bg-white p-2 text-xs font-black text-[#002645] focus:outline-none"
                   >
                     <option value="Acknowledged">Acknowledged</option>
@@ -119,7 +119,7 @@ export default function WorkerDashboard() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => assignMaintenanceWorker(job.id, workerEmail)}
+                    onClick={() => assignMaintenanceWorker(job.id, workerEmail).catch(err => alert(err instanceof Error ? err.message : 'Could not accept this job.'))}
                     disabled={!workerEmail}
                     className="rounded-xl bg-[#002645] px-4 py-2.5 text-xs font-black text-white hover:bg-[#1a3c5e] disabled:bg-slate-300 transition-all"
                   >

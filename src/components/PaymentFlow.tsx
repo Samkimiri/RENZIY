@@ -25,6 +25,7 @@ export default function PaymentFlow({
   // Generated Transaction variables
   const [txRef, setTxRef] = useState('');
   const [finalPaidAmount, setFinalPaidAmount] = useState(0);
+  const [paymentError, setPaymentError] = useState('');
 
   // M-Pesa phone formatting +254
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,11 +60,7 @@ export default function PaymentFlow({
   const triggerPaymentProcessing = (e: React.FormEvent) => {
     e.preventDefault();
     setFinalPaidAmount(tenantBalance);
-    
-    // Auto-generate transaction reference code
-    const randomHash = Math.random().toString(36).substring(2, 10).toUpperCase();
-    setTxRef(`${method === 'M-Pesa' ? 'FLW-MP' : 'FLW-RE'}-${randomHash}`);
-
+    setPaymentError('');
     setStep('processing');
   };
 
@@ -71,11 +68,15 @@ export default function PaymentFlow({
   useEffect(() => {
     if (step === 'processing') {
       const waitTime = method === 'M-Pesa' ? 5000 : 4000;
-      const timer = setTimeout(() => {
-        // Clear balance in global store
-        clearBalanceAndRecordPayment(method);
-        // Advance to success page
-        setStep('success');
+      const timer = setTimeout(async () => {
+        try {
+          const { payment } = await clearBalanceAndRecordPayment(method);
+          setTxRef(payment.code);
+          setStep('success');
+        } catch (err) {
+          setPaymentError(err instanceof Error ? err.message : 'Payment could not be processed.');
+          setStep('form');
+        }
       }, waitTime);
 
       return () => clearTimeout(timer);
@@ -111,6 +112,12 @@ export default function PaymentFlow({
                 Property: <span className="text-[#002645] font-extrabold">Oakwood Heights - Apt 4B</span>
               </p>
             </div>
+
+            {paymentError && (
+              <div className="mb-6 p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-bold text-red-700">
+                {paymentError}
+              </div>
+            )}
 
             {/* Sum Due Card */}
             <div className="bg-[#f0edef]/50 border border-[#e4e2e4] p-4 rounded-2xl mb-6 flex justify-between items-center">

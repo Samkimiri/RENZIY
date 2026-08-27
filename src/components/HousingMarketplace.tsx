@@ -178,18 +178,22 @@ export default function HousingMarketplace() {
     event.preventDefault();
     if (!selectedProperty) return;
 
-    await updatePropertyDetails(selectedProperty.id, {
-      county: formState.county,
-      constituency: formState.constituency,
-      town: formState.town,
-      neighborhood: formState.neighborhood,
-      specificLocation: formState.specificLocation,
-      contactPhone: formState.contactPhone,
-      description: formState.description,
-      amenities: formState.amenities.split(',').map(item => item.trim()).filter(Boolean),
-      mapQuery: formState.mapQuery || [selectedProperty.name, formState.specificLocation, formState.neighborhood, formState.constituency, formState.town, formState.county, 'Kenya'].filter(Boolean).join(', '),
-      availableForMarketplace: true
-    });
+    try {
+      await updatePropertyDetails(selectedProperty.id, {
+        county: formState.county,
+        constituency: formState.constituency,
+        town: formState.town,
+        neighborhood: formState.neighborhood,
+        specificLocation: formState.specificLocation,
+        contactPhone: formState.contactPhone,
+        description: formState.description,
+        amenities: formState.amenities.split(',').map(item => item.trim()).filter(Boolean),
+        mapQuery: formState.mapQuery || [selectedProperty.name, formState.specificLocation, formState.neighborhood, formState.constituency, formState.town, formState.county, 'Kenya'].filter(Boolean).join(', '),
+        availableForMarketplace: true
+      });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Could not update this listing.');
+    }
   };
 
   const getOwnerPhone = (property: Property) => {
@@ -539,7 +543,7 @@ export default function HousingMarketplace() {
                                 {application?.status === 'Awaiting Rent' && (
                                   <button
                                     type="button"
-                                    onClick={() => markRentalApplicationPaid(application.id, 'M-Pesa')}
+                                    onClick={() => markRentalApplicationPaid(application.id, 'M-Pesa').catch(err => alert(err instanceof Error ? err.message : 'Could not process this payment.'))}
                                     className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#002645]/20 px-3 py-2 text-[10px] font-black text-[#002645] hover:bg-[#E8F4FD] transition-all"
                                   >
                                     Mark Rent Paid

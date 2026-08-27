@@ -78,7 +78,7 @@ export default function LandingPage() {
       mapQuery: propertyName.trim() || ownerName,
       availableForMarketplace: true,
       ownerEmail
-    });
+    }).catch(err => console.warn('Starter portfolio could not be created:', err));
   };
 
   const handleAuthSubmit = async (event: React.FormEvent) => {
@@ -212,6 +212,8 @@ export default function LandingPage() {
 
       await rememberLocalLogin(created.role, created.email, created.name, password);
       enterAccount(created.role, created.name, created.email);
+    } catch (err) {
+      setFormMessage(err instanceof Error ? err.message : 'That request could not be completed.');
     } finally {
       setLoading(false);
     }
