@@ -557,6 +557,19 @@ export default function LandingPage() {
           <span>Renziy Property Management</span>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
             <a href="#faq" className="text-emerald-400 font-bold hover:text-emerald-300 hover:underline">FAQs</a>
+            <a
+              href="#auth-section"
+              onClick={() => {
+                setSelectedRole('admin');
+                setAuthMode('signin');
+                setFormMessage('');
+                setResetDelivery(null);
+                setResetCode('');
+              }}
+              className="text-slate-500 font-bold hover:text-emerald-300 hover:underline"
+            >
+              Admin access
+            </a>
             <span>Corporate tenant and landlord access for Kenya rental operations.</span>
           </div>
         </div>

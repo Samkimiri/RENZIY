@@ -13,6 +13,7 @@ interface RenziyContextType {
   maintenanceRequests: MaintenanceRequest[];
   notifications: Notification[];
   members: PlatformMember[];
+  membersLoaded: boolean;
   rentalApplications: RentalApplication[];
   tenantBalance: number;
   settlementConfig: SettlementConfig;
@@ -79,6 +80,11 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [members, setMembers] = useState<PlatformMember[]>([]);
+  // False until the first post-login fetch settles. Code that decides
+  // "this account doesn't exist" (see App.tsx) must wait for this - members
+  // starts empty, so checking membership before the first load would kick
+  // out every freshly-logged-in user.
+  const [membersLoaded, setMembersLoaded] = useState(false);
   const [rentalApplications, setRentalApplications] = useState<RentalApplication[]>([]);
   const [tenantBalance, setTenantBalance] = useState<number>(0);
   const [settlementConfig, setSettlementConfig] = useState<SettlementConfig>({
@@ -125,6 +131,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (maintRes.ok) setMaintenanceRequests(await maintRes.json());
       if (notifsRes.ok) setNotifications(await notifsRes.json());
       if (membersRes.ok) setMembers(await membersRes.json());
+      setMembersLoaded(true);
       if (rentalApplicationsRes.ok) setRentalApplications(await rentalApplicationsRes.json());
       if (balRes.ok) {
         const balData = await balRes.json();
@@ -148,6 +155,11 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     if (role === 'anonymous') return;
+
+    // Refresh immediately on login - without this, `members` stays empty
+    // until the first 5s interval tick, and the "no matching member yet"
+    // check elsewhere would bounce a freshly-logged-in user back out.
+    refreshSharedData();
 
     const handleSharedDataChange = (event: StorageEvent) => {
       if (event.key === 'renziy_shared_data_version') {
@@ -174,6 +186,16 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Set Role Context
   const setRole = (newRole: AppUserRole) => {
+    // Reset the membership gate synchronously (same batch as the role
+    // change) whenever entering a logged-in role. Child components' effects
+    // run before this provider's own [role] effect refetches, so if this
+    // reset happened later instead, a stale `membersLoaded=true` from a
+    // previous (e.g. pre-login, unauthenticated) fetch would let the
+    // "no matching member found yet" check fire immediately and sign the
+    // user right back out before the fresh fetch had a chance to resolve.
+    if (newRole !== 'anonymous') {
+      setMembersLoaded(false);
+    }
     setRoleState(newRole);
   };
 
@@ -499,6 +521,7 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         maintenanceRequests,
         notifications,
         members,
+        membersLoaded,
         rentalApplications,
         tenantBalance,
         settlementConfig,

@@ -69,7 +69,7 @@ const profileRoleLabel = (role: string) => (
 );
 
 function AppContent() {
-  const { role, setRole, username, setUsername, notifications, markNotificationsAsRead, units, members, updateProfileAvatar } = useRenziy();
+  const { role, setRole, username, setUsername, notifications, markNotificationsAsRead, units, members, membersLoaded, updateProfileAvatar } = useRenziy();
   
   // Navigation active tab inside dashboards
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -96,6 +96,11 @@ function AppContent() {
     ));
   }, [members, role, sessionEmail]);
   const hasVerifiedAccount = role !== 'anonymous' && Boolean(activeMember);
+  // Right after login, `members` hasn't loaded yet, so `activeMember` is
+  // briefly undefined even for a valid account - this distinguishes "still
+  // checking" from "confirmed not a real account" so we don't flash back to
+  // the landing page (or sign the user back out) before data arrives.
+  const isVerifyingAccount = role !== 'anonymous' && !membersLoaded && !activeMember;
   const myUnitInfo = role === 'tenant'
     ? units?.find(u => (
         activeMember?.propertyName === u.propertyName &&
@@ -131,6 +136,7 @@ function AppContent() {
 
   useEffect(() => {
     if (role === 'anonymous') return;
+    if (!membersLoaded) return; // don't judge membership before data has loaded
 
     if (!activeMember) {
       localStorage.removeItem('renziy_user_email');
@@ -144,7 +150,7 @@ function AppContent() {
     if (activeMember.name !== username) {
       setUsername(activeMember.name);
     }
-  }, [activeMember, role, setRole, setUsername, username]);
+  }, [activeMember, role, membersLoaded, setRole, setUsername, username]);
 
   const handleSignOut = () => {
     localStorage.removeItem('renziy_user_email');
@@ -155,6 +161,20 @@ function AppContent() {
     setActiveTab('dashboard');
     setExpressPayMethod(null);
   };
+
+  // Right after login there's a brief window before `members` has loaded -
+  // show a neutral loading state rather than flashing back to the landing
+  // page (or the kick-out effect above signing the user straight back out).
+  if (isVerifyingAccount) {
+    return (
+      <div className="bg-[#E8F4FD] min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-2 text-[#002645] text-xs font-black uppercase tracking-wider">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          Loading your account...
+        </div>
+      </div>
+    );
+  }
 
   // If there is no verified platform account, keep the user on the account gate.
   if (role === 'anonymous' || !hasVerifiedAccount) {
