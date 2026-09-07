@@ -103,7 +103,11 @@ const buildWhere = (where: WhereClause[], paramOffset = 0): { clause: string; pa
     const index = paramOffset + i + 1;
     return op === "IN" ? `"${column}" = ANY($${index}::text[])` : `"${column}" ${op} $${index}`;
   });
-  return { clause: ` WHERE ${parts.join(" AND ")}`, params: where.map(([, , value]) => toSqlParam(value)) };
+  // IN params stay a raw JS array for the driver's native array binding
+  // (= ANY($n::text[])) - running them through toSqlParam would JSON.stringify
+  // the array into "[...]", which Postgres rejects as a malformed array literal.
+  const params = where.map(([, op, value]) => (op === "IN" ? value : toSqlParam(value)));
+  return { clause: ` WHERE ${parts.join(" AND ")}`, params };
 };
 
 const selectRows = async <T = any>(
