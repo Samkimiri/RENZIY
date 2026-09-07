@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
+import { neon } from "@neondatabase/serverless";
 import { normalizeUnitCount } from "./src/unitLimits";
 
 // .env.local takes priority (dotenv.config never overwrites a key already
@@ -50,6 +51,152 @@ const requireSecret = (envName: string): string => {
   console.warn(`[dev] ${envName} not set - generated a random development secret (saved to .renziy-data/.dev-secrets.json, which is gitignored). Set ${envName} explicitly before deploying.`);
   return generated;
 };
+
+// Unlike requireSecret(), there's no sensible random fallback for an external
+// service credential - if it's missing, fail loudly in both dev and prod.
+const requireEnv = (envName: string): string => {
+  const value = process.env[envName];
+  if (!value) {
+    throw new Error(`${envName} must be set. Add it to .env.local (dev) or your deployment's environment variables.`);
+  }
+  return value;
+};
+
+// fullResults: true makes .query() return { rows, ... } (like node-postgres)
+// instead of just an array of rows.
+const sql = neon(requireEnv("POSTGRES_URL"), { fullResults: true });
+
+// --- Tiny SQL helper layer -------------------------------------------------
+// A hand-rolled, minimal stand-in for the Postgres query builder this file
+// used to get for free from Supabase's JS client. It only supports the exact
+// operations this file actually needs (equality/inequality/IN filters,
+// select/insert/update/delete, upsert-if-missing) - not a general ORM.
+
+type WhereClause = [column: string, op: "=" | "!=" | "IN", value: unknown];
+
+// jsonb columns (amenities, photos, settlementConfig) need their JS
+// array/object value JSON-stringified before going out as a bind parameter -
+// the driver won't do this coercion itself. `undefined` (an absent optional
+// field) becomes SQL NULL, matching how these fields behave when unset.
+const toSqlParam = (value: unknown): unknown => {
+  if (value === undefined) return null;
+  if (value !== null && typeof value === "object" && !(value instanceof Date)) {
+    return JSON.stringify(value);
+  }
+  return value;
+};
+
+const buildWhere = (where: WhereClause[], paramOffset = 0): { clause: string; params: unknown[] } => {
+  if (where.length === 0) return { clause: "", params: [] };
+  const parts = where.map(([column, op], i) => {
+    const index = paramOffset + i + 1;
+    return op === "IN" ? `"${column}" = ANY($${index}::text[])` : `"${column}" ${op} $${index}`;
+  });
+  return { clause: ` WHERE ${parts.join(" AND ")}`, params: where.map(([, , value]) => toSqlParam(value)) };
+};
+
+const selectRows = async <T = any>(
+  table: string,
+  where: WhereClause[] = [],
+  opts: { orderBy?: string; desc?: boolean } = {}
+): Promise<T[]> => {
+  const { clause, params } = buildWhere(where);
+  const order = opts.orderBy ? ` ORDER BY "${opts.orderBy}" ${opts.desc ? "DESC" : "ASC"}` : "";
+  const { rows } = await sql.query(`SELECT * FROM ${table}${clause}${order}`, params);
+  return rows as T[];
+};
+
+const selectOne = async <T = any>(table: string, where: WhereClause[]): Promise<T | null> => {
+  const rows = await selectRows<T>(table, where);
+  return rows[0] ?? null;
+};
+
+const countRows = async (table: string, where: WhereClause[] = []): Promise<number> => {
+  const { clause, params } = buildWhere(where);
+  const { rows } = await sql.query(`SELECT COUNT(*)::int AS count FROM ${table}${clause}`, params);
+  return rows[0].count as number;
+};
+
+// `object` (not Record<string, unknown>) so this accepts any of the app's
+// concrete interfaces (Property, Unit, ...) without needing an index
+// signature on every one of them - the cast to Record here is what actually
+// does the by-key lookups.
+const insertRow = async <T = any>(table: string, row: object): Promise<T> => {
+  const record = row as Record<string, unknown>;
+  const columns = Object.keys(record);
+  const columnList = columns.map(c => `"${c}"`).join(", ");
+  const values = columns.map(c => toSqlParam(record[c]));
+  const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
+  const { rows } = await sql.query(`INSERT INTO ${table} (${columnList}) VALUES (${placeholders}) RETURNING *`, values);
+  return rows[0] as T;
+};
+
+// Rows in a batch don't all have to share the same keys (e.g. seed units
+// where only some have a tenantName) - the column list is the union across
+// every row, and a row missing a given key just gets NULL for it.
+const unionColumns = (rows: object[]): string[] => {
+  const columns = new Set<string>();
+  rows.forEach(row => Object.keys(row).forEach(key => columns.add(key)));
+  return Array.from(columns);
+};
+
+const insertRows = async (table: string, rowsToInsert: object[]): Promise<void> => {
+  if (rowsToInsert.length === 0) return;
+  const records = rowsToInsert as Record<string, unknown>[];
+  const columns = unionColumns(records);
+  const columnList = columns.map(c => `"${c}"`).join(", ");
+  const values: unknown[] = [];
+  const tuples = records.map(row => (
+    `(${columns.map(c => {
+      values.push(toSqlParam(row[c]));
+      return `$${values.length}`;
+    }).join(", ")})`
+  ));
+  await sql.query(`INSERT INTO ${table} (${columnList}) VALUES ${tuples.join(", ")}`, values);
+};
+
+// "Insert if missing" - never overwrites a row that's already there (used
+// for seeding, so re-running it on every cold start can't clobber real data
+// a user has since changed).
+const upsertIgnoreDuplicates = async (table: string, rowsToInsert: object[], conflictColumn: string): Promise<void> => {
+  if (rowsToInsert.length === 0) return;
+  const records = rowsToInsert as Record<string, unknown>[];
+  const columns = unionColumns(records);
+  const columnList = columns.map(c => `"${c}"`).join(", ");
+  const values: unknown[] = [];
+  const tuples = records.map(row => (
+    `(${columns.map(c => {
+      values.push(toSqlParam(row[c]));
+      return `$${values.length}`;
+    }).join(", ")})`
+  ));
+  await sql.query(
+    `INSERT INTO ${table} (${columnList}) VALUES ${tuples.join(", ")} ON CONFLICT ("${conflictColumn}") DO NOTHING`,
+    values
+  );
+};
+
+const updateRows = async <T = any>(table: string, patch: object, where: WhereClause[]): Promise<T[]> => {
+  const record = patch as Record<string, unknown>;
+  const columns = Object.keys(record);
+  const setClause = columns.map((c, i) => `"${c}" = $${i + 1}`).join(", ");
+  const { clause, params: whereParams } = buildWhere(where, columns.length);
+  const values = [...columns.map(c => toSqlParam(record[c])), ...whereParams];
+  const { rows } = await sql.query(`UPDATE ${table} SET ${setClause}${clause} RETURNING *`, values);
+  return rows as T[];
+};
+
+const updateOne = async <T = any>(table: string, patch: object, where: WhereClause[]): Promise<T | null> => {
+  const rows = await updateRows<T>(table, patch, where);
+  return rows[0] ?? null;
+};
+
+const deleteRows = async (table: string, where: WhereClause[]): Promise<void> => {
+  const { clause, params } = buildWhere(where);
+  await sql.query(`DELETE FROM ${table}${clause}`, params);
+};
+
+// --- End SQL helper layer ---------------------------------------------------
 
 const seedAccountPassword = process.env.RENZIY_SEED_PASSWORD || crypto.randomBytes(18).toString("base64url");
 const adminAccountEmail = (process.env.RENZIY_ADMIN_EMAIL || "admin@renziy.app").trim().toLowerCase();
@@ -177,8 +324,9 @@ interface SettlementConfig {
   bankRoutingCode: string;
 }
 
-// In-memory Database state
-let properties: Property[] = [
+// Seed/demo data, upserted into Postgres on boot if not already present
+// (see ensureSeedData below) - not live mutable state anymore.
+const SEED_PROPERTIES: Property[] = [
   {
     id: 'prop-1',
     name: 'Oakwood Heights',
@@ -559,18 +707,18 @@ let properties: Property[] = [
   }
 ];
 
-let units: Unit[] = [
+const SEED_UNITS: Unit[] = [
   { id: 'unit-1-101', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '101', rentAmount: 245000, status: 'Occupied', tenantName: 'Marcus Holloway', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA9IoAcZLIY0gg8i6wPLcaY3ygBvaVJvW0PmG_h9U1cLAEnC0k1pah2rUmQdxTTwa2PZ2ZtDP8Qbjz2M8PTiLhaD3eXimlHnDekaQo093rGsmlvzC2rSthGOw2zEnPAvVYQsrYRRKAQ9Gbw7B8zo0HOWZaNpGzs2GKDB0DMjAlrYYqWc8XGfrZe7J-31LzJjZLfre2xMwa0HVge2uvWbsZahdZT1ShrALJgRNBMESkjZV3xRa47RCCNOORnjWwDOBmDJCnFaGCi7do5' },
   { id: 'unit-1-102', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '102', rentAmount: 245000, status: 'Vacant' },
   { id: 'unit-1-201', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '201', rentAmount: 280000, status: 'Occupied', tenantName: 'Sarah Jenkins', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAeMCNZyBiv-uiHtktmPVRPIpRrze2myHUqEyGKigO5LZgeu3-EP7_Ty-m4mB5GIZTneHA6G-KXG6hVHQz1wC3Gb-bT7Q82sDQKB583GkhdMFG5ZclHw4rl4_BK6sYi_QlxOSprJxAcqXMjWz41BAsUl0DXfLpJUZzgtVSzWKgHFpIf-UO6uiopeFa1h7QMxeZudiyqMMy-3IfrzO_ApWV77rRsYhROsYt2He4hGzWEBLPhQqKpdKovJWb_O96JJmbHQQbiK7HkM2bH' },
   { id: 'unit-1-202', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '202', rentAmount: 280000, status: 'Occupied', tenantName: 'Liam Carter', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBY1CTvj3PmtB3-LR_p1s4FNqaP67e_JoWovsuzRp3hatwF4Yg7LrghoPHFR3QODAlxjD9QQF_sIEDYVU0fbJWPhNa9W2QSz2JRCYA5eMWJxLkMcl5HZUURA8kXnfeVXbb8RDc4AW9wvm_SmqyHEv3RQTjcPXHaNL0e2CgaBh6Y4LbLxHaykUfOjEK0DWINHnO5M6EI-CV5VHBoeBuiVQ-kXneHEpi0m6_MM0suuhUZbRzMc1qz4fBdIKQaFE10mTnPsr6OA7lENt6E' },
   { id: 'unit-1-4b', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: 'Apt 4B', rentAmount: 145000, status: 'Occupied', tenantName: 'Alex Smith', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB' },
-  
+
   { id: 'unit-2-1', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 1', rentAmount: 195000, status: 'Occupied', tenantName: 'Jane Doe' },
   { id: 'unit-2-2', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 2', rentAmount: 195000, status: 'Occupied', tenantName: 'Mark Smith' },
   { id: 'unit-2-3', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 3', rentAmount: 210000, status: 'Occupied', tenantName: 'Lucia Rivera' },
   { id: 'unit-2-4', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 4', rentAmount: 210000, status: 'Vacant' },
-  
+
   { id: 'unit-3-1', propertyId: 'prop-3', propertyName: 'The Landmark Plaza', unitNumber: 'Suite A', rentAmount: 450000, status: 'Occupied', tenantName: 'Tom Brown' },
   { id: 'unit-3-2', propertyId: 'prop-3', propertyName: 'The Landmark Plaza', unitNumber: 'Suite B', rentAmount: 450000, status: 'Vacant' },
   { id: 'unit-4-1201', propertyId: 'prop-4', propertyName: "Le'Mac Residences", unitNumber: '1201', rentAmount: 265000, status: 'Vacant' },
@@ -628,7 +776,7 @@ let units: Unit[] = [
   { id: 'unit-21-cot4', propertyId: 'prop-21', propertyName: 'Naivasha Lake View Cottages', unitNumber: 'Cottage 4', rentAmount: 22000, status: 'Vacant' }
 ];
 
-let payments: Payment[] = [
+const SEED_PAYMENTS: Payment[] = [
   {
     id: 'pay-1',
     tenantName: 'Jane Doe',
@@ -675,7 +823,7 @@ let payments: Payment[] = [
   }
 ];
 
-let maintenanceRequests: MaintenanceRequest[] = [
+const SEED_MAINTENANCE_REQUESTS: MaintenanceRequest[] = [
   {
     id: 'req-1',
     title: 'Leaking Kitchen Sink',
@@ -724,7 +872,7 @@ let maintenanceRequests: MaintenanceRequest[] = [
   }
 ];
 
-let notifications: Notification[] = [
+const SEED_NOTIFICATIONS: Notification[] = [
   {
     id: 'notif-lockout-alert',
     title: 'Critical Door Lockout Warning',
@@ -751,7 +899,7 @@ let notifications: Notification[] = [
   }
 ];
 
-let members: PlatformMember[] = [
+const SEED_MEMBERS: PlatformMember[] = [
   {
     id: 'member-admin-owner',
     role: 'admin',
@@ -804,11 +952,11 @@ let members: PlatformMember[] = [
   }
 ];
 
-let rentalApplications: RentalApplication[] = [];
+// rentalApplications has no seed data - the table just starts empty.
 
-let tenantBalance = 145000;
+const DEFAULT_TENANT_BALANCE = 145000;
 
-let settlementConfig: SettlementConfig = {
+const DEFAULT_SETTLEMENT_CONFIG: SettlementConfig = {
   mpesaType: 'Paybill',
   mpesaDetails: '174379',
   mpesaAccountName: 'RENZIY APP MANAGEMENT',
@@ -819,20 +967,6 @@ let settlementConfig: SettlementConfig = {
   bankRoutingCode: 'EQTYKE'
 };
 
-interface PersistedState {
-  properties?: Property[];
-  units?: Unit[];
-  payments?: Payment[];
-  maintenanceRequests?: MaintenanceRequest[];
-  notifications?: Notification[];
-  members?: PlatformMember[];
-  rentalApplications?: RentalApplication[];
-  tenantBalance?: number;
-  settlementConfig?: SettlementConfig;
-}
-
-const dataDir = path.join(process.cwd(), ".renziy-data");
-const dataFile = path.join(dataDir, "state.json");
 const sessionSecret = requireSecret("RENZIY_SESSION_SECRET");
 const passwordPepper = requireSecret("RENZIY_PASSWORD_PEPPER");
 const sessionTtlMs = 1000 * 60 * 60 * 8;
@@ -851,7 +985,22 @@ type PasswordResetChallenge = {
   expiresAt: number;
   attempts: number;
 };
-const passwordResetChallenges = new Map<string, PasswordResetChallenge>();
+
+// Replaces the old in-memory Map - it never survived a serverless cold start
+// any better than the JSON file did, since it's the same kind of state.
+// key is the PK, so a "set" is delete-then-insert rather than a real upsert -
+// fine here since there's no concurrent-write risk for one user's own code.
+const getPasswordResetChallenge = async (key: string): Promise<PasswordResetChallenge | null> => {
+  const row = await selectOne<PasswordResetChallenge>("password_reset_challenges", [["key", "=", key]]);
+  return row;
+};
+const setPasswordResetChallenge = async (key: string, value: PasswordResetChallenge) => {
+  await deleteRows("password_reset_challenges", [["key", "=", key]]);
+  await insertRow("password_reset_challenges", { key, ...value });
+};
+const deletePasswordResetChallenge = async (key: string) => {
+  await deleteRows("password_reset_challenges", [["key", "=", key]]);
+};
 
 const normalizeEmail = (value: unknown) => typeof value === "string" ? value.trim().toLowerCase() : "";
 const sanitizeText = (value: unknown, max = MAX_TEXT_LENGTH) => (
@@ -918,7 +1067,7 @@ const scrubMember = (member: PlatformMember): PublicMember => {
   return publicMember;
 };
 
-const scrubMembers = () => members.map(scrubMember);
+const scrubMembers = (list: PlatformMember[]) => list.map(scrubMember);
 
 const signSession = (payload: SessionPayload) => {
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -926,7 +1075,7 @@ const signSession = (payload: SessionPayload) => {
   return `${body}.${signature}`;
 };
 
-const readSession = (req: express.Request): SessionPayload | null => {
+const readSession = async (req: express.Request): Promise<SessionPayload | null> => {
   const auth = req.header("authorization") || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   const [body, signature] = token.split(".");
@@ -936,19 +1085,19 @@ const readSession = (req: express.Request): SessionPayload | null => {
   try {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as SessionPayload;
     if (!payload.email || !payload.role || payload.exp < Date.now()) return null;
-    const activeMember = members.find(member => (
-      member.status === "Active" &&
-      member.role === payload.role &&
-      member.email.toLowerCase() === payload.email.toLowerCase()
-    ));
+    const activeMember = await selectOne("members", [
+      ["status", "=", "Active"],
+      ["role", "=", payload.role],
+      ["email", "=", payload.email.toLowerCase()]
+    ]);
     return activeMember ? payload : null;
   } catch {
     return null;
   }
 };
 
-const requireRole = (req: express.Request, res: express.Response, roles: PlatformMember['role'][]) => {
-  const session = readSession(req);
+const requireRole = async (req: express.Request, res: express.Response, roles: PlatformMember['role'][]) => {
+  const session = await readSession(req);
   if (!session) {
     res.status(401).json({ error: "Signed-in session required" });
     return null;
@@ -994,98 +1143,34 @@ const sanitizeMemberInput = (input: Partial<PlatformMember>) => ({
   avatarUrl: sanitizeAvatarUrl(input.avatarUrl) || undefined
 });
 
-const saveState = () => {
-  try {
-    fs.mkdirSync(dataDir, { recursive: true });
-    const state: PersistedState = {
-      properties,
-      units,
-      payments,
-      maintenanceRequests,
-      notifications,
-      members,
-      rentalApplications,
-      tenantBalance,
-      settlementConfig
-    };
-    fs.writeFileSync(dataFile, JSON.stringify(state, null, 2), "utf8");
-  } catch (err) {
-    console.warn("Unable to persist Renziy state:", err);
-  }
-};
-
-const loadState = () => {
-  try {
-    if (!fs.existsSync(dataFile)) return;
-    const saved = JSON.parse(fs.readFileSync(dataFile, "utf8")) as PersistedState;
-    if (Array.isArray(saved.properties)) properties = saved.properties;
-    if (Array.isArray(saved.units)) units = saved.units;
-    if (Array.isArray(saved.payments)) payments = saved.payments;
-    if (Array.isArray(saved.maintenanceRequests)) maintenanceRequests = saved.maintenanceRequests;
-    if (Array.isArray(saved.notifications)) notifications = saved.notifications;
-    if (Array.isArray(saved.members)) members = saved.members;
-    if (Array.isArray(saved.rentalApplications)) rentalApplications = saved.rentalApplications;
-    if (typeof saved.tenantBalance === "number") tenantBalance = saved.tenantBalance;
-    if (saved.settlementConfig) settlementConfig = { ...settlementConfig, ...saved.settlementConfig };
-  } catch (err) {
-    console.warn("Unable to load persisted Renziy state:", err);
-  }
-};
-
-const ensureSeedData = () => {
-  if (!members.some(member => member.role === 'admin' && member.email === adminAccountEmail)) {
-    members.unshift({
-      id: 'member-admin-owner',
-      name: 'Renziy Owner',
-      role: 'admin',
-      phone: '0743475247',
-      email: adminAccountEmail,
-      passwordHash: hashPassword(adminAccountPassword),
-      avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=480&q=80',
-      specialty: 'Platform owner',
-      joinDate: '2026-07-02',
-      status: 'Active'
-    });
-  }
-
-  members = members.map(member => (
-    member.role === 'landlord' && member.email === 'john@renziy.app'
-      ? { ...member, phone: '0743475247' }
-      : member
-  ));
-  members = members.map(member => {
-    if (member.password && !member.passwordHash) {
-      const { password, ...rest } = member;
-      return { ...rest, passwordHash: hashPassword(password) };
-    }
-    return member;
+// Inserts seed/demo rows into Postgres, but only where a row with that id
+// doesn't already exist (upsertIgnoreDuplicates is "insert if missing", not
+// an overwrite) - so re-running this on every cold start never clobbers real
+// data a user has since changed (e.g. a changed password hash).
+const ensureSeedData = async () => {
+  const seedMembers: PlatformMember[] = SEED_MEMBERS.map(member => {
+    const { password, ...rest } = member;
+    return password ? { ...rest, passwordHash: hashPassword(password) } : rest;
   });
 
-  properties = properties.map(property => (
-    property.ownerEmail === 'john@renziy.app'
-      ? { ...property, contactPhone: property.contactPhone || '0743475247' }
-      : property
-  ));
-
-  if (!members.some(member => member.role === 'worker' && member.email === 'mark@renziy.app')) {
-    members.push({
-      id: 'member-worker-1',
-      name: 'Mark S.',
-      role: 'worker',
-      phone: '0743991122',
-      email: 'mark@renziy.app',
-      passwordHash: hashPassword(seedAccountPassword),
-      avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
-      specialty: 'Plumbing and general repairs',
-      joinDate: '2026-05-23',
-      status: 'Active'
-    });
-  }
+  await Promise.all([
+    upsertIgnoreDuplicates("properties", SEED_PROPERTIES, "id"),
+    upsertIgnoreDuplicates("units", SEED_UNITS, "id"),
+    upsertIgnoreDuplicates("payments", SEED_PAYMENTS, "id"),
+    upsertIgnoreDuplicates("maintenance_requests", SEED_MAINTENANCE_REQUESTS, "id"),
+    upsertIgnoreDuplicates("notifications", SEED_NOTIFICATIONS, "id"),
+    upsertIgnoreDuplicates("members", seedMembers, "id"),
+    upsertIgnoreDuplicates(
+      "app_settings",
+      [{ id: "singleton", tenantBalance: DEFAULT_TENANT_BALANCE, settlementConfig: DEFAULT_SETTLEMENT_CONFIG }],
+      "id"
+    )
+  ]);
 };
 
-loadState();
-ensureSeedData();
-saveState();
+ensureSeedData().catch(err => {
+  console.error("Failed to seed Renziy data in Postgres:", err);
+});
 
 const app = express();
 const PORT = 3000;
@@ -1142,96 +1227,109 @@ const isOneOf = <T extends readonly string[]>(values: T, value: unknown): value 
   typeof value === 'string' && values.includes(value)
 );
 
-const getActiveWorker = (workerEmail: unknown) => {
+// Wraps an async route handler so a thrown error becomes a 500 response
+// instead of an unhandled rejection - none of the original sync handlers
+// needed this, since nothing they did could reject a promise.
+const asyncHandler = (
+  fn: (req: express.Request, res: express.Response) => Promise<unknown>
+) => (req: express.Request, res: express.Response) => {
+  fn(req, res).catch(err => {
+    console.error(err);
+    if (!res.headersSent) res.status(500).json({ error: "Internal server error" });
+  });
+};
+
+const getActiveWorker = async (workerEmail: unknown) => {
   if (typeof workerEmail !== 'string') return undefined;
-  return members.find(member => (
-    member.role === 'worker' &&
-    member.status === 'Active' &&
-    member.email.toLowerCase() === workerEmail.toLowerCase()
-  ));
+  const worker = await selectOne<PlatformMember>("members", [
+    ["role", "=", "worker"],
+    ["status", "=", "Active"],
+    ["email", "=", normalizeEmail(workerEmail)]
+  ]);
+  return worker ?? undefined;
 };
 
-const propertyBelongsTo = (propertyId: string, email: string) => {
-  const property = properties.find(item => item.id === propertyId);
-  return Boolean(property && property.ownerEmail?.toLowerCase() === email.toLowerCase());
+const propertyBelongsTo = async (propertyId: string, email: string) => {
+  const property = await selectOne("properties", [["id", "=", propertyId], ["ownerEmail", "=", normalizeEmail(email)]]);
+  return Boolean(property);
 };
 
-const unitBelongsTo = (unitId: string, email: string) => {
-  const unit = units.find(item => item.id === unitId);
-  return Boolean(unit && propertyBelongsTo(unit.propertyId, email));
+const unitBelongsTo = async (unitId: string, email: string) => {
+  const unit = await selectOne<{ propertyId: string }>("units", [["id", "=", unitId]]);
+  return Boolean(unit && await propertyBelongsTo(unit.propertyId, email));
 };
 
 // Any signed-in account may call endpoints guarded by this - use requireRole
 // instead when only specific roles should be allowed.
 const requireSession = (req: express.Request, res: express.Response) => requireRole(req, res, [...USER_ROLES]);
 
-const findOwnMember = (session: SessionPayload) => members.find(member => (
-  member.role === session.role && member.email.toLowerCase() === session.email.toLowerCase()
-));
+const findOwnMember = async (session: SessionPayload) => {
+  const member = await selectOne<PlatformMember>("members", [["role", "=", session.role], ["email", "=", normalizeEmail(session.email)]]);
+  return member ?? undefined;
+};
 
-const portfolioPropertyNames = (email: string) => properties
-  .filter(property => property.ownerEmail?.toLowerCase() === email.toLowerCase())
-  .map(property => property.name);
+const portfolioPropertyNames = async (email: string) => {
+  const rows = await selectRows<{ name: string }>("properties", [["ownerEmail", "=", normalizeEmail(email)]]);
+  return rows.map(row => row.name);
+};
+
+const getAppSettings = async (): Promise<{ tenantBalance: number; settlementConfig: SettlementConfig }> => {
+  const settings = await selectOne<{ tenantBalance: number; settlementConfig: SettlementConfig }>("app_settings", [["id", "=", "singleton"]]);
+  if (!settings) throw new Error("app_settings singleton row is missing - was db/schema.sql run and seeded?");
+  return settings;
+};
 
   // API Routes
-  app.get("/api/health", (req, res) => {
+  app.get("/api/health", asyncHandler(async (req, res) => {
+    const [properties, units, payments, maintenanceRequests, members, rentalApplications] = await Promise.all([
+      countRows("properties"),
+      countRows("units"),
+      countRows("payments"),
+      countRows("maintenance_requests"),
+      countRows("members"),
+      countRows("rental_applications")
+    ]);
     res.json({
       ok: true,
       service: 'Renziy API',
-      counts: {
-        properties: properties.length,
-        units: units.length,
-        payments: payments.length,
-        maintenanceRequests: maintenanceRequests.length,
-        members: members.length,
-        rentalApplications: rentalApplications.length
-      }
+      counts: { properties, units, payments, maintenanceRequests, members, rentalApplications }
     });
-  });
+  }));
 
-  app.post("/api/auth/login", (req, res) => {
+  app.post("/api/auth/login", asyncHandler(async (req, res) => {
     const role = req.body.role;
     const email = normalizeEmail(req.body.email);
     if (!isOneOf(USER_ROLES, role) || !email || typeof req.body.password !== "string") {
       return res.status(400).json({ error: "Email, password, and account type are required" });
     }
-    const member = members.find(item => (
-      item.role === role &&
-      item.email.toLowerCase() === email &&
-      item.status === "Active"
-    ));
+    const member = await selectOne<PlatformMember>("members", [["role", "=", role], ["email", "=", email], ["status", "=", "Active"]]);
     if (!member || !verifyPassword(member, req.body.password)) {
       return res.status(401).json({ error: "Invalid email, password, or account type" });
     }
     if (member.password && !member.passwordHash) {
       const { password, ...rest } = member;
-      const securedMember = { ...rest, passwordHash: hashPassword(password) };
-      members = members.map(item => item.id === member.id ? securedMember : item);
-      saveState();
+      const securedMember = { ...rest, password: null, passwordHash: hashPassword(password) };
+      await updateOne("members", securedMember, [["id", "=", member.id]]);
     }
     const token = signSession({ email: member.email, role: member.role, exp: Date.now() + sessionTtlMs });
     res.json({ token, member: scrubMember(member) });
-  });
+  }));
 
-  app.post("/api/auth/request-password-reset", (req, res) => {
+  app.post("/api/auth/request-password-reset", asyncHandler(async (req, res) => {
     const role = req.body.role;
     const email = normalizeEmail(req.body.email);
     if (!isOneOf(USER_ROLES, role) || !email) {
       return res.status(400).json({ error: "Role and email are required" });
     }
 
-    const member = members.find(item => (
-      item.role === role &&
-      item.email.toLowerCase() === email &&
-      item.status === "Active"
-    ));
+    const member = await selectOne<PlatformMember>("members", [["role", "=", role], ["email", "=", email], ["status", "=", "Active"]]);
     if (!member) {
       return res.status(404).json({ error: "No active account matches that role and email" });
     }
 
     const resetCode = crypto.randomInt(100000, 1000000).toString();
     const expiresAt = Date.now() + 10 * 60 * 1000;
-    passwordResetChallenges.set(resetKey(role, email), {
+    await setPasswordResetChallenge(resetKey(role, email), {
       memberId: member.id,
       codeHash: hashPassword(resetCode),
       expiresAt,
@@ -1252,9 +1350,9 @@ const portfolioPropertyNames = (email: string) => properties
         expiresAt
       }
     });
-  });
+  }));
 
-  app.post("/api/auth/confirm-password-reset", (req, res) => {
+  app.post("/api/auth/confirm-password-reset", asyncHandler(async (req, res) => {
     const role = req.body.role;
     const email = normalizeEmail(req.body.email);
     const code = sanitizeText(req.body.code, 12).replace(/\D/g, "");
@@ -1264,20 +1362,20 @@ const portfolioPropertyNames = (email: string) => properties
     }
 
     const key = resetKey(role, email);
-    const challenge = passwordResetChallenges.get(key);
+    const challenge = await getPasswordResetChallenge(key);
     if (!challenge || challenge.expiresAt < Date.now()) {
-      passwordResetChallenges.delete(key);
+      await deletePasswordResetChallenge(key);
       return res.status(400).json({ error: "The reset code is invalid or expired" });
     }
 
     if (challenge.attempts >= 5 || !verifyPassword({ passwordHash: challenge.codeHash } as PlatformMember, code)) {
-      passwordResetChallenges.set(key, { ...challenge, attempts: challenge.attempts + 1 });
+      await setPasswordResetChallenge(key, { ...challenge, attempts: challenge.attempts + 1 });
       return res.status(400).json({ error: "The reset code is invalid or expired" });
     }
 
-    const member = members.find(item => item.id === challenge.memberId && item.role === role && item.email.toLowerCase() === email);
+    const member = await selectOne<PlatformMember>("members", [["id", "=", challenge.memberId], ["role", "=", role], ["email", "=", email]]);
     if (!member) {
-      passwordResetChallenges.delete(key);
+      await deletePasswordResetChallenge(key);
       return res.status(404).json({ error: "Account not found" });
     }
     const securedMember: PlatformMember = {
@@ -1285,20 +1383,19 @@ const portfolioPropertyNames = (email: string) => properties
       password: undefined,
       passwordHash: hashPassword(password)
     };
-    members = members.map(item => item.id === member.id ? securedMember : item);
-    passwordResetChallenges.delete(key);
-    saveState();
+    await updateOne("members", { ...securedMember, password: null }, [["id", "=", member.id]]);
+    await deletePasswordResetChallenge(key);
     res.json({ success: true, member: scrubMember(securedMember) });
-  });
+  }));
 
-  app.post("/api/auth/register", (req, res) => {
+  app.post("/api/auth/register", asyncHandler(async (req, res) => {
     const role = req.body.role;
     const password = typeof req.body.password === "string" ? req.body.password : "";
     const input = sanitizeMemberInput(req.body);
     if (!isOneOf(SELF_REGISTRATION_ROLES, role) || !input.name || !input.phone || !input.email || password.length < 6) {
       return res.status(400).json({ error: "Name, phone, email, account type, and a 6+ character password are required" });
     }
-    const existing = members.find(member => member.role === role && member.email.toLowerCase() === input.email.toLowerCase());
+    const existing = await selectOne("members", [["role", "=", role], ["email", "=", input.email.toLowerCase()]]);
     if (existing) {
       return res.status(409).json({ error: "This email already has that account type" });
     }
@@ -1311,8 +1408,8 @@ const portfolioPropertyNames = (email: string) => properties
       status: 'Active'
     } as PlatformMember;
 
-    members = [member, ...members];
-    notifications.unshift({
+    await insertRow("members", member);
+    await insertRow("notifications", {
       id: `notif-member-${Date.now()}`,
       title: 'New Platform Member',
       message: `${member.name} joined Renziy as a ${member.role}.`,
@@ -1320,20 +1417,21 @@ const portfolioPropertyNames = (email: string) => properties
       type: 'lease',
       unread: true
     });
-    saveState();
     const token = signSession({ email: member.email, role: member.role, exp: Date.now() + sessionTtlMs });
     res.json({ token, member: scrubMember(member) });
-  });
+  }));
 
   const SETTLEMENT_MPESA_TYPES = ['Paybill', 'BuyGoods', 'PhoneNumber'] as const;
 
-  app.get("/api/settlement", (req, res) => {
-    if (!requireSession(req, res)) return;
+  app.get("/api/settlement", asyncHandler(async (req, res) => {
+    const session = await requireSession(req, res);
+    if (!session) return;
+    const { settlementConfig } = await getAppSettings();
     res.json(settlementConfig);
-  });
+  }));
 
-  app.post("/api/settlement", (req, res) => {
-    const session = requireRole(req, res, ['landlord', 'admin']);
+  app.post("/api/settlement", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const body = req.body as Partial<SettlementConfig>;
     const updates: Partial<SettlementConfig> = {};
@@ -1351,18 +1449,21 @@ const portfolioPropertyNames = (email: string) => properties
     if (body.bankAccountNumber !== undefined) updates.bankAccountNumber = sanitizeText(body.bankAccountNumber, 40);
     if (body.bankRoutingCode !== undefined) updates.bankRoutingCode = sanitizeText(body.bankRoutingCode, 40);
 
-    settlementConfig = { ...settlementConfig, ...updates };
-    saveState();
+    const current = await getAppSettings();
+    const settlementConfig = { ...current.settlementConfig, ...updates };
+    await updateRows("app_settings", { settlementConfig }, [["id", "=", "singleton"]]);
     res.json(settlementConfig);
-  });
+  }));
 
-  app.get("/api/properties", (req, res) => {
-    if (!requireSession(req, res)) return;
+  app.get("/api/properties", asyncHandler(async (req, res) => {
+    const session = await requireSession(req, res);
+    if (!session) return;
+    const properties = await selectRows("properties");
     res.json(properties);
-  });
+  }));
 
-  app.post("/api/properties", (req, res) => {
-    const session = requireRole(req, res, ['landlord', 'admin']);
+  app.post("/api/properties", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { name, address, unitsCount } = req.body;
     if (!name || !address || !unitsCount) {
@@ -1381,7 +1482,6 @@ const portfolioPropertyNames = (email: string) => properties
       availableForMarketplace: true,
       ownerEmail: session.email
     } as Property;
-    properties.push(newProperty);
 
     // Auto generate internal units
     const generatedUnits: Unit[] = Array.from({ length: normalizedUnitsCount }).map((_, index) => {
@@ -1396,52 +1496,46 @@ const portfolioPropertyNames = (email: string) => properties
         tenantName: index % 3 === 0 ? undefined : ['Marcus Holloway', 'Sarah Jenkins', 'Jane Doe'][index % 3]
       };
     });
-    units.push(...generatedUnits);
 
-    saveState();
+    await insertRow("properties", newProperty);
+    await insertRows("units", generatedUnits);
+
     res.json({ property: newProperty, addedUnits: generatedUnits });
-  });
+  }));
 
-  app.patch("/api/properties/:id", (req, res) => {
-    const session = requireRole(req, res, ['landlord', 'admin']);
+  app.patch("/api/properties/:id", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { id } = req.params;
     const sanitized = sanitizePropertyInput(req.body);
-    let updatedProperty: Property | null = null;
 
-    properties = properties.map(property => {
-      if (property.id === id && (session.role === 'admin' || property.ownerEmail?.toLowerCase() === session.email.toLowerCase())) {
-        updatedProperty = { ...property, ...sanitized, availableForMarketplace: true };
-        return updatedProperty;
-      }
-      return property;
-    });
-
-    if (!updatedProperty) {
+    const existingProperty = await selectOne<Property>("properties", [["id", "=", id]]);
+    if (!existingProperty || (session.role !== 'admin' && existingProperty.ownerEmail?.toLowerCase() !== session.email.toLowerCase())) {
       return res.status(404).json({ error: "Property not found" });
     }
 
-    units = units.map(unit => {
-      if (unit.propertyId === id && updatedProperty) {
-        return {
-          ...unit,
-          propertyName: updatedProperty.name
-        };
-      }
-      return unit;
-    });
+    const updatedProperty = await updateOne<Property>("properties", { ...sanitized, availableForMarketplace: true }, [["id", "=", id]]);
+    if (!updatedProperty) throw new Error("Property update failed to return a row");
 
-    saveState();
+    await updateRows("units", { propertyName: updatedProperty.name }, [["propertyId", "=", id]]);
+
     res.json(updatedProperty);
-  });
+  }));
 
-  app.get("/api/units", (req, res) => {
-    const session = requireSession(req, res);
+  app.get("/api/units", asyncHandler(async (req, res) => {
+    const session = await requireSession(req, res);
     if (!session) return;
-    const viewerMember = session.role === 'tenant' ? findOwnMember(session) : undefined;
-    const visibleUnits = units.map(unit => {
+    const [allUnits, ownedProps] = await Promise.all([
+      selectRows<Unit>("units"),
+      session.role === 'landlord'
+        ? selectRows<{ id: string }>("properties", [["ownerEmail", "=", normalizeEmail(session.email)]])
+        : Promise.resolve([])
+    ]);
+    const ownedIds = new Set(ownedProps.map(p => p.id));
+    const viewerMember = session.role === 'tenant' ? await findOwnMember(session) : undefined;
+    const visibleUnits = allUnits.map(unit => {
       if (session.role === 'admin') return unit;
-      if (session.role === 'landlord' && propertyBelongsTo(unit.propertyId, session.email)) return unit;
+      if (session.role === 'landlord' && ownedIds.has(unit.propertyId)) return unit;
       const isOwnUnit = Boolean(viewerMember && (
         unit.tenantName === viewerMember.name ||
         (viewerMember.propertyName === unit.propertyName && viewerMember.unitNumber === unit.unitNumber)
@@ -1453,173 +1547,138 @@ const portfolioPropertyNames = (email: string) => properties
       return publicUnit;
     });
     res.json(visibleUnits);
-  });
+  }));
 
-  app.post("/api/units/assign", (req, res) => {
-    const session = requireRole(req, res, ['landlord', 'admin']);
+  app.post("/api/units/assign", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { unitId, tenantName } = req.body;
     if (!unitId || !tenantName) {
       return res.status(400).json({ error: "Missing required parameters" });
     }
-    if (session.role !== 'admin' && !unitBelongsTo(unitId, session.email)) {
+    if (session.role !== 'admin' && !await unitBelongsTo(unitId, session.email)) {
       return res.status(403).json({ error: "You can only update units in your portfolio" });
     }
 
-    let updatedUnit: Unit | null = null;
-    units = units.map(u => {
-      if (u.id === unitId) {
-        updatedUnit = {
-          ...u,
-          status: 'Occupied',
-          tenantName,
-          tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB'
-        };
-        return updatedUnit;
-      }
-      return u;
-    });
+    const updatedUnit = await updateOne<Unit>("units", {
+      status: 'Occupied',
+      tenantName,
+      tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB'
+    }, [["id", "=", unitId]]);
 
     if (!updatedUnit) {
       return res.status(404).json({ error: "Unit not found" });
     }
 
-    saveState();
     res.json(updatedUnit);
-  });
+  }));
 
-  app.post("/api/units/update", (req, res) => {
-    const session = requireRole(req, res, ['landlord', 'admin']);
+  app.post("/api/units/update", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { unitId, tenantName, rentAmount, status } = req.body;
     if (!unitId) {
       return res.status(400).json({ error: "Missing unitId" });
     }
-    if (session.role !== 'admin' && !unitBelongsTo(unitId, session.email)) {
+    if (session.role !== 'admin' && !await unitBelongsTo(unitId, session.email)) {
       return res.status(403).json({ error: "You can only update units in your portfolio" });
     }
 
-    let updatedUnit: Unit | null = null;
-    units = units.map(u => {
-      if (u.id === unitId) {
-        const shouldUpdateTenant = Object.prototype.hasOwnProperty.call(req.body, "tenantName");
-        const nextStatus = status !== undefined
-          ? status
-          : shouldUpdateTenant
-            ? (tenantName ? 'Occupied' : 'Vacant')
-            : u.status;
-        updatedUnit = {
-          ...u,
-          rentAmount: rentAmount !== undefined ? Number(rentAmount) : u.rentAmount,
-          status: nextStatus,
-          tenantName: shouldUpdateTenant ? (tenantName || undefined) : nextStatus === 'Vacant' ? undefined : u.tenantName,
-          tenantAvatar: shouldUpdateTenant
-            ? (tenantName ? u.tenantAvatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB' : undefined)
-            : nextStatus === 'Vacant' ? undefined : u.tenantAvatar
-        };
-        return updatedUnit;
-      }
-      return u;
-    });
-
-    if (!updatedUnit) {
+    const existingUnit = await selectOne<Unit>("units", [["id", "=", unitId]]);
+    if (!existingUnit) {
       return res.status(404).json({ error: "Unit not found" });
     }
 
-    saveState();
-    res.json(updatedUnit);
-  });
+    const shouldUpdateTenant = Object.prototype.hasOwnProperty.call(req.body, "tenantName");
+    const nextStatus = status !== undefined
+      ? status
+      : shouldUpdateTenant
+        ? (tenantName ? 'Occupied' : 'Vacant')
+        : existingUnit.status;
+    const updatedUnit = await updateOne<Unit>("units", {
+      rentAmount: rentAmount !== undefined ? Number(rentAmount) : existingUnit.rentAmount,
+      status: nextStatus,
+      tenantName: shouldUpdateTenant ? (tenantName || null) : nextStatus === 'Vacant' ? null : existingUnit.tenantName,
+      tenantAvatar: shouldUpdateTenant
+        ? (tenantName ? existingUnit.tenantAvatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB' : null)
+        : nextStatus === 'Vacant' ? null : existingUnit.tenantAvatar
+    }, [["id", "=", unitId]]);
 
-  app.post("/api/units/update-avatar", (req, res) => {
-    const session = requireRole(req, res, ['tenant', 'landlord', 'admin']);
+    res.json(updatedUnit);
+  }));
+
+  app.post("/api/units/update-avatar", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['tenant', 'landlord', 'admin']);
     if (!session) return;
     const { unitId, tenantAvatar } = req.body;
     if (!unitId || !tenantAvatar) {
       return res.status(400).json({ error: "Missing unitId or tenantAvatar" });
     }
 
-    let updatedUnit: Unit | null = null;
-    units = units.map(u => {
-      if (u.id === unitId) {
-        updatedUnit = {
-          ...u,
-          tenantAvatar
-        };
-        return updatedUnit;
-      }
-      return u;
-    });
+    const updatedUnit = await updateOne<Unit>("units", { tenantAvatar }, [["id", "=", unitId]]);
 
     if (!updatedUnit) {
       return res.status(404).json({ error: "Unit not found" });
     }
 
-    saveState();
     res.json(updatedUnit);
-  });
+  }));
 
-  app.post("/api/units/lock", (req, res) => {
-    const session = requireRole(req, res, ['landlord', 'admin']);
+  app.post("/api/units/lock", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { unitId, isLocked, lockReason } = req.body;
     if (!unitId) {
       return res.status(400).json({ error: "Missing unitId" });
     }
-    if (session.role !== 'admin' && !unitBelongsTo(unitId, session.email)) {
+    if (session.role !== 'admin' && !await unitBelongsTo(unitId, session.email)) {
       return res.status(403).json({ error: "You can only lock units in your portfolio" });
     }
 
-    let updatedUnit: Unit | null = null;
-    units = units.map(u => {
-      if (u.id === unitId) {
-        updatedUnit = {
-          ...u,
-          isLocked: !!isLocked,
-          lockReason: isLocked ? (lockReason || "Rent payment overdue") : undefined
-        };
-        return updatedUnit;
-      }
-      return u;
-    });
+    const updatedUnit = await updateOne<Unit>("units", {
+      isLocked: !!isLocked,
+      lockReason: isLocked ? (lockReason || "Rent payment overdue") : null
+    }, [["id", "=", unitId]]);
 
     if (!updatedUnit) {
       return res.status(404).json({ error: "Unit not found" });
     }
 
-    const uObj = updatedUnit as Unit;
-
     // Trigger a notification to the tenant
-    if (uObj.tenantName) {
-      notifications.unshift({
+    if (updatedUnit.tenantName) {
+      await insertRow("notifications", {
         id: `notif-${Date.now()}`,
-      title: isLocked ? 'Smart Lock Engaged' : 'Smart Lock Released',
+        title: isLocked ? 'Smart Lock Engaged' : 'Smart Lock Released',
         message: isLocked
-          ? `Your unit ${uObj.unitNumber} at ${uObj.propertyName} has been locked by the landlord. Reason: ${uObj.lockReason}. Settle your payments immediately to reactivate.`
-          : `Your unit ${uObj.unitNumber} at ${uObj.propertyName} has been unlocked. Thank you for your payment.`,
+          ? `Your unit ${updatedUnit.unitNumber} at ${updatedUnit.propertyName} has been locked by the landlord. Reason: ${updatedUnit.lockReason}. Settle your payments immediately to reactivate.`
+          : `Your unit ${updatedUnit.unitNumber} at ${updatedUnit.propertyName} has been unlocked. Thank you for your payment.`,
         date: 'Just now',
         type: 'payment',
         unread: true
       });
     }
 
-    saveState();
     res.json(updatedUnit);
-  });
+  }));
 
-  app.get("/api/payments", (req, res) => {
-    const session = requireRole(req, res, ['admin', 'landlord', 'tenant']);
+  app.get("/api/payments", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['admin', 'landlord', 'tenant']);
     if (!session) return;
-    if (session.role === 'admin') return res.json(payments);
-    if (session.role === 'landlord') {
-      const ownedNames = portfolioPropertyNames(session.email);
-      return res.json(payments.filter(payment => ownedNames.includes(payment.propertyName)));
+    if (session.role === 'admin') {
+      return res.json(await selectRows("payments", [], { orderBy: "createdAt", desc: true }));
     }
-    const viewerMember = findOwnMember(session);
-    res.json(payments.filter(payment => payment.tenantName === viewerMember?.name));
-  });
+    if (session.role === 'landlord') {
+      const ownedNames = await portfolioPropertyNames(session.email);
+      if (ownedNames.length === 0) return res.json([]);
+      return res.json(await selectRows("payments", [["propertyName", "IN", ownedNames]], { orderBy: "createdAt", desc: true }));
+    }
+    const viewerMember = await findOwnMember(session);
+    if (!viewerMember) return res.json([]);
+    res.json(await selectRows("payments", [["tenantName", "=", viewerMember.name]], { orderBy: "createdAt", desc: true }));
+  }));
 
-  app.post("/api/payments", (req, res) => {
-    const session = requireRole(req, res, ['tenant', 'landlord']);
+  app.post("/api/payments", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['tenant', 'landlord']);
     if (!session) return;
     const { tenantName, unitNumber, propertyName, date, amount, status, paymentMethod } = req.body;
     if (!tenantName || !amount || !paymentMethod) {
@@ -1649,37 +1708,41 @@ const portfolioPropertyNames = (email: string) => properties
       code: `${paymentMethod === 'M-Pesa' ? 'MPESA' : 'CARD'}-REC-${hash}`
     };
 
-    payments.unshift(newPayment);
+    await insertRow("payments", newPayment);
 
-    const payingUnit = units.find(u => u.tenantName === tenantName);
+    const payingUnit = await selectOne<{ id: string }>("units", [["tenantName", "=", tenantName]]);
     if (payingUnit?.id === 'unit-1-4b' || tenantName === 'Alex Smith' || tenantName === 'Alex') {
-      tenantBalance = 0;
+      await updateRows("app_settings", { tenantBalance: 0 }, [["id", "=", "singleton"]]);
     }
 
-    saveState();
     res.json(newPayment);
-  });
+  }));
 
-  app.get("/api/maintenance", (req, res) => {
-    const session = requireSession(req, res);
+  app.get("/api/maintenance", asyncHandler(async (req, res) => {
+    const session = await requireSession(req, res);
     if (!session) return;
-    if (session.role === 'admin') return res.json(maintenanceRequests);
+    if (session.role === 'admin') {
+      return res.json(await selectRows("maintenance_requests", [], { orderBy: "createdAt", desc: true }));
+    }
     if (session.role === 'landlord') {
-      const ownedNames = portfolioPropertyNames(session.email);
-      return res.json(maintenanceRequests.filter(request => ownedNames.includes(request.propertyName)));
+      const ownedNames = await portfolioPropertyNames(session.email);
+      if (ownedNames.length === 0) return res.json([]);
+      return res.json(await selectRows("maintenance_requests", [["propertyName", "IN", ownedNames]], { orderBy: "createdAt", desc: true }));
     }
     if (session.role === 'worker') {
-      return res.json(maintenanceRequests.filter(request => (
+      const all = await selectRows<MaintenanceRequest>("maintenance_requests", [], { orderBy: "createdAt", desc: true });
+      return res.json(all.filter(request => (
         request.technicianEmail?.toLowerCase() === session.email.toLowerCase() ||
         (!request.technicianEmail && request.status !== 'Resolved')
       )));
     }
-    const viewerMember = findOwnMember(session);
-    res.json(maintenanceRequests.filter(request => request.tenantName === viewerMember?.name));
-  });
+    const viewerMember = await findOwnMember(session);
+    if (!viewerMember) return res.json([]);
+    res.json(await selectRows("maintenance_requests", [["tenantName", "=", viewerMember.name]], { orderBy: "createdAt", desc: true }));
+  }));
 
-  app.post("/api/maintenance", (req, res) => {
-    const session = requireRole(req, res, ['tenant']);
+  app.post("/api/maintenance", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['tenant']);
     if (!session) return;
     const { title, category, urgency, description, photos, tenantName } = req.body;
     if (!title || !description || !urgency) {
@@ -1689,9 +1752,9 @@ const portfolioPropertyNames = (email: string) => properties
       return res.status(400).json({ error: "Unsupported repair urgency" });
     }
 
-    const tenantMember = members.find(member => member.role === 'tenant' && member.email.toLowerCase() === session.email.toLowerCase());
+    const tenantMember = await selectOne<{ name: string }>("members", [["role", "=", "tenant"], ["email", "=", normalizeEmail(session.email)]]);
     const tName = tenantMember?.name || tenantName || 'Unassigned Tenant';
-    const activeUnit = units.find(u => u.tenantName === tName);
+    const activeUnit = await selectOne<{ propertyName: string; unitNumber: string }>("units", [["tenantName", "=", tName]]);
 
     const newRequest: MaintenanceRequest = {
       id: `req-${Date.now()}`,
@@ -1707,10 +1770,10 @@ const portfolioPropertyNames = (email: string) => properties
       unitNumber: activeUnit?.unitNumber || 'Pending assignment'
     };
 
-    maintenanceRequests.unshift(newRequest);
+    await insertRow("maintenance_requests", newRequest);
 
     // Append notification log
-    notifications.unshift({
+    await insertRow("notifications", {
       id: `notif-${Date.now()}`,
       title: 'Request Received',
       message: `Your maintenance request "${title}" has been successfully logged.`,
@@ -1719,12 +1782,11 @@ const portfolioPropertyNames = (email: string) => properties
       unread: true
     });
 
-    saveState();
     res.json(newRequest);
-  });
+  }));
 
-  app.patch("/api/maintenance/:id", (req, res) => {
-    const session = requireRole(req, res, ['landlord', 'worker', 'admin']);
+  app.patch("/api/maintenance/:id", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['landlord', 'worker', 'admin']);
     if (!session) return;
     const { id } = req.params;
     const { status, workerEmail } = req.body;
@@ -1735,144 +1797,135 @@ const portfolioPropertyNames = (email: string) => properties
       return res.status(400).json({ error: "Unsupported maintenance status" });
     }
 
+    const existingRequest = await selectOne<MaintenanceRequest>("maintenance_requests", [["id", "=", id]]);
+
     let foundRequest: MaintenanceRequest | null = null;
-    maintenanceRequests = maintenanceRequests.map(r => {
-      if (r.id === id) {
-        const requestProperty = properties.find(property => property.name === r.propertyName);
-        const landlordOwnsRequest = requestProperty?.ownerEmail?.toLowerCase() === session.email.toLowerCase();
-        const workerOwnsRequest = r.technicianEmail?.toLowerCase() === session.email.toLowerCase();
-        if ((session.role === 'landlord' && !landlordOwnsRequest) || (session.role === 'worker' && !workerOwnsRequest)) {
-          return r;
-        }
-        let techObj = {};
-        const worker = getActiveWorker(workerEmail);
-        if (workerEmail && !worker) {
-          return r;
-        }
-        if (worker) {
-          techObj = {
+    if (existingRequest) {
+      const requestProperty = await selectOne<{ ownerEmail?: string }>("properties", [["name", "=", existingRequest.propertyName]]);
+      const landlordOwnsRequest = requestProperty?.ownerEmail?.toLowerCase() === session.email.toLowerCase();
+      const workerOwnsRequest = existingRequest.technicianEmail?.toLowerCase() === session.email.toLowerCase();
+      if (!((session.role === 'landlord' && !landlordOwnsRequest) || (session.role === 'worker' && !workerOwnsRequest))) {
+        const worker = await getActiveWorker(workerEmail);
+        if (!(workerEmail && !worker)) {
+          const techObj = worker ? {
             technicianName: worker.name,
             technicianEmail: worker.email,
             technicianPhone: worker.phone,
             technicianAvatar: worker.avatarUrl,
             arrivalTime: '3:30 PM'
-          };
+          } : {};
+          foundRequest = await updateOne<MaintenanceRequest>("maintenance_requests", { status, ...techObj }, [["id", "=", id]]);
         }
-        foundRequest = { ...r, status, ...techObj };
-        return foundRequest;
       }
-      return r;
-    });
+    }
 
     if (!foundRequest) {
       return res.status(workerEmail ? 400 : 404).json({ error: workerEmail ? "Worker not found" : "Maintenance Request not found" });
     }
 
-    const reqObj = foundRequest as MaintenanceRequest;
-    notifications.unshift({
+    await insertRow("notifications", {
       id: `notif-${Date.now()}`,
       title: 'Repair Status Updated',
-      message: `Repair "${reqObj.title}" for ${reqObj.tenantName} is now marked as ${status}.`,
+      message: `Repair "${foundRequest.title}" for ${foundRequest.tenantName} is now marked as ${status}.`,
       date: 'Just now',
       type: 'maintenance',
       unread: true
     });
 
-    saveState();
     res.json(foundRequest);
-  });
+  }));
 
-  app.post("/api/maintenance/:id/assign-worker", (req, res) => {
-    const session = requireRole(req, res, ['landlord', 'worker', 'admin']);
+  app.post("/api/maintenance/:id/assign-worker", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['landlord', 'worker', 'admin']);
     if (!session) return;
     const { id } = req.params;
     const { workerEmail } = req.body;
-    const worker = getActiveWorker(workerEmail);
+    const worker = await getActiveWorker(workerEmail);
     if (!worker) {
       return res.status(404).json({ error: "Worker not found" });
     }
 
+    const existingRequest = await selectOne<MaintenanceRequest>("maintenance_requests", [["id", "=", id]]);
+
     let updatedRequest: MaintenanceRequest | null = null;
-    maintenanceRequests = maintenanceRequests.map(r => {
-      if (r.id === id) {
-        const requestProperty = properties.find(property => property.name === r.propertyName);
-        if (session.role === 'landlord' && requestProperty?.ownerEmail?.toLowerCase() !== session.email.toLowerCase()) {
-          return r;
-        }
-        updatedRequest = {
-          ...r,
-          status: r.status === 'Submitted' ? 'Acknowledged' : r.status,
+    if (existingRequest) {
+      const requestProperty = await selectOne<{ ownerEmail?: string }>("properties", [["name", "=", existingRequest.propertyName]]);
+      if (!(session.role === 'landlord' && requestProperty?.ownerEmail?.toLowerCase() !== session.email.toLowerCase())) {
+        updatedRequest = await updateOne<MaintenanceRequest>("maintenance_requests", {
+          status: existingRequest.status === 'Submitted' ? 'Acknowledged' : existingRequest.status,
           technicianName: worker.name,
           technicianEmail: worker.email,
           technicianPhone: worker.phone,
           technicianAvatar: worker.avatarUrl,
           arrivalTime: '3:30 PM'
-        };
-        return updatedRequest;
+        }, [["id", "=", id]]);
       }
-      return r;
-    });
+    }
 
     if (!updatedRequest) {
       return res.status(404).json({ error: "Maintenance Request not found" });
     }
 
-    const reqObj = updatedRequest as MaintenanceRequest;
-    notifications.unshift({
+    await insertRow("notifications", {
       id: `notif-worker-${Date.now()}`,
       title: 'Worker Assigned',
-      message: `${worker.name} has been contacted for "${reqObj.title}" at ${reqObj.propertyName} (${reqObj.unitNumber}).`,
+      message: `${worker.name} has been contacted for "${updatedRequest.title}" at ${updatedRequest.propertyName} (${updatedRequest.unitNumber}).`,
       date: 'Just now',
       type: 'maintenance',
       unread: true
     });
 
-    saveState();
     res.json(updatedRequest);
-  });
+  }));
 
-  app.get("/api/notifications", (req, res) => {
+  app.get("/api/notifications", asyncHandler(async (req, res) => {
     // NOTE: notifications aren't tagged with a recipient in the data model yet,
     // so this can only gate on "is signed in", not filter to the caller's own
     // notifications. Every signed-in user currently sees the same feed.
     // Scoping this properly needs a recipientEmail/audience field added when
     // each notification is created - tracked as follow-up work.
-    if (!requireSession(req, res)) return;
-    res.json(notifications);
-  });
-
-  app.post("/api/notifications/read", (req, res) => {
-    const session = requireRole(req, res, ['tenant', 'landlord', 'worker', 'admin']);
+    const session = await requireSession(req, res);
     if (!session) return;
-    notifications = notifications.map(n => ({ ...n, unread: false }));
-    saveState();
+    res.json(await selectRows("notifications", [], { orderBy: "createdAt", desc: true }));
+  }));
+
+  app.post("/api/notifications/read", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['tenant', 'landlord', 'worker', 'admin']);
+    if (!session) return;
+    await updateRows("notifications", { unread: false }, [["id", "!=", ""]]);
     res.json({ success: true });
-  });
+  }));
 
-  app.get("/api/members", (req, res) => {
-    const session = requireSession(req, res);
+  app.get("/api/members", asyncHandler(async (req, res) => {
+    const session = await requireSession(req, res);
     if (!session) return;
-    if (session.role === 'admin') return res.json(scrubMembers());
+    if (session.role === 'admin') {
+      return res.json(scrubMembers(await selectRows<PlatformMember>("members")));
+    }
     if (session.role === 'landlord') {
-      const ownedNames = portfolioPropertyNames(session.email);
-      const visible = members.filter(member => {
+      const [allMembers, ownedNames] = await Promise.all([
+        selectRows<PlatformMember>("members"),
+        portfolioPropertyNames(session.email)
+      ]);
+      const visible = allMembers.filter(member => {
         if (member.role === 'admin') return false;
         if (member.role === 'landlord') return member.email.toLowerCase() === session.email.toLowerCase();
         return member.role === 'worker' || !member.propertyName || ownedNames.includes(member.propertyName);
       });
-      return res.json(visible.map(scrubMember));
+      return res.json(scrubMembers(visible));
     }
     // Tenants and workers only need their own record plus the worker
     // directory (technician contact info is not sensitive the way tenant
     // payment/PII data is, and landlords/tenants both need it).
-    const visible = members.filter(member => (
+    const allMembers = await selectRows<PlatformMember>("members");
+    const visible = allMembers.filter(member => (
       member.role === 'worker' || member.email.toLowerCase() === session.email.toLowerCase()
     ));
-    res.json(visible.map(scrubMember));
-  });
+    res.json(scrubMembers(visible));
+  }));
 
-  app.post("/api/members/avatar", (req, res) => {
-    const session = requireRole(req, res, ['tenant', 'landlord', 'worker', 'admin']);
+  app.post("/api/members/avatar", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['tenant', 'landlord', 'worker', 'admin']);
     if (!session) return;
 
     const memberId = sanitizeText(req.body.memberId, 80);
@@ -1882,7 +1935,7 @@ const portfolioPropertyNames = (email: string) => properties
       return res.status(400).json({ error: "Missing memberId or avatarUrl" });
     }
 
-    const member = members.find(item => item.id === memberId);
+    const member = await selectOne<PlatformMember>("members", [["id", "=", memberId]]);
     if (!member) {
       return res.status(404).json({ error: "Member not found" });
     }
@@ -1890,43 +1943,40 @@ const portfolioPropertyNames = (email: string) => properties
       return res.status(403).json({ error: "You can only update your own profile picture" });
     }
 
-    let updatedMember: PlatformMember | null = null;
-    members = members.map(item => {
-      if (item.id !== memberId) return item;
-      updatedMember = { ...item, avatarUrl };
-      return updatedMember;
-    });
+    const updatedMember = await updateOne<PlatformMember>("members", { avatarUrl }, [["id", "=", memberId]]);
+    if (!updatedMember) throw new Error("Member update failed to return a row");
 
     let updatedUnit: Unit | null = null;
-    if (updatedMember?.role === 'tenant') {
-      units = units.map(unit => {
-        const unitMatchesRequest = unitId && unit.id === unitId;
-        const unitMatchesMember = unit.tenantName === updatedMember?.name
-          || (updatedMember?.propertyName === unit.propertyName && updatedMember?.unitNumber === unit.unitNumber);
-        if (!unitMatchesRequest && !unitMatchesMember) return unit;
-        updatedUnit = { ...unit, tenantAvatar: avatarUrl };
-        return updatedUnit;
-      });
-    }
-
-    if (updatedMember?.role === 'worker') {
-      maintenanceRequests = maintenanceRequests.map(request => (
-        request.technicianEmail?.toLowerCase() === updatedMember?.email.toLowerCase()
-          ? { ...request, technicianAvatar: avatarUrl }
-          : request
+    if (updatedMember.role === 'tenant') {
+      const units = await selectRows<Unit>("units");
+      const matchingUnit = units.find(unit => (
+        (unitId && unit.id === unitId) ||
+        unit.tenantName === updatedMember.name ||
+        (updatedMember.propertyName === unit.propertyName && updatedMember.unitNumber === unit.unitNumber)
       ));
+      if (matchingUnit) {
+        updatedUnit = await updateOne<Unit>("units", { tenantAvatar: avatarUrl }, [["id", "=", matchingUnit.id]]);
+      }
     }
 
-    saveState();
-    res.json({
-      member: scrubMember(updatedMember as PlatformMember),
-      unit: updatedUnit,
-      maintenanceRequests: updatedMember?.role === 'worker' ? maintenanceRequests : undefined
-    });
-  });
+    let updatedMaintenanceRequests: MaintenanceRequest[] | undefined;
+    if (updatedMember.role === 'worker') {
+      updatedMaintenanceRequests = await updateRows<MaintenanceRequest>(
+        "maintenance_requests",
+        { technicianAvatar: avatarUrl },
+        [["technicianEmail", "=", updatedMember.email]]
+      );
+    }
 
-  app.post("/api/members", (req, res) => {
-    const session = requireRole(req, res, ['landlord', 'admin']);
+    res.json({
+      member: scrubMember(updatedMember),
+      unit: updatedUnit,
+      maintenanceRequests: updatedMaintenanceRequests
+    });
+  }));
+
+  app.post("/api/members", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { role, name, phone, email } = req.body;
     if (!role || !name || !phone || !email) {
@@ -1948,20 +1998,16 @@ const portfolioPropertyNames = (email: string) => properties
       status: req.body.status || 'Active'
     };
 
-    members = [member, ...members.filter(m => m.email !== member.email || m.role !== member.role)];
+    await deleteRows("members", [["email", "=", member.email], ["role", "=", member.role]]);
+    await insertRow("members", member);
     if (member.role === 'tenant' && member.propertyName && member.unitNumber) {
-      units = units.map(unit => (
-        unit.propertyName === member.propertyName && unit.unitNumber === member.unitNumber
-          ? {
-              ...unit,
-              status: 'Occupied',
-              tenantName: member.name,
-              tenantAvatar: member.avatarUrl || unit.tenantAvatar
-            }
-          : unit
-      ));
+      await updateRows("units", {
+        status: 'Occupied',
+        tenantName: member.name,
+        ...(member.avatarUrl ? { tenantAvatar: member.avatarUrl } : {})
+      }, [["propertyName", "=", member.propertyName], ["unitNumber", "=", member.unitNumber]]);
     }
-    notifications.unshift({
+    await insertRow("notifications", {
       id: `notif-member-${Date.now()}`,
       title: 'New Platform Member',
       message: `${member.name} joined Renziy as a ${member.role}.`,
@@ -1970,34 +2016,39 @@ const portfolioPropertyNames = (email: string) => properties
       unread: true
     });
 
-    saveState();
     res.json(scrubMember(member));
-  });
+  }));
 
-  app.get("/api/rental-applications", (req, res) => {
-    const session = requireRole(req, res, ['admin', 'landlord', 'tenant']);
+  app.get("/api/rental-applications", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['admin', 'landlord', 'tenant']);
     if (!session) return;
-    if (session.role === 'admin') return res.json(rentalApplications);
+    if (session.role === 'admin') {
+      return res.json(await selectRows("rental_applications"));
+    }
     if (session.role === 'landlord') {
-      const ownedIds = properties.filter(p => p.ownerEmail?.toLowerCase() === session.email.toLowerCase()).map(p => p.id);
-      const ownedNames = portfolioPropertyNames(session.email);
-      return res.json(rentalApplications.filter(item => (
+      const [ownedProps, ownedNames, allApplications] = await Promise.all([
+        selectRows<{ id: string }>("properties", [["ownerEmail", "=", normalizeEmail(session.email)]]),
+        portfolioPropertyNames(session.email),
+        selectRows<RentalApplication>("rental_applications")
+      ]);
+      const ownedIds = ownedProps.map(p => p.id);
+      return res.json(allApplications.filter(item => (
         ownedIds.includes(item.propertyId) ||
         ownedNames.includes(item.propertyName) ||
         item.ownerEmail?.toLowerCase() === session.email.toLowerCase()
       )));
     }
-    res.json(rentalApplications.filter(item => item.tenantEmail.toLowerCase() === session.email.toLowerCase()));
-  });
+    res.json(await selectRows("rental_applications", [["tenantEmail", "=", session.email.toLowerCase()]]));
+  }));
 
-  app.post("/api/rental-applications", (req, res) => {
-    const session = requireRole(req, res, ['tenant']);
+  app.post("/api/rental-applications", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['tenant']);
     if (!session) return;
     const { propertyId, propertyName, unitId, unitNumber, rentAmount, tenantName, tenantEmail } = req.body;
     if (!propertyId || !propertyName || !unitId || !unitNumber || !rentAmount || !tenantName || !tenantEmail) {
       return res.status(400).json({ error: "Missing rental request details" });
     }
-    const requestedUnit = units.find(unit => unit.id === unitId && unit.propertyId === propertyId);
+    const requestedUnit = await selectOne<Unit>("units", [["id", "=", unitId], ["propertyId", "=", propertyId]]);
     if (!requestedUnit) {
       return res.status(404).json({ error: "Requested unit not found" });
     }
@@ -2007,12 +2058,12 @@ const portfolioPropertyNames = (email: string) => properties
     if (Number(rentAmount) !== requestedUnit.rentAmount) {
       return res.status(400).json({ error: "Rental request amount does not match unit rent" });
     }
-    const hasActiveRequest = rentalApplications.some(item => (
-      item.unitId === unitId &&
-      item.tenantEmail === tenantEmail &&
-      item.status !== 'Declined'
-    ));
-    if (hasActiveRequest) {
+    const activeRequests = await selectRows("rental_applications", [
+      ["unitId", "=", unitId],
+      ["tenantEmail", "=", tenantEmail],
+      ["status", "!=", "Declined"]
+    ]);
+    if (activeRequests.length > 0) {
       return res.status(409).json({ error: "Tenant already has an active request for this unit" });
     }
 
@@ -2023,12 +2074,14 @@ const portfolioPropertyNames = (email: string) => properties
       status: req.body.status || 'Awaiting Rent'
     };
 
-    rentalApplications = [
-      application,
-      ...rentalApplications.filter(item => !(item.unitId === application.unitId && item.tenantEmail === application.tenantEmail && item.status !== 'Declined'))
-    ];
+    await deleteRows("rental_applications", [
+      ["unitId", "=", application.unitId],
+      ["tenantEmail", "=", application.tenantEmail],
+      ["status", "!=", "Declined"]
+    ]);
+    await insertRow("rental_applications", application);
 
-    notifications.unshift({
+    await insertRow("notifications", {
       id: `notif-rental-${Date.now()}`,
       title: 'New House Request',
       message: `${application.tenantName} requested ${application.propertyName} - Unit ${application.unitNumber}.`,
@@ -2037,35 +2090,28 @@ const portfolioPropertyNames = (email: string) => properties
       unread: true
     });
 
-    saveState();
     res.json(application);
-  });
+  }));
 
-  app.post("/api/rental-applications/:id/pay", (req, res) => {
-    const session = requireRole(req, res, ['tenant']);
+  app.post("/api/rental-applications/:id/pay", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['tenant']);
     if (!session) return;
     const { id } = req.params;
     const { method, paymentCode } = req.body;
     if (method && !isOneOf(PAYMENT_METHODS, method)) {
       return res.status(400).json({ error: "Unsupported payment method" });
     }
-    let application: RentalApplication | undefined;
 
-    rentalApplications = rentalApplications.map(item => {
-      if (item.id === id) {
-        if (item.status !== 'Awaiting Rent') {
-          application = item;
-          return item;
-        }
-        application = {
-          ...item,
-          status: 'Rent Paid',
-          paymentCode: paymentCode || `${method === 'Card' ? 'CARD' : 'MPESA'}-HOLD-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
-        };
-        return application;
-      }
-      return item;
-    });
+    const existing = await selectOne<RentalApplication>("rental_applications", [["id", "=", id]]);
+
+    let application: RentalApplication | undefined = existing ?? undefined;
+    if (existing && existing.status === 'Awaiting Rent') {
+      const updated = await updateOne<RentalApplication>("rental_applications", {
+        status: 'Rent Paid',
+        paymentCode: paymentCode || `${method === 'Card' ? 'CARD' : 'MPESA'}-HOLD-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+      }, [["id", "=", id]]);
+      application = updated ?? undefined;
+    }
 
     if (!application) {
       return res.status(404).json({ error: "Rental request not found" });
@@ -2075,7 +2121,7 @@ const portfolioPropertyNames = (email: string) => properties
     }
 
     const paidApplication = application as RentalApplication;
-    payments.unshift({
+    await insertRow("payments", {
       id: `pay-${Date.now()}`,
       tenantName: paidApplication.tenantName,
       unitNumber: paidApplication.unitNumber,
@@ -2087,7 +2133,7 @@ const portfolioPropertyNames = (email: string) => properties
       code: paidApplication.paymentCode || 'MPESA-HOLD'
     });
 
-    notifications.unshift({
+    await insertRow("notifications", {
       id: `notif-rental-paid-${Date.now()}`,
       title: 'House Request Rent Paid',
       message: `${paidApplication.tenantName} paid KES ${paidApplication.rentAmount.toLocaleString()} for ${paidApplication.propertyName} - Unit ${paidApplication.unitNumber}.`,
@@ -2096,35 +2142,27 @@ const portfolioPropertyNames = (email: string) => properties
       unread: true
     });
 
-    saveState();
     res.json(paidApplication);
-  });
+  }));
 
-  app.post("/api/rental-applications/:id/approve", (req, res) => {
-    const session = requireRole(req, res, ['landlord', 'admin']);
+  app.post("/api/rental-applications/:id/approve", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { id } = req.params;
-    let application: RentalApplication | undefined;
 
-    rentalApplications = rentalApplications.map(item => {
-      if (item.id === id && item.status === 'Rent Paid') {
-        if (session.role !== 'admin' && item.ownerEmail?.toLowerCase() !== session.email.toLowerCase()) {
-          return item;
-        }
-        const requestedUnit = units.find(unit => unit.id === item.unitId);
-        if (!requestedUnit || requestedUnit.status !== 'Vacant') {
-          application = item;
-          return item;
-        }
-        application = {
-          ...item,
+    const existing = await selectOne<RentalApplication>("rental_applications", [["id", "=", id]]);
+
+    let application: RentalApplication | undefined = existing ?? undefined;
+    if (existing && existing.status === 'Rent Paid' && (session.role === 'admin' || existing.ownerEmail?.toLowerCase() === session.email.toLowerCase())) {
+      const requestedUnit = await selectOne<{ status: string }>("units", [["id", "=", existing.unitId]]);
+      if (requestedUnit && requestedUnit.status === 'Vacant') {
+        const updated = await updateOne<RentalApplication>("rental_applications", {
           status: 'Approved',
           approvedAt: new Date().toISOString()
-        };
-        return application;
+        }, [["id", "=", id]]);
+        application = updated ?? undefined;
       }
-      return item;
-    });
+    }
 
     if (!application) {
       return res.status(404).json({ error: "Paid rental request not found" });
@@ -2134,18 +2172,14 @@ const portfolioPropertyNames = (email: string) => properties
     }
 
     const approvedApplication = application as RentalApplication;
-    units = units.map(unit => (
-      unit.id === approvedApplication.unitId
-        ? { ...unit, status: 'Occupied', tenantName: approvedApplication.tenantName }
-        : unit
-    ));
-    members = members.map(member => (
-      member.email === approvedApplication.tenantEmail && member.role === 'tenant'
-        ? { ...member, propertyName: approvedApplication.propertyName, unitNumber: approvedApplication.unitNumber, rentAmount: approvedApplication.rentAmount }
-        : member
-    ));
+    await updateRows("units", { status: 'Occupied', tenantName: approvedApplication.tenantName }, [["id", "=", approvedApplication.unitId]]);
+    await updateRows("members", {
+      propertyName: approvedApplication.propertyName,
+      unitNumber: approvedApplication.unitNumber,
+      rentAmount: approvedApplication.rentAmount
+    }, [["email", "=", approvedApplication.tenantEmail], ["role", "=", "tenant"]]);
 
-    notifications.unshift({
+    await insertRow("notifications", {
       id: `notif-rental-approved-${Date.now()}`,
       title: 'Unit Approved',
       message: `${approvedApplication.propertyName} - Unit ${approvedApplication.unitNumber} has been approved for ${approvedApplication.tenantName}.`,
@@ -2154,42 +2188,41 @@ const portfolioPropertyNames = (email: string) => properties
       unread: true
     });
 
-    saveState();
     res.json(approvedApplication);
-  });
+  }));
 
-  app.post("/api/rental-applications/:id/decline", (req, res) => {
-    const session = requireRole(req, res, ['landlord', 'admin']);
+  app.post("/api/rental-applications/:id/decline", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;
     const { id } = req.params;
-    let application: RentalApplication | undefined;
 
-    rentalApplications = rentalApplications.map(item => {
-      if (item.id === id && (session.role === 'admin' || item.ownerEmail?.toLowerCase() === session.email.toLowerCase())) {
-        application = { ...item, status: 'Declined' };
-        return application;
-      }
-      return item;
-    });
+    const existing = await selectOne<RentalApplication>("rental_applications", [["id", "=", id]]);
+
+    let application: RentalApplication | undefined;
+    if (existing && (session.role === 'admin' || existing.ownerEmail?.toLowerCase() === session.email.toLowerCase())) {
+      const updated = await updateOne<RentalApplication>("rental_applications", { status: 'Declined' }, [["id", "=", id]]);
+      application = updated ?? undefined;
+    }
 
     if (!application) {
       return res.status(404).json({ error: "Rental request not found" });
     }
 
-    saveState();
     res.json(application);
-  });
+  }));
 
-  app.get("/api/balance", (req, res) => {
+  app.get("/api/balance", asyncHandler(async (req, res) => {
     // NOTE: tenantBalance is a single platform-wide value, not per-tenant -
     // a pre-existing data model gap, not something scoping reads can fix on
     // its own. Tracked as follow-up work alongside real payment integration.
-    if (!requireSession(req, res)) return;
+    const session = await requireSession(req, res);
+    if (!session) return;
+    const { tenantBalance } = await getAppSettings();
     res.json({ tenantBalance });
-  });
+  }));
 
-  app.post("/api/balance/pay", (req, res) => {
-    const session = requireRole(req, res, ['tenant']);
+  app.post("/api/balance/pay", asyncHandler(async (req, res) => {
+    const session = await requireRole(req, res, ['tenant']);
     if (!session) return;
     const { method, tenantName } = req.body;
     if (!method) {
@@ -2199,23 +2232,19 @@ const portfolioPropertyNames = (email: string) => properties
       return res.status(400).json({ error: "Unsupported payment method" });
     }
 
-    const originalAmount = tenantBalance;
-    tenantBalance = 0;
+    const { tenantBalance: originalAmount } = await getAppSettings();
+    await updateRows("app_settings", { tenantBalance: 0 }, [["id", "=", "singleton"]]);
 
     const payingTenantName = tenantName || 'Alex Smith';
-    const activeUnit = units.find(u => u.tenantName === payingTenantName) || units.find(u => u.id === 'unit-1-4b');
+    let activeUnit = await selectOne<Unit>("units", [["tenantName", "=", payingTenantName]]);
+    if (!activeUnit) {
+      activeUnit = await selectOne<Unit>("units", [["id", "=", "unit-1-4b"]]);
+    }
 
     // Auto-release smart lock for the paying tenant upon rent settlement.
-    units = units.map(u => {
-      if (u.id === activeUnit?.id) {
-        return {
-          ...u,
-          isLocked: false,
-          lockReason: undefined
-        };
-      }
-      return u;
-    });
+    if (activeUnit) {
+      await updateRows("units", { isLocked: false, lockReason: null }, [["id", "=", activeUnit.id]]);
+    }
 
     const hash = Math.random().toString(36).substring(2, 10).toUpperCase();
     const newPayment: Payment = {
@@ -2230,9 +2259,9 @@ const portfolioPropertyNames = (email: string) => properties
       code: `${method === 'M-Pesa' ? 'FLW-MP' : 'FLW-RE'}-${hash}`
     };
 
-    payments.unshift(newPayment);
+    await insertRow("payments", newPayment);
 
-    notifications.unshift({
+    await insertRow("notifications", {
       id: `notif-${Date.now()}`,
       title: 'Rent Paid Successfully',
       message: `Successfully processed ${method} rent payment of KES ${originalAmount.toLocaleString()}.`,
@@ -2241,9 +2270,8 @@ const portfolioPropertyNames = (email: string) => properties
       unread: true
     });
 
-    saveState();
     res.json({ success: true, payment: newPayment, originalAmount });
-  });
+  }));
 
   // Vite development vs production static routing integration
   async function bootstrap() {
@@ -2284,4 +2312,4 @@ const portfolioPropertyNames = (email: string) => properties
     console.error("Failed to start Renziy server:", err);
   });
 
-  export default app;
+export default app;
