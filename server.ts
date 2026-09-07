@@ -5,6 +5,7 @@ import path from "path";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { neon } from "@neondatabase/serverless";
+import { Resend } from "resend";
 import { normalizeUnitCount } from "./src/unitLimits";
 
 // .env.local takes priority (dotenv.config never overwrites a key already
@@ -65,6 +66,16 @@ const requireEnv = (envName: string): string => {
 // fullResults: true makes .query() return { rows, ... } (like node-postgres)
 // instead of just an array of rows.
 const sql = neon(requireEnv("POSTGRES_URL"), { fullResults: true });
+
+// Optional, not requireEnv()'d - if it's missing, password-reset codes just
+// fall back to the console.log-only behavior (fine for local dev without a
+// Resend account set up yet). Set it in production to actually email codes.
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
+const resetEmailFrom = process.env.RESET_EMAIL_FROM || "Renziy <onboarding@resend.dev>";
+if (isProduction && !resend) {
+  console.warn("[startup] RESEND_API_KEY not set - password reset codes will only be logged, never emailed.");
+}
 
 // --- Tiny SQL helper layer -------------------------------------------------
 // A hand-rolled, minimal stand-in for the Postgres query builder this file
@@ -1336,17 +1347,28 @@ const getAppSettings = async (): Promise<{ tenantBalance: number; settlementConf
       attempts: 0
     });
 
-    // TODO: wire up a real email/SMS delivery integration before production.
-    // The code must never be returned in the API response outside development -
-    // doing so lets anyone who knows an account's email take it over instantly.
-    console.log(`[password-reset] code for ${member.email} (${role}): ${resetCode} - expires ${new Date(expiresAt).toISOString()}`);
+    if (resend) {
+      // The code must never be returned in the API response once it's
+      // actually emailed - doing so would let anyone who knows an account's
+      // email take it over instantly, defeating the point of sending it.
+      const { error: sendError } = await resend.emails.send({
+        from: resetEmailFrom,
+        to: member.email,
+        subject: "Your Renziy password reset code",
+        html: `<p>Your Renziy password reset code is <strong>${resetCode}</strong>.</p><p>It expires in 10 minutes. If you didn't request this, you can ignore this email.</p>`
+      });
+      if (sendError) throw sendError;
+    } else {
+      // Dev fallback when RESEND_API_KEY isn't configured locally.
+      console.log(`[password-reset] code for ${member.email} (${role}): ${resetCode} - expires ${new Date(expiresAt).toISOString()}`);
+    }
 
     res.json({
       success: true,
       delivery: {
         email: maskEmail(member.email),
         phone: maskPhone(member.phone),
-        ...(isProduction ? {} : { resetCode }),
+        ...(resend ? {} : { resetCode }),
         expiresAt
       }
     });
