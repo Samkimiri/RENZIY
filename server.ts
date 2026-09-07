@@ -1143,16 +1143,25 @@ const sanitizePropertyInput = (body: Record<string, unknown>) => {
   return fields;
 };
 
-const sanitizeMemberInput = (input: Partial<PlatformMember>) => ({
-  ...input,
-  name: sanitizeText(input.name, 120),
-  phone: sanitizePhone(input.phone),
-  email: normalizeEmail(input.email),
-  propertyName: sanitizeText(input.propertyName, 160) || undefined,
-  unitNumber: sanitizeText(input.unitNumber, 80) || undefined,
-  specialty: sanitizeText(input.specialty, 160) || undefined,
-  avatarUrl: sanitizeAvatarUrl(input.avatarUrl) || undefined
-});
+const sanitizeMemberInput = (input: Partial<PlatformMember>) => {
+  // Strip password/passwordHash before the ...rest spread below - otherwise
+  // a caller-supplied plaintext password rides through untouched into
+  // whatever gets inserted, since neither field is in the explicit allowlist
+  // that follows. Every caller that legitimately needs a passwordHash sets
+  // it explicitly afterward via hashPassword(); nothing should ever persist
+  // req.body.password verbatim.
+  const { password, passwordHash, ...rest } = input;
+  return {
+    ...rest,
+    name: sanitizeText(input.name, 120),
+    phone: sanitizePhone(input.phone),
+    email: normalizeEmail(input.email),
+    propertyName: sanitizeText(input.propertyName, 160) || undefined,
+    unitNumber: sanitizeText(input.unitNumber, 80) || undefined,
+    specialty: sanitizeText(input.specialty, 160) || undefined,
+    avatarUrl: sanitizeAvatarUrl(input.avatarUrl) || undefined
+  };
+};
 
 // Inserts seed/demo rows into Postgres, but only where a row with that id
 // doesn't already exist (upsertIgnoreDuplicates is "insert if missing", not
