@@ -1497,6 +1497,19 @@ const getAppSettings = async (): Promise<{ tenantBalance: number; settlementConf
     res.json(properties);
   }));
 
+  // Public, unauthenticated - powers the "browse houses" preview on the
+  // marketing landing page. Only marketplace-listed properties and their
+  // vacant units, with ownerEmail stripped (no reason to expose landlord
+  // emails to anonymous visitors just for browsing).
+  app.get("/api/marketplace/listings", asyncHandler(async (req, res) => {
+    const [properties, vacantUnits] = await Promise.all([
+      selectRows<Property>("properties", [["availableForMarketplace", "=", true]]),
+      selectRows<Unit>("units", [["status", "=", "Vacant"]])
+    ]);
+    const publicProperties = properties.map(({ ownerEmail, ...rest }) => rest);
+    res.json({ properties: publicProperties, units: vacantUnits });
+  }));
+
   app.post("/api/properties", asyncHandler(async (req, res) => {
     const session = await requireRole(req, res, ['landlord', 'admin']);
     if (!session) return;

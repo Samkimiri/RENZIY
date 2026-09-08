@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRenziy } from '../state';
 import { rememberLocalLogin, verifyLocalLogin } from '../authMemory';
-import { ArrowRight, BarChart3, Building2, CheckCircle2, Eye, EyeOff, HardHat, HelpCircle, Home, Lock, Mail, MapPin, Phone, ShieldCheck, Smartphone, UserRound } from 'lucide-react';
+import HouseHuntingPreview from './HouseHuntingPreview';
+import { ArrowRight, BarChart3, Building2, CheckCircle2, Eye, EyeOff, HardHat, HelpCircle, Home, Lock, Mail, MapPin, Phone, Search, ShieldCheck, Smartphone, UserRound } from 'lucide-react';
 
 type AccountMode = 'signin' | 'signup' | 'reset';
 type AccountRole = 'admin' | 'landlord' | 'tenant' | 'worker';
@@ -79,6 +80,15 @@ export default function LandingPage() {
       availableForMarketplace: true,
       ownerEmail
     }).catch(err => console.warn('Starter portfolio could not be created:', err));
+  };
+
+  const handleApplyFromPreview = () => {
+    setSelectedRole('tenant');
+    setAuthMode('signup');
+    setFormMessage('');
+    setResetDelivery(null);
+    setResetCode('');
+    document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleAuthSubmit = async (event: React.FormEvent) => {
@@ -234,13 +244,22 @@ export default function LandingPage() {
           <span className="font-extrabold text-2xl text-white tracking-tight">Renziy</span>
         </button>
 
-        <button
-          onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}
-          className="bg-white/10 hover:bg-white/20 text-white border border-white/15 px-3 sm:px-4 py-2 rounded-xl font-bold text-xs active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
-        >
-          <span>Account Login</span>
-          <ArrowRight className="h-3 w-3 text-emerald-400" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => document.getElementById('house-hunting')?.scrollIntoView({ behavior: 'smooth' })}
+            className="hidden sm:flex bg-transparent hover:bg-white/10 text-white border border-white/15 px-3 sm:px-4 py-2 rounded-xl font-bold text-xs active:scale-95 transition-all items-center gap-1 cursor-pointer"
+          >
+            <Search className="h-3 w-3 text-emerald-400" />
+            <span>Browse Houses</span>
+          </button>
+          <button
+            onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}
+            className="bg-white/10 hover:bg-white/20 text-white border border-white/15 px-3 sm:px-4 py-2 rounded-xl font-bold text-xs active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
+          >
+            <span>Account Login</span>
+            <ArrowRight className="h-3 w-3 text-emerald-400" />
+          </button>
+        </div>
       </nav>
 
       <main className="pt-20">
@@ -501,6 +520,8 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+
+        <HouseHuntingPreview onApply={handleApplyFromPreview} />
 
         <section className="py-12 px-4 md:px-10 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
