@@ -26,7 +26,6 @@ export default function LandingPage() {
   const [resetCode, setResetCode] = useState('');
   const [resetDelivery, setResetDelivery] = useState<{ email: string; phone: string; resetCode?: string; expiresAt?: number } | null>(null);
   const [propertyName, setPropertyName] = useState('');
-  const [unitNumber, setUnitNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [formMessage, setFormMessage] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -210,9 +209,9 @@ export default function LandingPage() {
         email: cleanEmail,
         password,
         avatarUrl: defaultAvatar,
-        propertyName: selectedRole === 'landlord' ? propertyName.trim() || 'New landlord portfolio' : propertyName.trim() || 'Pending assignment',
-        unitNumber: selectedRole === 'tenant' ? unitNumber.trim() || 'Pending assignment' : undefined,
-        rentAmount: selectedRole === 'tenant' ? 0 : undefined,
+        propertyName: selectedRole === 'landlord' ? propertyName.trim() || 'New landlord portfolio' : undefined,
+        unitNumber: undefined,
+        rentAmount: undefined,
         specialty: selectedRole === 'worker' ? propertyName.trim() || 'General maintenance' : undefined
       });
 
@@ -355,7 +354,7 @@ export default function LandingPage() {
                   </label>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className={`grid grid-cols-1 gap-3 ${selectedRole === 'tenant' ? '' : 'sm:grid-cols-2'}`}>
                   {authMode === 'signup' && (
                     <label className="block space-y-1">
                       <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">Phone</span>
@@ -366,16 +365,26 @@ export default function LandingPage() {
                     </label>
                   )}
 
-                  {authMode === 'signup' && (
+                  {/* Tenants pick a unit later from Find Houses and wait for landlord
+                      approval - asking for one at signup time doesn't mean anything yet. */}
+                  {authMode === 'signup' && selectedRole !== 'tenant' && (
                     <label className="block space-y-1">
-                      <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">{selectedRole === 'tenant' ? 'Apartment / unit' : selectedRole === 'landlord' ? 'Portfolio name' : 'Trade / specialty'}</span>
+                      <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">{selectedRole === 'landlord' ? 'Portfolio name' : 'Trade / specialty'}</span>
                       <span className="flex items-center border border-slate-800 rounded-xl p-3 focus-within:border-emerald-500 bg-slate-900 transition-all">
                         <MapPin className="h-4 w-4 text-slate-500 mr-3" />
-                        <input className="w-full bg-transparent text-xs text-white font-bold focus:outline-none" value={selectedRole === 'tenant' ? unitNumber : propertyName} onChange={event => selectedRole === 'tenant' ? setUnitNumber(event.target.value) : setPropertyName(event.target.value)} placeholder={selectedRole === 'tenant' ? 'Apt 4B or pending' : selectedRole === 'landlord' ? 'My properties' : 'Plumbing, electrical, HVAC...'} />
+                        <input className="w-full bg-transparent text-xs text-white font-bold focus:outline-none" value={propertyName} onChange={event => setPropertyName(event.target.value)} placeholder={selectedRole === 'landlord' ? 'My properties' : 'Plumbing, electrical, HVAC...'} />
                       </span>
                     </label>
                   )}
                 </div>
+
+                {authMode === 'signup' && selectedRole === 'tenant' && (
+                  <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-3">
+                    <p className="text-[11px] font-bold text-emerald-100 leading-relaxed">
+                      No unit to pick yet - once you're signed in, browse Find Houses, request a vacant unit, and wait for the landlord to approve it.
+                    </p>
+                  </div>
+                )}
 
                 <label className="block space-y-1">
                   <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest px-1">Email address</span>
