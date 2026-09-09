@@ -1,9 +1,20 @@
 import React, { useState } from 'react';
 import { useRenziy } from '../state';
-import { Property, Unit, Payment, MaintenanceRequest } from '../types';
+import { Property, Unit, Payment, MaintenanceRequest, PlatformMember } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Building2, Users2, CreditCard, ChevronRight, Plus, Wrench, ShieldAlert, CheckCircle2, Clock, Filter, X, ArrowUpRight, DollarSign, ArrowRightLeft, Lock, Coins } from 'lucide-react';
 import { MAX_UNITS_PER_PROPERTY, normalizeUnitCount } from '../unitLimits';
+
+// "Portfolio owner" was previously shown for EVERY member with no
+// unitNumber/propertyName, including workers and unassigned tenants -
+// neither of whom own a portfolio. Pick a label that actually matches the role.
+const memberApartmentLabel = (member: PlatformMember) => (
+  member.unitNumber || member.propertyName || (
+    member.role === 'landlord' ? 'Portfolio owner'
+      : member.role === 'worker' ? member.specialty || 'Maintenance worker'
+      : 'Unit pending assignment'
+  )
+);
 
 export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: string) => void }) {
   const {
@@ -420,7 +431,7 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
                   <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
                     <div className="bg-white rounded-xl p-2 border border-[#e4e2e4]">
                       <span className="block uppercase tracking-wider text-[#73777f] font-bold">Apartment</span>
-                      <span className="block text-[#002645] font-black mt-0.5 truncate">{member.unitNumber || member.propertyName || 'Portfolio owner'}</span>
+                      <span className="block text-[#002645] font-black mt-0.5 truncate">{memberApartmentLabel(member)}</span>
                     </div>
                     <div className="bg-white rounded-xl p-2 border border-[#e4e2e4]">
                       <span className="block uppercase tracking-wider text-[#73777f] font-bold">Joined</span>

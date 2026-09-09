@@ -64,8 +64,12 @@ const accountLabel = (role: string) => (
   role === 'admin' ? 'Owner Admin' : role === 'landlord' ? 'Landlord' : role === 'worker' ? 'Worker' : 'Tenant'
 );
 
-const profileRoleLabel = (role: string) => (
-  role === 'admin' ? 'APP OWNER' : role === 'landlord' ? 'LANDLORD ADMINISTRATOR' : role === 'worker' ? 'MAINTENANCE WORKER' : 'APT 4B RESIDENT'
+const profileRoleLabel = (role: string, tenantUnitNumber?: string) => (
+  role === 'admin' ? 'APP OWNER'
+    : role === 'landlord' ? 'LANDLORD ADMINISTRATOR'
+    : role === 'worker' ? 'MAINTENANCE WORKER'
+    : tenantUnitNumber ? `${tenantUnitNumber.toUpperCase()} RESIDENT`
+    : 'RESIDENT'
 );
 
 function AppContent() {
@@ -428,7 +432,7 @@ function AppContent() {
               <div className="hidden lg:block text-left leading-none">
                 <p className="text-xs font-black text-[#002645]">{username}</p>
                 <p className="text-[9px] font-bold text-[#73777f] tracking-wide mt-1 uppercase">
-                  {profileRoleLabel(role)}
+                  {profileRoleLabel(role, activeMember?.unitNumber || myUnitInfo?.unitNumber)}
                 </p>
               </div>
             </div>
