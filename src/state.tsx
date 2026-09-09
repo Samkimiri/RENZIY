@@ -148,11 +148,11 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     publishSharedDataChange();
   };
 
-  // Fetch all initial states from physical server storage
-  useEffect(() => {
-    refreshSharedData();
-  }, []);
-
+  // Only fetch once there's an actual session to fetch as - every API this
+  // hits requires auth, so calling it unconditionally on mount just fired 9
+  // guaranteed-401 requests at every anonymous visitor's console before they
+  // ever logged in. `role` is read from localStorage synchronously above, so
+  // this effect already covers "resuming a session on page reload" too.
   useEffect(() => {
     if (role === 'anonymous') return;
 
