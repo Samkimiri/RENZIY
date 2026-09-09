@@ -1199,6 +1199,11 @@ ensureSeedData().catch(err => {
 const app = express();
 const PORT = 3000;
 
+// These only ever apply to this Express app's own responses - on Vercel,
+// that's /api/* only. The static HTML/JS/CSS shell is rewritten straight to
+// a static file (see vercel.json's rewrites) and never touches this
+// middleware, so the same header values are duplicated in vercel.json's
+// `headers` block for that path. Keep both in sync if either changes.
 app.disable("x-powered-by");
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
