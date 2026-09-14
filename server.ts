@@ -191,6 +191,24 @@ const upsertIgnoreDuplicates = async (table: string, rowsToInsert: object[], con
   );
 };
 
+// Real upsert (insert, or overwrite every column but the conflict key if the
+// row already exists) - used for per-owner rows like settlement_configs
+// where a later save should replace the earlier one, unlike the
+// insert-if-missing semantics of upsertIgnoreDuplicates above.
+const upsertRow = async <T = any>(table: string, row: object, conflictColumn: string): Promise<T> => {
+  const record = row as Record<string, unknown>;
+  const columns = Object.keys(record);
+  const columnList = columns.map(c => `"${c}"`).join(", ");
+  const values = columns.map(c => toSqlParam(record[c]));
+  const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
+  const updateSet = columns.filter(c => c !== conflictColumn).map(c => `"${c}" = EXCLUDED."${c}"`).join(", ");
+  const { rows } = await sql.query(
+    `INSERT INTO ${table} (${columnList}) VALUES (${placeholders}) ON CONFLICT ("${conflictColumn}") DO UPDATE SET ${updateSet} RETURNING *`,
+    values
+  );
+  return rows[0] as T;
+};
+
 const updateRows = async <T = any>(table: string, patch: object, where: WhereClause[]): Promise<T[]> => {
   const record = patch as Record<string, unknown>;
   const columns = Object.keys(record);
@@ -251,6 +269,10 @@ interface Unit {
   tenantAvatar?: string;
   isLocked?: boolean;
   lockReason?: string;
+  // Outstanding rent balance for this specific unit's tenant. Replaces the
+  // old app_settings.tenantBalance singleton, which was one shared number
+  // for the entire platform - see the units_balance migration below.
+  balance?: number;
 }
 
 interface Payment {
@@ -1167,6 +1189,35 @@ const sanitizeMemberInput = (input: Partial<PlatformMember>) => {
   };
 };
 
+// Additive, idempotent schema migration for deployments created before the
+// per-unit balance / per-landlord settlement columns existed. Both
+// statements are safe to run on every boot (IF NOT EXISTS). The one-time
+// backfill only runs the first time the "balance" column is actually added
+// in this process, moving the old shared app_settings.tenantBalance value
+// onto the single demo unit that used to receive it, so nobody's demo
+// balance silently disappears when the column is introduced.
+const migrateSchema = async () => {
+  const { rows: existingColumn } = await sql.query(
+    `select 1 from information_schema.columns where table_name = 'units' and column_name = 'balance'`
+  );
+  const hadBalanceColumn = existingColumn.length > 0;
+
+  await sql.query(`alter table units add column if not exists "balance" double precision not null default 0`);
+  await sql.query(`
+    create table if not exists settlement_configs (
+      "ownerEmail" text primary key,
+      "settlementConfig" jsonb not null default '{}'::jsonb
+    )
+  `);
+
+  if (!hadBalanceColumn) {
+    const settings = await selectOne<{ tenantBalance: number }>("app_settings", [["id", "=", "singleton"]]);
+    if (settings && settings.tenantBalance > 0) {
+      await updateRows("units", { balance: settings.tenantBalance }, [["id", "=", "unit-1-4b"]]);
+    }
+  }
+};
+
 // Inserts seed/demo rows into Postgres, but only where a row with that id
 // doesn't already exist (upsertIgnoreDuplicates is "insert if missing", not
 // an overwrite) - so re-running this on every cold start never clobbers real
@@ -1192,9 +1243,11 @@ const ensureSeedData = async () => {
   ]);
 };
 
-ensureSeedData().catch(err => {
-  console.error("Failed to seed Renziy data in Postgres:", err);
-});
+migrateSchema()
+  .then(ensureSeedData)
+  .catch(err => {
+    console.error("Failed to migrate/seed Renziy data in Postgres:", err);
+  });
 
 const app = express();
 const PORT = 3000;
@@ -1302,10 +1355,42 @@ const portfolioPropertyNames = async (email: string) => {
   return rows.map(row => row.name);
 };
 
-const getAppSettings = async (): Promise<{ tenantBalance: number; settlementConfig: SettlementConfig }> => {
-  const settings = await selectOne<{ tenantBalance: number; settlementConfig: SettlementConfig }>("app_settings", [["id", "=", "singleton"]]);
-  if (!settings) throw new Error("app_settings singleton row is missing - was db/schema.sql run and seeded?");
-  return settings;
+// Resolves a tenant's own unit the same way the client infers "my
+// apartment": by the property/unit recorded on their member profile, falling
+// back to whichever unit lists them by name. Returns null for a tenant who
+// hasn't been assigned a unit yet.
+const findTenantOwnUnit = async (session: SessionPayload): Promise<Unit | null> => {
+  const member = await findOwnMember(session);
+  if (!member) return null;
+  if (member.propertyName && member.unitNumber) {
+    const unit = await selectOne<Unit>("units", [
+      ["propertyName", "=", member.propertyName],
+      ["unitNumber", "=", member.unitNumber]
+    ]);
+    if (unit) return unit;
+  }
+  return await selectOne<Unit>("units", [["tenantName", "=", member.name]]);
+};
+
+// Settlement (payout) routing is per-landlord, not a single platform-wide
+// value - a tenant needs their own landlord's details, a landlord needs
+// their own, and anyone else (no landlord in context) gets the neutral
+// default rather than another account's real bank/M-Pesa details.
+const resolveSettlementOwnerEmail = async (session: SessionPayload): Promise<string | null> => {
+  if (session.role === 'landlord') return normalizeEmail(session.email);
+  if (session.role === 'tenant') {
+    const unit = await findTenantOwnUnit(session);
+    if (!unit) return null;
+    const property = await selectOne<{ ownerEmail?: string }>("properties", [["id", "=", unit.propertyId]]);
+    return property?.ownerEmail ? normalizeEmail(property.ownerEmail) : null;
+  }
+  return null;
+};
+
+const getSettlementConfigFor = async (ownerEmail: string | null): Promise<SettlementConfig> => {
+  if (!ownerEmail) return DEFAULT_SETTLEMENT_CONFIG;
+  const row = await selectOne<{ settlementConfig: SettlementConfig }>("settlement_configs", [["ownerEmail", "=", ownerEmail]]);
+  return row ? { ...DEFAULT_SETTLEMENT_CONFIG, ...row.settlementConfig } : DEFAULT_SETTLEMENT_CONFIG;
 };
 
   // API Routes
@@ -1466,8 +1551,8 @@ const getAppSettings = async (): Promise<{ tenantBalance: number; settlementConf
   app.get("/api/settlement", asyncHandler(async (req, res) => {
     const session = await requireSession(req, res);
     if (!session) return;
-    const { settlementConfig } = await getAppSettings();
-    res.json(settlementConfig);
+    const ownerEmail = await resolveSettlementOwnerEmail(session);
+    res.json(await getSettlementConfigFor(ownerEmail));
   }));
 
   app.post("/api/settlement", asyncHandler(async (req, res) => {
@@ -1489,9 +1574,10 @@ const getAppSettings = async (): Promise<{ tenantBalance: number; settlementConf
     if (body.bankAccountNumber !== undefined) updates.bankAccountNumber = sanitizeText(body.bankAccountNumber, 40);
     if (body.bankRoutingCode !== undefined) updates.bankRoutingCode = sanitizeText(body.bankRoutingCode, 40);
 
-    const current = await getAppSettings();
-    const settlementConfig = { ...current.settlementConfig, ...updates };
-    await updateRows("app_settings", { settlementConfig }, [["id", "=", "singleton"]]);
+    const ownerEmail = normalizeEmail(session.email);
+    const current = await getSettlementConfigFor(ownerEmail);
+    const settlementConfig = { ...current, ...updates };
+    await upsertRow("settlement_configs", { ownerEmail, settlementConfig }, "ownerEmail");
     res.json(settlementConfig);
   }));
 
@@ -1595,8 +1681,9 @@ const getAppSettings = async (): Promise<{ tenantBalance: number; settlementConf
       ));
       if (isOwnUnit) return unit;
       // Marketplace browsing needs vacancy/rent/property data platform-wide,
-      // but strangers have no reason to see who lives in an occupied unit.
-      const { tenantName, tenantAvatar, lockReason, ...publicUnit } = unit;
+      // but strangers have no reason to see who lives in an occupied unit,
+      // or another household's outstanding rent balance.
+      const { tenantName, tenantAvatar, lockReason, balance, ...publicUnit } = unit;
       return publicUnit;
     });
     res.json(visibleUnits);
@@ -1763,9 +1850,13 @@ const getAppSettings = async (): Promise<{ tenantBalance: number; settlementConf
 
     await insertRow("payments", newPayment);
 
-    const payingUnit = await selectOne<{ id: string }>("units", [["tenantName", "=", tenantName]]);
-    if (payingUnit?.id === 'unit-1-4b' || tenantName === 'Alex Smith' || tenantName === 'Alex') {
-      await updateRows("app_settings", { tenantBalance: 0 }, [["id", "=", "singleton"]]);
+    // A landlord recording a manual payment for a tenant clears that
+    // tenant's own outstanding balance (not anyone else's).
+    if (status === undefined || status === 'Paid') {
+      const payingUnit = await selectOne<{ id: string }>("units", [["tenantName", "=", tenantName]]);
+      if (payingUnit) {
+        await updateRows("units", { balance: 0 }, [["id", "=", payingUnit.id]]);
+      }
     }
 
     res.json(newPayment);
@@ -2265,19 +2356,21 @@ const getAppSettings = async (): Promise<{ tenantBalance: number; settlementConf
   }));
 
   app.get("/api/balance", asyncHandler(async (req, res) => {
-    // NOTE: tenantBalance is a single platform-wide value, not per-tenant -
-    // a pre-existing data model gap, not something scoping reads can fix on
-    // its own. Tracked as follow-up work alongside real payment integration.
     const session = await requireSession(req, res);
     if (!session) return;
-    const { tenantBalance } = await getAppSettings();
-    res.json({ tenantBalance });
+    if (session.role !== 'tenant') {
+      // Only a tenant has a personal rent balance - every other role reads
+      // pending totals from the units list they already have access to.
+      return res.json({ tenantBalance: 0 });
+    }
+    const unit = await findTenantOwnUnit(session);
+    res.json({ tenantBalance: unit?.balance ?? 0 });
   }));
 
   app.post("/api/balance/pay", asyncHandler(async (req, res) => {
     const session = await requireRole(req, res, ['tenant']);
     if (!session) return;
-    const { method, tenantName } = req.body;
+    const { method } = req.body;
     if (!method) {
       return res.status(400).json({ error: "Missing payment method details" });
     }
@@ -2285,26 +2378,27 @@ const getAppSettings = async (): Promise<{ tenantBalance: number; settlementConf
       return res.status(400).json({ error: "Unsupported payment method" });
     }
 
-    const { tenantBalance: originalAmount } = await getAppSettings();
-    await updateRows("app_settings", { tenantBalance: 0 }, [["id", "=", "singleton"]]);
-
-    const payingTenantName = tenantName || 'Alex Smith';
-    let activeUnit = await selectOne<Unit>("units", [["tenantName", "=", payingTenantName]]);
+    const activeUnit = await findTenantOwnUnit(session);
     if (!activeUnit) {
-      activeUnit = await selectOne<Unit>("units", [["id", "=", "unit-1-4b"]]);
+      return res.status(400).json({ error: "No unit is assigned to your account yet. Browse Find Houses to request one." });
+    }
+    const originalAmount = activeUnit.balance ?? 0;
+    if (originalAmount <= 0) {
+      return res.status(400).json({ error: "There is no outstanding balance to pay." });
     }
 
-    // Auto-release smart lock for the paying tenant upon rent settlement.
-    if (activeUnit) {
-      await updateRows("units", { isLocked: false, lockReason: null }, [["id", "=", activeUnit.id]]);
-    }
+    // Settle just this tenant's own unit, and auto-release its smart lock.
+    await updateRows("units", { balance: 0, isLocked: false, lockReason: null }, [["id", "=", activeUnit.id]]);
+
+    const member = await findOwnMember(session);
+    const payingTenantName = member?.name || activeUnit.tenantName || session.email;
 
     const hash = Math.random().toString(36).substring(2, 10).toUpperCase();
     const newPayment: Payment = {
       id: `pay-${Date.now()}`,
       tenantName: payingTenantName,
-      unitNumber: activeUnit?.unitNumber || 'Pending assignment',
-      propertyName: activeUnit?.propertyName || 'Pending assignment',
+      unitNumber: activeUnit.unitNumber,
+      propertyName: activeUnit.propertyName,
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       amount: originalAmount,
       status: 'Paid',

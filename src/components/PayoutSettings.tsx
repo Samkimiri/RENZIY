@@ -202,7 +202,7 @@ export default function PayoutSettings() {
             <div className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-[#f0edef]">
               <div className="flex items-center gap-2 text-[11px] text-[#73777f]">
                 <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
-                <span>Changes took immediate effect globally. No system restart is required.</span>
+                <span>Changes take immediate effect for your own tenants. No system restart is required.</span>
               </div>
               
               <div className="flex items-center gap-3">

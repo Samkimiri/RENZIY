@@ -25,7 +25,6 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
     recordPayment,
     addProperty,
     addTenantToUnit,
-    tenantBalance,
     members,
     registerMember,
     rentalApplications,

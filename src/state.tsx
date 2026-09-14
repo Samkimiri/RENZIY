@@ -103,6 +103,12 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const refreshSharedData = async () => {
     try {
+      // /api/payments and /api/rental-applications both 403 for the worker
+      // role server-side (workers have no rent/application data of their
+      // own) - skip them for that role instead of polling into a guaranteed
+      // error every 5 seconds.
+      const includeTenantLedgers = role !== 'worker';
+
       const [
         propsRes,
         unitsRes,
@@ -116,23 +122,23 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ] = await Promise.all([
         fetch('/api/properties', { headers: authHeaders() }),
         fetch('/api/units', { headers: authHeaders() }),
-        fetch('/api/payments', { headers: authHeaders() }),
+        includeTenantLedgers ? fetch('/api/payments', { headers: authHeaders() }) : Promise.resolve(null),
         fetch('/api/maintenance', { headers: authHeaders() }),
         fetch('/api/notifications', { headers: authHeaders() }),
         fetch('/api/members', { headers: authHeaders() }),
-        fetch('/api/rental-applications', { headers: authHeaders() }),
+        includeTenantLedgers ? fetch('/api/rental-applications', { headers: authHeaders() }) : Promise.resolve(null),
         fetch('/api/balance', { headers: authHeaders() }),
         fetch('/api/settlement', { headers: authHeaders() })
       ]);
 
       if (propsRes.ok) setProperties(await propsRes.json());
       if (unitsRes.ok) setUnits(await unitsRes.json());
-      if (paymentsRes.ok) setPayments(await paymentsRes.json());
+      if (paymentsRes?.ok) setPayments(await paymentsRes.json());
       if (maintRes.ok) setMaintenanceRequests(await maintRes.json());
       if (notifsRes.ok) setNotifications(await notifsRes.json());
       if (membersRes.ok) setMembers(await membersRes.json());
       setMembersLoaded(true);
-      if (rentalApplicationsRes.ok) setRentalApplications(await rentalApplicationsRes.json());
+      if (rentalApplicationsRes?.ok) setRentalApplications(await rentalApplicationsRes.json());
       if (balRes.ok) {
         const balData = await balRes.json();
         setTenantBalance(balData.tenantBalance);

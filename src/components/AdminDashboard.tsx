@@ -13,7 +13,6 @@ export default function AdminDashboard() {
     members,
     rentalApplications,
     notifications,
-    tenantBalance,
     settlementConfig
   } = useRenziy();
   const [query, setQuery] = useState('');
@@ -30,7 +29,7 @@ export default function AdminDashboard() {
     .reduce((sum, payment) => sum + payment.amount, 0);
   const pendingRevenue = payments
     .filter(payment => payment.status !== 'Paid')
-    .reduce((sum, payment) => sum + payment.amount, 0) + tenantBalance;
+    .reduce((sum, payment) => sum + payment.amount, 0) + units.reduce((sum, unit) => sum + (unit.balance ?? 0), 0);
   const occupiedUnits = units.filter(unit => unit.status === 'Occupied').length;
   const occupancyRate = units.length > 0 ? Math.round((occupiedUnits / units.length) * 100) : 0;
   const openRepairs = maintenanceRequests.filter(request => request.status !== 'Resolved');

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 export default function SmartLocks() {
-  const { units, payments, tenantBalance, toggleUnitLock } = useRenziy();
+  const { units, properties, toggleUnitLock } = useRenziy();
 
   // Filters and UI Controls
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,34 +37,22 @@ export default function SmartLocks() {
   const [transmissionSteps, setTransmissionSteps] = useState<string[]>([]);
   const [transmissionProgress, setTransmissionProgress] = useState(0);
 
-  // Compute stats helper
-  // Is tenant overdue? Helper function to join logic
-  const isTenantOverdue = (unit: Unit) => {
-    if (!unit.tenantName) return false;
-    // Default resident balance for the seeded tenant account.
-    if ((unit.tenantName === 'Alex Smith' || unit.tenantName === 'Alex') && tenantBalance > 0) {
-      return true;
-    }
-    // General payment check for "Pending" or "Overdue" status matching tenant
-    const hasUnsettledLedger = payments.some(
-      p => p.tenantName === unit.tenantName && p.status === 'Pending'
-    );
-    return hasUnsettledLedger;
-  };
+  // Smart locks only ever control this landlord's own portfolio - without
+  // this filter every unit on the platform (every other landlord's tenants,
+  // rent amounts, and lock state) rendered here, and the lock/unlock buttons
+  // would silently fail server-side for anything not actually owned.
+  const sessionEmail = localStorage.getItem('renziy_user_email') || '';
+  const landlordPropertyNames = properties
+    .filter(property => property.ownerEmail === sessionEmail || (!property.ownerEmail && sessionEmail === 'john@renziy.app'))
+    .map(property => property.name);
+  const myUnits = units.filter(unit => landlordPropertyNames.includes(unit.propertyName));
 
-  const getOverdueAmount = (unit: Unit) => {
-    if (!unit.tenantName) return 0;
-    if (unit.tenantName === 'Alex Smith' || unit.tenantName === 'Alex') {
-      return tenantBalance;
-    }
-    const matchingPayment = payments.find(
-      p => p.tenantName === unit.tenantName && p.status === 'Pending'
-    );
-    return matchingPayment ? matchingPayment.amount : 0;
-  };
+  // Is tenant overdue? Each unit now carries its own outstanding balance.
+  const isTenantOverdue = (unit: Unit) => Boolean(unit.tenantName) && (unit.balance ?? 0) > 0;
+  const getOverdueAmount = (unit: Unit) => unit.balance ?? 0;
 
   // Filter Units based on search & filter mode
-  const filteredUnits = units.filter(u => {
+  const filteredUnits = myUnits.filter(u => {
     // Only locked or occupied units with smart lock compatibility
     const matchesSearch = 
       u.unitNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -80,9 +68,9 @@ export default function SmartLocks() {
   });
 
   // Stats
-  const totalIoTUnits = units.filter(u => u.status === 'Occupied').length;
-  const totalLockedUnits = units.filter(u => u.isLocked).length;
-  const totalOverdueUnits = units.filter(u => isTenantOverdue(u)).length;
+  const totalIoTUnits = myUnits.filter(u => u.status === 'Occupied').length;
+  const totalLockedUnits = myUnits.filter(u => u.isLocked).length;
+  const totalOverdueUnits = myUnits.filter(u => isTenantOverdue(u)).length;
   const signalStrength = "Excellent (98%)";
 
   // Simulate Lock trigger pipeline

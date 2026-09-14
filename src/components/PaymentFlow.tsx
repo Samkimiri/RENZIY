@@ -3,14 +3,21 @@ import { useRenziy } from '../state';
 import { motion, AnimatePresence } from 'motion/react';
 import { Smartphone, CreditCard, ArrowLeft, ShieldCheck, CheckCircle2, ShoppingBag, Download, Landmark, HelpCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
-export default function PaymentFlow({ 
-  initialMethod, 
-  onClose 
-}: { 
+export default function PaymentFlow({
+  initialMethod,
+  onClose
+}: {
   initialMethod: 'M-Pesa' | 'Card';
   onClose: () => void;
 }) {
-  const { tenantBalance, clearBalanceAndRecordPayment, settlementConfig } = useRenziy();
+  const { tenantBalance, clearBalanceAndRecordPayment, settlementConfig, username, units, members } = useRenziy();
+  const sessionEmail = localStorage.getItem('renziy_user_email') || '';
+  const currentTenantAccount = members.find(member => member.role === 'tenant' && member.email.toLowerCase() === sessionEmail.toLowerCase());
+  const myUnit = units?.find(u => (
+    currentTenantAccount?.propertyName === u.propertyName &&
+    currentTenantAccount?.unitNumber === u.unitNumber
+  )) || units?.find(u => u.tenantName === username);
+  const propertyLabel = myUnit ? `${myUnit.propertyName} - Unit ${myUnit.unitNumber}` : 'No unit assigned yet';
   const [method, setMethod] = useState<'M-Pesa' | 'Card'>(initialMethod);
   const [step, setStep] = useState<'form' | 'processing' | 'success'>('form');
 
@@ -83,10 +90,30 @@ export default function PaymentFlow({
     }
   }, [step, method]);
 
+  if (!myUnit) {
+    return (
+      <div className="bg-[#E8F4FD] min-h-screen text-[#1b1b1d] py-12 px-4 md:px-10 flex items-center justify-center relative">
+        <div className="w-full max-w-lg bg-white p-6 md:p-8 rounded-3xl border border-[#e4e2e4] shadow-md text-center space-y-4">
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1.5 text-xs font-bold text-[#002645] hover:opacity-80 cursor-pointer"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back</span>
+          </button>
+          <h2 className="text-xl font-black text-[#002645]">No unit assigned yet</h2>
+          <p className="text-sm text-[#43474e] leading-relaxed">
+            A landlord needs to assign your account to a property and unit before rent payments are available. Browse Find Houses to request a vacant unit.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-[#E8F4FD] min-h-screen text-[#1b1b1d] py-12 px-4 md:px-10 flex items-center justify-center relative">
       <AnimatePresence mode="wait">
-        
+
         {/* STEP 1: RENT PAYMENT INPUT FORMS */}
         {step === 'form' && (
           <motion.div 
@@ -109,7 +136,7 @@ export default function PaymentFlow({
               <span className="text-[10px] font-bold uppercase tracking-widest text-[#73777f]">Secure Ingress Gate</span>
               <h2 className="text-2xl font-black text-[#002645] mt-1">Rent Payment</h2>
               <p className="text-xs text-[#43474e] mt-1 font-semibold">
-                Property: <span className="text-[#002645] font-extrabold">Oakwood Heights - Apt 4B</span>
+                Property: <span className="text-[#002645] font-extrabold">{propertyLabel}</span>
               </p>
             </div>
 
@@ -276,11 +303,11 @@ export default function PaymentFlow({
                   <span>Funds are settled safely to <span className="underline font-bold text-[#002645]">{settlementConfig.bankAccountName}</span> at <span className="font-bold text-[#002645]">{settlementConfig.bankName}</span> (A/C: {settlementConfig.bankAccountNumber.slice(0, 4) + '****' + settlementConfig.bankAccountNumber.slice(-3)}).</span>
                 </div>
 
-                <button 
+                <button
                   type="submit"
                   className="w-full bg-[#002645] text-white py-4 rounded-xl font-bold hover:opacity-95 active:scale-95 transition-all text-sm mt-4 shadow-sm"
                 >
-                  Pay Securely KES {(tenantBalance * 100).toLocaleString()}
+                  Pay Securely KES {tenantBalance.toLocaleString()}
                 </button>
               </form>
             )}
@@ -375,7 +402,7 @@ export default function PaymentFlow({
               <div className="grid grid-cols-2 gap-y-3 gap-x-4">
                 <div>
                   <p className="text-[#73777f] font-semibold uppercase text-[9px]">Recipient Property</p>
-                  <p className="font-extrabold text-[#002645] mt-0.5">Oakwood Heights (Apt 4B)</p>
+                  <p className="font-extrabold text-[#002645] mt-0.5">{propertyLabel}</p>
                 </div>
                 <div>
                   <p className="text-[#73777f] font-semibold uppercase text-[9px]">Receipt Total</p>

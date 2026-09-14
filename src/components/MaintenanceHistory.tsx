@@ -25,10 +25,9 @@ export default function MaintenanceHistory() {
     return false;
   });
 
-  // Realistic starting numbers padding
-  const totalCount = visibleRequests.length + 9;
-  const resolvedCount = visibleRequests.filter(r => r.status === 'Resolved').length + 6;
-  const activeCount = visibleRequests.filter(r => r.status !== 'Resolved').length + 3;
+  const totalCount = visibleRequests.length;
+  const resolvedCount = visibleRequests.filter(r => r.status === 'Resolved').length;
+  const activeCount = visibleRequests.filter(r => r.status !== 'Resolved').length;
 
   // Filter requests array block
   const filteredRequests = visibleRequests.filter(r => {

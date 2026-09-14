@@ -51,7 +51,8 @@ create table if not exists units (
   "tenantName" text,
   "tenantAvatar" text,
   "isLocked" boolean,
-  "lockReason" text
+  "lockReason" text,
+  "balance" double precision not null default 0
 );
 create index if not exists units_property_id_idx on units ("propertyId");
 create index if not exists units_tenant_name_idx on units ("tenantName");
@@ -156,10 +157,19 @@ create table if not exists password_reset_challenges (
   attempts integer not null default 0
 );
 
--- Single-row table for the two standalone scalars (tenantBalance,
--- settlementConfig). Always exactly one row, id = 'singleton'.
+-- Legacy single-row table. tenantBalance now lives per-unit (units.balance)
+-- and settlementConfig lives per-landlord (settlement_configs below) - this
+-- table is kept only so a fresh boot's one-time migration/backfill logic in
+-- server.ts has a consistent starting point to read from.
 create table if not exists app_settings (
   id text primary key,
   "tenantBalance" double precision not null default 0,
+  "settlementConfig" jsonb not null default '{}'::jsonb
+);
+
+-- Per-landlord payout routing (M-Pesa + bank details). Replaces the old
+-- single app_settings.settlementConfig value that every landlord shared.
+create table if not exists settlement_configs (
+  "ownerEmail" text primary key,
   "settlementConfig" jsonb not null default '{}'::jsonb
 );

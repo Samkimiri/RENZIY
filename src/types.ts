@@ -32,6 +32,7 @@ export interface Unit {
   tenantAvatar?: string;
   isLocked?: boolean;
   lockReason?: string;
+  balance?: number;
 }
 
 export interface Tenant {
