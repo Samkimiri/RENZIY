@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useRenziy } from '../state';
 import { rememberLocalLogin, verifyLocalLogin } from '../authMemory';
 import HouseHuntingPreview from './HouseHuntingPreview';
-import { ArrowRight, BarChart3, Building2, CheckCircle2, Eye, EyeOff, HardHat, HelpCircle, Home, Lock, Mail, MapPin, Phone, Search, ShieldCheck, Smartphone, UserRound } from 'lucide-react';
+import { ArrowRight, BarChart3, Bell, Building2, CheckCircle2, Eye, EyeOff, HardHat, HelpCircle, Home, LayoutDashboard, Lock, Mail, MapPin, Phone, Search, ShieldCheck, Smartphone, UserRound, Wallet } from 'lucide-react';
 
 type AccountMode = 'signin' | 'signup' | 'reset';
 type AccountRole = 'admin' | 'landlord' | 'tenant' | 'worker';
@@ -244,6 +244,13 @@ export default function LandingPage() {
         </button>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
+            className="hidden md:flex bg-transparent hover:bg-white/10 text-white border border-white/15 px-3 sm:px-4 py-2 rounded-xl font-bold text-xs active:scale-95 transition-all items-center gap-1 cursor-pointer"
+          >
+            <LayoutDashboard className="h-3 w-3 text-emerald-400" />
+            <span>How It Works</span>
+          </button>
           <button
             onClick={() => document.getElementById('house-hunting')?.scrollIntoView({ behavior: 'smooth' })}
             className="hidden sm:flex bg-transparent hover:bg-white/10 text-white border border-white/15 px-3 sm:px-4 py-2 rounded-xl font-bold text-xs active:scale-95 transition-all items-center gap-1 cursor-pointer"
@@ -526,6 +533,41 @@ export default function LandingPage() {
                   {accountsForRole.length} {selectedRole} account{accountsForRole.length === 1 ? '' : 's'} registered
                 </p>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="how-it-works" className="px-4 md:px-10 pb-14 max-w-7xl mx-auto">
+          <div className="bg-slate-950/82 border border-slate-800 rounded-3xl p-6 md:p-8">
+            <div className="max-w-2xl mb-8">
+              <div className="inline-flex items-center gap-2 text-emerald-300 text-[10px] font-black uppercase tracking-widest">
+                <LayoutDashboard className="h-4 w-4" />
+                How it works
+              </div>
+              <h2 className="text-2xl md:text-3xl font-black text-white mt-3">Renziy at a glimpse</h2>
+              <p className="text-sm text-slate-400 leading-relaxed mt-2">
+                Renziy is a rental management app for Kenya: landlords list and run their properties, tenants find a home and pay rent, and maintenance workers get dispatched to fix things - all from one account.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                [UserRound, '1. Create an account', 'Sign up as a tenant, landlord, or worker. Each role gets its own private workspace.'],
+                [Search, '2. Find or list a home', 'Tenants browse vacant units nearby and apply. Landlords add properties and units in minutes.'],
+                [Wallet, '3. Manage from one place', 'Rent payments, tenant approvals, maintenance requests, and smart locks all live on one dashboard.'],
+                [Bell, '4. Stay in the loop', 'Everyone gets notified the moment a payment lands, a repair updates, or an application is approved.']
+              ].map(([Icon, title, body]) => {
+                const IconComponent = Icon as typeof UserRound;
+                return (
+                  <div key={title as string} className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4">
+                    <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-3">
+                      <IconComponent className="h-4 w-4" />
+                    </div>
+                    <h3 className="text-xs font-black text-white uppercase tracking-wider">{title as string}</h3>
+                    <p className="text-[11px] text-slate-400 leading-relaxed mt-1.5">{body as string}</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
