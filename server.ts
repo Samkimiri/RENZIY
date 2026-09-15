@@ -461,6 +461,11 @@ const sanitizeUrl = (value: unknown) => {
     return "";
   }
 };
+// A profile picture is only ever a photo the account holder actually
+// uploaded (resizeAvatarFile client-side always produces a data: URI) -
+// this never accepts an external http(s) URL, so nobody's avatar can ever
+// become a random/stock photo they didn't choose, regardless of what a
+// caller sends.
 const sanitizeAvatarUrl = (value: unknown) => {
   if (typeof value !== "string") return "";
   const text = value.trim();
@@ -468,7 +473,7 @@ const sanitizeAvatarUrl = (value: unknown) => {
   if (/^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=]+$/i.test(text)) {
     return text.length <= 2_500_000 ? text : "";
   }
-  return sanitizeUrl(text);
+  return "";
 };
 
 const hashPassword = (password: string, salt = crypto.randomBytes(16).toString("hex")) => {
@@ -683,29 +688,34 @@ const migrateSchema = async () => {
     `);
   }
 
-  // One-time cleanup of the hardcoded stock avatar photos the app used to
-  // assign automatically (at signup, when a landlord linked a tenant to a
-  // unit, and on the seeded admin account) - nobody chose these, they just
-  // showed up. A real uploaded photo is always a data: URI (see
-  // resizeAvatarFile client-side), never one of these external stock URLs,
-  // so this can never touch an actual user-chosen picture.
+  // One-time cleanup of every non-uploaded avatar - not just the specific
+  // hardcoded stock URLs the app used to assign automatically, but anything
+  // that isn't a real upload, since sanitizeAvatarUrl used to accept
+  // arbitrary http(s) URLs too (closed above). A real uploaded photo is
+  // always a data:image/... URI (see resizeAvatarFile client-side); nothing
+  // else could only have gotten into these columns via one of the old
+  // auto-assignment paths or the old permissive sanitizer, all now removed,
+  // so this can never touch an actual user-chosen picture going forward.
   const { rows: avatarMarkerColumn } = await sql.query(
-    `select 1 from information_schema.columns where table_name = 'app_settings' and column_name = 'stockAvatarsClearedAt'`
+    `select 1 from information_schema.columns where table_name = 'app_settings' and column_name = 'nonUploadedAvatarsClearedAt'`
   );
   if (avatarMarkerColumn.length === 0) {
-    await sql.query(`alter table app_settings add column if not exists "stockAvatarsClearedAt" timestamptz`);
+    await sql.query(`alter table app_settings add column if not exists "nonUploadedAvatarsClearedAt" timestamptz`);
     await sql.query(`
       update members set "avatarUrl" = null
-      where "avatarUrl" like 'https://lh3.googleusercontent.com/aida-public/%'
-         or "avatarUrl" = 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=480&q=80'
+      where "avatarUrl" is not null and "avatarUrl" not like 'data:image/%'
     `);
     await sql.query(`
       update units set "tenantAvatar" = null
-      where "tenantAvatar" like 'https://lh3.googleusercontent.com/aida-public/%'
+      where "tenantAvatar" is not null and "tenantAvatar" not like 'data:image/%'
     `);
     await sql.query(`
-      insert into app_settings (id, "stockAvatarsClearedAt") values ('singleton', now())
-      on conflict (id) do update set "stockAvatarsClearedAt" = now()
+      update maintenance_requests set "technicianAvatar" = null
+      where "technicianAvatar" is not null and "technicianAvatar" not like 'data:image/%'
+    `);
+    await sql.query(`
+      insert into app_settings (id, "nonUploadedAvatarsClearedAt") values ('singleton', now())
+      on conflict (id) do update set "nonUploadedAvatarsClearedAt" = now()
     `);
   }
 };
@@ -1278,9 +1288,19 @@ const getSettlementConfigFor = async (ownerEmail: string | null): Promise<Settle
   app.post("/api/units/update-avatar", asyncHandler(async (req, res) => {
     const session = await requireRole(req, res, ['tenant', 'landlord', 'admin']);
     if (!session) return;
-    const { unitId, tenantAvatar } = req.body;
+    const { unitId } = req.body;
+    const tenantAvatar = sanitizeAvatarUrl(req.body.tenantAvatar);
     if (!unitId || !tenantAvatar) {
       return res.status(400).json({ error: "Missing unitId or tenantAvatar" });
+    }
+    if (session.role === 'landlord' && !await unitBelongsTo(unitId, session.email)) {
+      return res.status(403).json({ error: "You can only update units in your portfolio" });
+    }
+    if (session.role === 'tenant') {
+      const ownUnit = await findTenantOwnUnit(session);
+      if (!ownUnit || ownUnit.id !== unitId) {
+        return res.status(403).json({ error: "You can only update your own unit's photo" });
+      }
     }
 
     const updatedUnit = await updateOne<Unit>("units", { tenantAvatar }, [["id", "=", unitId]]);
