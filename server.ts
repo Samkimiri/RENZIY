@@ -620,12 +620,11 @@ const migrateSchema = async () => {
   }
 
   // One-time removal of the old hardcoded demo accounts (john/alex/mark and
-  // their sample properties/units/payments/maintenance tickets) plus this
-  // project's own throwaway @example.com test accounts created while
-  // auditing the app. Gated to the same first-boot signal as the
-  // notification migration above so it never runs again after this
-  // release - otherwise a real future landlord legitimately choosing
-  // john@renziy.app would get deleted on every subsequent restart.
+  // their sample properties/units/payments/maintenance tickets). Gated to
+  // the same first-boot signal as the notification migration above so it
+  // never runs again after this release - otherwise a real future landlord
+  // legitimately choosing john@renziy.app would get deleted on every
+  // subsequent restart.
   if (isFirstBootOfThisRelease) {
     const demoPropertyIds = Array.from({ length: 21 }, (_, i) => `prop-${i + 1}`);
     await deleteRows("units", [["propertyId", "IN", demoPropertyIds]]);
@@ -633,14 +632,18 @@ const migrateSchema = async () => {
     await deleteRows("payments", [["id", "IN", ["pay-1", "pay-2", "pay-3", "pay-4"]]]);
     await deleteRows("maintenance_requests", [["id", "IN", ["req-1", "req-2", "req-3"]]]);
     await deleteRows("members", [["email", "IN", ["john@renziy.app", "alex@renziy.app", "mark@renziy.app"]]]);
-
-    // example.com is a reserved documentation domain (RFC 2606) - no real
-    // signup could ever land here, so this is safe to match broadly.
-    await sql.query(`delete from units where "propertyId" in (select id from properties where "ownerEmail" like '%@example.com')`);
-    await sql.query(`delete from properties where "ownerEmail" like '%@example.com'`);
-    await sql.query(`delete from rental_applications where "tenantEmail" like '%@example.com' or "ownerEmail" like '%@example.com'`);
-    await sql.query(`delete from members where email like '%@example.com'`);
   }
+
+  // example.com is a reserved documentation domain (RFC 2606, never
+  // registrable by a real signup) - safe to sweep on every boot, unlike the
+  // demo cleanup above, so any throwaway test account from developing or
+  // auditing this app never lingers.
+  await sql.query(`delete from units where "propertyId" in (select id from properties where "ownerEmail" like '%@example.com')`);
+  await sql.query(`delete from properties where "ownerEmail" like '%@example.com'`);
+  await sql.query(`delete from rental_applications where "tenantEmail" like '%@example.com' or "ownerEmail" like '%@example.com'`);
+  await sql.query(`delete from maintenance_requests where "tenantName" in (select name from members where email like '%@example.com')`);
+  await sql.query(`delete from payments where "tenantName" in (select name from members where email like '%@example.com')`);
+  await sql.query(`delete from members where email like '%@example.com'`);
 };
 
 // Seeds only the platform owner account. upsertIgnoreDuplicates never
