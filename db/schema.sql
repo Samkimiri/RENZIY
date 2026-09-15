@@ -103,8 +103,12 @@ create table if not exists notifications (
   date text not null,
   type text not null,
   unread boolean not null default true,
-  "createdAt" timestamptz not null default now()
+  "createdAt" timestamptz not null default now(),
+  -- Who this notification is for. Admin still sees every row (platform
+  -- activity feed); every other role only sees their own.
+  "recipientEmail" text
 );
+create index if not exists notifications_recipient_email_idx on notifications ("recipientEmail");
 
 create table if not exists members (
   id text primary key,

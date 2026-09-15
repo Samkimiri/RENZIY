@@ -231,7 +231,6 @@ const deleteRows = async (table: string, where: WhereClause[]): Promise<void> =>
 
 // --- End SQL helper layer ---------------------------------------------------
 
-const seedAccountPassword = process.env.RENZIY_SEED_PASSWORD || crypto.randomBytes(18).toString("base64url");
 const adminAccountEmail = (process.env.RENZIY_ADMIN_EMAIL || "admin@renziy.app").trim().toLowerCase();
 const adminAccountPassword = process.env.RENZIY_ADMIN_PASSWORD || (() => {
   const generated = crypto.randomBytes(12).toString("base64url");
@@ -313,6 +312,7 @@ interface Notification {
   date: string;
   type: string;
   unread: boolean;
+  recipientEmail?: string;
 }
 
 interface PlatformMember {
@@ -361,581 +361,11 @@ interface SettlementConfig {
   bankRoutingCode: string;
 }
 
-// Seed/demo data, upserted into Postgres on boot if not already present
-// (see ensureSeedData below) - not live mutable state anymore.
-const SEED_PROPERTIES: Property[] = [
-  {
-    id: 'prop-1',
-    name: 'Oakwood Heights',
-    address: 'Kilimani, Nairobi',
-    unitsCount: 12,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDMxFypFJhzOCuTAq-LcLtvR4Y7ZY9bY54rSM8H5Fph0ckllantEW12QMfxkKgv07Su36d4tFLU3AqPcLAg7Uj-BF4VrVmqEQtJTgcSdEOVOJR7FN14v_XogFaT2Gh3ZDnn-3pdKTnjX7MMoWaR3HgkJfPnUgLFsheBufag0UlCJfG5PFlA5TI0pYMNgmvP6PIXX1tp8LQmTtcB59pPvkG6Eh3F9Kgp-60KmmEDPmeQYry0nEDmGA89799YSjmtXbz-EJn_uGWto2ku',
-    county: 'Nairobi',
-    constituency: 'Dagoretti North',
-    town: 'Kilimani',
-    neighborhood: 'Near Yaya Centre',
-    specificLocation: 'Yaya Centre, Argwings Kodhek Road',
-    description: 'Managed apartments close to shopping, transport, schools, and everyday services.',
-    amenities: ['Security', 'Parking', 'Water', 'Wi-Fi ready', 'Near public transport'],
-    contactPhone: '0743475247',
-    mapQuery: 'Kilimani Nairobi Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-2',
-    name: 'Harbor View Villas',
-    address: 'Nyali, Mombasa',
-    unitsCount: 8,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0-lP6mcA6HIE4LbzTr765rwiEop89MIpJdvoyF11DN-epOhG7wzLR2vlsvvbIs-eHfUJNUdibFBNajQHHbWzJeqHMFacPNozVQz5c_cpg8uv7fiB71TnE1n_AKhKhic2o8RClwzPHlK1tGsw0MkRGgTOyoCDxd_DliMftNntarn6QL0T4rOntvVbWuKWKfj7-n8nt8R7oxKRysKqzqbaLI_o1dRnqkJ-65xCIUfuKl4jxyeydhAO2IpAgSOxBrOIkfgdT45kPYn1w',
-    county: 'Mombasa',
-    constituency: 'Nyali',
-    town: 'Nyali',
-    neighborhood: 'Near Links Road',
-    specificLocation: 'Links Road near City Mall',
-    description: 'Coastal rental homes with quick access to beach areas, malls, and public transport.',
-    amenities: ['Security', 'Parking', 'Balcony', 'Water', 'Near beach'],
-    contactPhone: '0743475247',
-    mapQuery: 'Nyali Mombasa Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-3',
-    name: 'The Landmark Plaza',
-    address: 'Westlands, Nairobi',
-    unitsCount: 24,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDeFWF3TQaKiLEBRJtArgPXu09QtvyqQs-gb3Zt7iYlExPtNsZbIyaRrqyH-ukWCzFv775NWuT8V7XiXreNauV2xQTQdHb02QW_oN7OP1jp1g7Q4rJabYd5OQaedPKghFW7rMjA694Z2xEjSk44lalS6SdzWfG0I8_cLy9cCtqUZ2tP3vBmMM48q3UOStup7tWS9k1qdRLWjO2VFDULs8B0ngFXh-V-Gqp2JwMn5DH6oKY48I-GpOgw6M5_Xr0K1Gx7vkKDB417LOey',
-    county: 'Nairobi',
-    constituency: 'Westlands',
-    town: 'Westlands',
-    neighborhood: 'Near Waiyaki Way',
-    specificLocation: 'Westlands business district',
-    description: 'Mixed-use units for tenants who want quick access to Nairobi business corridors.',
-    amenities: ['Lift access', 'Security', 'Backup power', 'Parking', 'CBD access'],
-    contactPhone: '0743475247',
-    mapQuery: 'Westlands Nairobi Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-4',
-    name: "Le'Mac Residences",
-    address: 'Waiyaki Way, Westlands, Nairobi',
-    unitsCount: 10,
-    imageUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80',
-    county: 'Nairobi',
-    constituency: 'Westlands',
-    town: 'Westlands',
-    neighborhood: 'Near ABC Place',
-    specificLocation: 'Waiyaki Way, Westlands',
-    description: "High-rise Westlands homes inspired by Le'Mac's mixed-use residential tower profile, with city access, lift service, and lifestyle amenities.",
-    amenities: ['Lift access', 'Gym', 'Backup power', 'Security', 'Parking'],
-    contactPhone: '0743475247',
-    mapQuery: "Le'Mac Westlands Nairobi Kenya",
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-5',
-    name: 'Greenpark Athi River Homes',
-    address: 'Athi River, Machakos',
-    unitsCount: 16,
-    imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
-    county: 'Machakos',
-    constituency: 'Mavoko',
-    town: 'Athi River',
-    neighborhood: 'Near Mombasa Road',
-    specificLocation: 'Greenpark Estate area, Athi River',
-    description: 'Family-friendly homes inspired by the well-known Greenpark development corridor near Nairobi, with quieter living and road access.',
-    amenities: ['Parking', 'Garden court', 'Security', 'Water', 'Family estate'],
-    contactPhone: '0743475247',
-    mapQuery: 'Greenpark Athi River Machakos Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-6',
-    name: 'Madaraka City Flats',
-    address: 'Madaraka Estate, Nairobi',
-    unitsCount: 14,
-    imageUrl: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
-    county: 'Nairobi',
-    constituency: 'Langata',
-    town: 'Madaraka',
-    neighborhood: 'Near Nyayo National Stadium',
-    specificLocation: 'Ole Sangale Road, Madaraka',
-    description: 'Practical city flats inspired by Madaraka Estate, close to CBD routes, universities, stadium access, and everyday services.',
-    amenities: ['Near CBD', 'Public transport', 'Water', 'Security', 'Schools nearby'],
-    contactPhone: '0743475247',
-    mapQuery: 'Madaraka Estate Nairobi Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-7',
-    name: 'Nyali Beach Apartments',
-    address: 'Nyali, Mombasa',
-    unitsCount: 12,
-    imageUrl: 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?auto=format&fit=crop&w=1200&q=80',
-    county: 'Mombasa',
-    constituency: 'Nyali',
-    town: 'Nyali',
-    neighborhood: 'Near Nyali Beach',
-    specificLocation: 'Nyali beach residential belt',
-    description: 'Coastal apartments inspired by Nyali, with quick access to malls, beach roads, and resort-style residential services.',
-    amenities: ['Near beach', 'Balcony', 'Parking', 'Security', 'Water'],
-    contactPhone: '0743475247',
-    mapQuery: 'Nyali Beach Mombasa Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-8',
-    name: 'Kileleshwa Court Apartments',
-    address: 'Kileleshwa, Nairobi',
-    unitsCount: 10,
-    imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80',
-    county: 'Nairobi',
-    constituency: 'Dagoretti North',
-    town: 'Kileleshwa',
-    neighborhood: 'Near Kileleshwa Ring Road',
-    specificLocation: 'Off Gatundu Road, Kileleshwa',
-    description: 'Quiet leafy apartments near Kileleshwa Ring Road, a short drive from Westlands and Lavington shopping centres.',
-    amenities: ['Security', 'Parking', 'Backup power', 'Water', 'Wi-Fi ready'],
-    contactPhone: '0743475247',
-    mapQuery: 'Kileleshwa Nairobi Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-9',
-    name: 'Lavington Green Residences',
-    address: 'Lavington, Nairobi',
-    unitsCount: 8,
-    imageUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80',
-    county: 'Nairobi',
-    constituency: 'Dagoretti North',
-    town: 'Lavington',
-    neighborhood: 'Near Lavington Mall',
-    specificLocation: 'James Gichuru Road, Lavington',
-    description: 'Established Lavington apartments close to James Gichuru Road, Lavington Mall, and international schools.',
-    amenities: ['Security', 'Parking', 'Garden', 'Backup power', 'CCTV'],
-    contactPhone: '0743475247',
-    mapQuery: 'Lavington Nairobi Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-10',
-    name: 'Karen Manor Homes',
-    address: 'Karen, Nairobi',
-    unitsCount: 6,
-    imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
-    county: 'Nairobi',
-    constituency: 'Langata',
-    town: 'Karen',
-    neighborhood: 'Near Karen Blixen Museum',
-    specificLocation: 'Karen Road, near Hardy shopping centre',
-    description: 'Spacious standalone homes on generous plots in Karen, close to Hardy shopping centre and the Nairobi National Park boundary.',
-    amenities: ['Garden', 'Security', 'Parking', 'Borehole water', 'Staff quarters'],
-    contactPhone: '0743475247',
-    mapQuery: 'Karen Nairobi Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-11',
-    name: 'South B Sunrise Apartments',
-    address: 'South B, Nairobi',
-    unitsCount: 16,
-    imageUrl: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
-    county: 'Nairobi',
-    constituency: 'Makadara',
-    town: 'South B',
-    neighborhood: 'Near South B shopping centre',
-    specificLocation: 'Muhoho Avenue, South B',
-    description: 'Affordable family apartments in South B with quick access to the CBD, Nyayo Stadium, and Mater Hospital.',
-    amenities: ['Security', 'Parking', 'Water', 'Near public transport'],
-    contactPhone: '0743475247',
-    mapQuery: 'South B Nairobi Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-12',
-    name: 'Ruaka Riverside Apartments',
-    address: 'Ruaka, Kiambu',
-    unitsCount: 20,
-    imageUrl: 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?auto=format&fit=crop&w=1200&q=80',
-    county: 'Kiambu',
-    constituency: 'Kiambaa',
-    town: 'Ruaka',
-    neighborhood: 'Near Two Rivers Mall',
-    specificLocation: 'Ruaka town, off Limuru Road near Two Rivers Mall',
-    description: 'Fast-growing Ruaka apartments minutes from Two Rivers Mall and the Nairobi-Limuru Road, popular with young professionals.',
-    amenities: ['Security', 'Parking', 'Water', 'Backup power', 'Near matatu stage'],
-    contactPhone: '0743475247',
-    mapQuery: 'Ruaka Kiambu Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-13',
-    name: 'Kitengela Meadows',
-    address: 'Kitengela, Kajiado',
-    unitsCount: 12,
-    imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80',
-    county: 'Kajiado',
-    constituency: 'Kajiado East',
-    town: 'Kitengela',
-    neighborhood: 'Near Kitengela town centre',
-    specificLocation: 'Along Namanga Road, Kitengela',
-    description: 'Budget-friendly Kitengela homes along Namanga Road, well suited to commuters using the Nairobi-Namanga corridor.',
-    amenities: ['Security', 'Parking', 'Water', 'Family estate'],
-    contactPhone: '0743475247',
-    mapQuery: 'Kitengela Kajiado Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-14',
-    name: 'Ongata Rongai Heights',
-    address: 'Ongata Rongai, Kajiado',
-    unitsCount: 14,
-    imageUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80',
-    county: 'Kajiado',
-    constituency: 'Kajiado North',
-    town: 'Ongata Rongai',
-    neighborhood: 'Near Rongai town centre',
-    specificLocation: 'Off Magadi Road, Ongata Rongai',
-    description: 'Popular Rongai apartments off Magadi Road, close to the town centre market and regular matatus into Nairobi CBD.',
-    amenities: ['Security', 'Parking', 'Water', 'Near public transport'],
-    contactPhone: '0743475247',
-    mapQuery: 'Ongata Rongai Kajiado Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-15',
-    name: 'Thika Road Business Suites',
-    address: 'Makongeni, Thika',
-    unitsCount: 10,
-    imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
-    county: 'Kiambu',
-    constituency: 'Thika Town',
-    town: 'Thika',
-    neighborhood: 'Near Makongeni estate',
-    specificLocation: 'Makongeni, off Thika Superhighway',
-    description: 'Practical Thika apartments near Makongeni estate, a short ride from Thika Superhighway and the town’s industrial area.',
-    amenities: ['Security', 'Parking', 'Water', 'Near public transport'],
-    contactPhone: '0743475247',
-    mapQuery: 'Makongeni Thika Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-16',
-    name: 'Bamburi Beach Cottages',
-    address: 'Bamburi, Mombasa',
-    unitsCount: 9,
-    imageUrl: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
-    county: 'Mombasa',
-    constituency: 'Kisauni',
-    town: 'Bamburi',
-    neighborhood: 'Near Bamburi Beach',
-    specificLocation: 'Off Malindi Road, Bamburi',
-    description: 'Coastal cottages near Bamburi Beach and Nyali-Bamburi shopping strip, with easy access to Mombasa-Malindi Road.',
-    amenities: ['Near beach', 'Security', 'Parking', 'Water', 'Backup power'],
-    contactPhone: '0743475247',
-    mapQuery: 'Bamburi Mombasa Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-17',
-    name: 'Diani Palm Villas',
-    address: 'Diani Beach, Kwale',
-    unitsCount: 6,
-    imageUrl: 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?auto=format&fit=crop&w=1200&q=80',
-    county: 'Kwale',
-    constituency: 'Matuga',
-    town: 'Diani',
-    neighborhood: 'Near Diani Beach Road',
-    specificLocation: 'Diani Beach Road, near Ukunda',
-    description: 'Palm-shaded villas a short walk from Diani Beach Road, popular with long-stay tenants working near Ukunda.',
-    amenities: ['Near beach', 'Garden', 'Security', 'Parking', 'Backup power'],
-    contactPhone: '0743475247',
-    mapQuery: 'Diani Beach Kwale Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-18',
-    name: 'Kisumu Milimani Residences',
-    address: 'Milimani, Kisumu',
-    unitsCount: 12,
-    imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80',
-    county: 'Kisumu',
-    constituency: 'Kisumu Central',
-    town: 'Milimani',
-    neighborhood: 'Near Milimani estate',
-    specificLocation: 'Milimani estate, near Kisumu CBD',
-    description: 'Established Milimani apartments close to Kisumu CBD, the Kisumu Yacht Club, and Jomo Kenyatta Sports Ground.',
-    amenities: ['Security', 'Parking', 'Water', 'Garden', 'Backup power'],
-    contactPhone: '0743475247',
-    mapQuery: 'Milimani Kisumu Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-19',
-    name: 'Nakuru Milimani Apartments',
-    address: 'Milimani, Nakuru',
-    unitsCount: 14,
-    imageUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80',
-    county: 'Nakuru',
-    constituency: 'Nakuru Town West',
-    town: 'Milimani',
-    neighborhood: 'Near Nakuru Milimani estate',
-    specificLocation: 'Milimani estate, near Nakuru CBD',
-    description: 'Central Nakuru apartments in Milimani estate, walking distance to Nakuru CBD, schools, and Afraha Stadium.',
-    amenities: ['Security', 'Parking', 'Water', 'Near public transport'],
-    contactPhone: '0743475247',
-    mapQuery: 'Milimani Nakuru Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-20',
-    name: 'Eldoret Elgon View Apartments',
-    address: 'Elgon View, Eldoret',
-    unitsCount: 11,
-    imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
-    county: 'Uasin Gishu',
-    constituency: 'Kesses',
-    town: 'Eldoret CBD',
-    neighborhood: 'Elgon View',
-    specificLocation: 'Elgon View, near Eldoret town centre',
-    description: 'Well-regarded Elgon View apartments close to Eldoret town centre, Moi University town campus, and Rupa Mall.',
-    amenities: ['Security', 'Parking', 'Water', 'Garden'],
-    contactPhone: '0743475247',
-    mapQuery: 'Elgon View Eldoret Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  },
-  {
-    id: 'prop-21',
-    name: 'Naivasha Lake View Cottages',
-    address: 'Naivasha, Nakuru',
-    unitsCount: 8,
-    imageUrl: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
-    county: 'Nakuru',
-    constituency: 'Naivasha',
-    town: 'Naivasha',
-    neighborhood: 'Near Lake Naivasha',
-    specificLocation: 'Moi North Lake Road, Naivasha',
-    description: 'Cottages near Lake Naivasha and Moi North Lake Road, convenient for tenants working around the flower farms and town centre.',
-    amenities: ['Garden', 'Security', 'Parking', 'Water', 'Borehole water'],
-    contactPhone: '0743475247',
-    mapQuery: 'Naivasha Nakuru Kenya',
-    availableForMarketplace: true,
-    ownerEmail: 'john@renziy.app'
-  }
-];
-
-const SEED_UNITS: Unit[] = [
-  { id: 'unit-1-101', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '101', rentAmount: 245000, status: 'Occupied', tenantName: 'Marcus Holloway', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA9IoAcZLIY0gg8i6wPLcaY3ygBvaVJvW0PmG_h9U1cLAEnC0k1pah2rUmQdxTTwa2PZ2ZtDP8Qbjz2M8PTiLhaD3eXimlHnDekaQo093rGsmlvzC2rSthGOw2zEnPAvVYQsrYRRKAQ9Gbw7B8zo0HOWZaNpGzs2GKDB0DMjAlrYYqWc8XGfrZe7J-31LzJjZLfre2xMwa0HVge2uvWbsZahdZT1ShrALJgRNBMESkjZV3xRa47RCCNOORnjWwDOBmDJCnFaGCi7do5' },
-  { id: 'unit-1-102', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '102', rentAmount: 245000, status: 'Vacant' },
-  { id: 'unit-1-201', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '201', rentAmount: 280000, status: 'Occupied', tenantName: 'Sarah Jenkins', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAeMCNZyBiv-uiHtktmPVRPIpRrze2myHUqEyGKigO5LZgeu3-EP7_Ty-m4mB5GIZTneHA6G-KXG6hVHQz1wC3Gb-bT7Q82sDQKB583GkhdMFG5ZclHw4rl4_BK6sYi_QlxOSprJxAcqXMjWz41BAsUl0DXfLpJUZzgtVSzWKgHFpIf-UO6uiopeFa1h7QMxeZudiyqMMy-3IfrzO_ApWV77rRsYhROsYt2He4hGzWEBLPhQqKpdKovJWb_O96JJmbHQQbiK7HkM2bH' },
-  { id: 'unit-1-202', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: '202', rentAmount: 280000, status: 'Occupied', tenantName: 'Liam Carter', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBY1CTvj3PmtB3-LR_p1s4FNqaP67e_JoWovsuzRp3hatwF4Yg7LrghoPHFR3QODAlxjD9QQF_sIEDYVU0fbJWPhNa9W2QSz2JRCYA5eMWJxLkMcl5HZUURA8kXnfeVXbb8RDc4AW9wvm_SmqyHEv3RQTjcPXHaNL0e2CgaBh6Y4LbLxHaykUfOjEK0DWINHnO5M6EI-CV5VHBoeBuiVQ-kXneHEpi0m6_MM0suuhUZbRzMc1qz4fBdIKQaFE10mTnPsr6OA7lENt6E' },
-  { id: 'unit-1-4b', propertyId: 'prop-1', propertyName: 'Oakwood Heights', unitNumber: 'Apt 4B', rentAmount: 145000, status: 'Occupied', tenantName: 'Alex Smith', tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB' },
-
-  { id: 'unit-2-1', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 1', rentAmount: 195000, status: 'Occupied', tenantName: 'Jane Doe' },
-  { id: 'unit-2-2', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 2', rentAmount: 195000, status: 'Occupied', tenantName: 'Mark Smith' },
-  { id: 'unit-2-3', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 3', rentAmount: 210000, status: 'Occupied', tenantName: 'Lucia Rivera' },
-  { id: 'unit-2-4', propertyId: 'prop-2', propertyName: 'Harbor View Villas', unitNumber: 'Unit 4', rentAmount: 210000, status: 'Vacant' },
-
-  { id: 'unit-3-1', propertyId: 'prop-3', propertyName: 'The Landmark Plaza', unitNumber: 'Suite A', rentAmount: 450000, status: 'Occupied', tenantName: 'Tom Brown' },
-  { id: 'unit-3-2', propertyId: 'prop-3', propertyName: 'The Landmark Plaza', unitNumber: 'Suite B', rentAmount: 450000, status: 'Vacant' },
-  { id: 'unit-4-1201', propertyId: 'prop-4', propertyName: "Le'Mac Residences", unitNumber: '1201', rentAmount: 265000, status: 'Vacant' },
-  { id: 'unit-4-1603', propertyId: 'prop-4', propertyName: "Le'Mac Residences", unitNumber: '1603', rentAmount: 315000, status: 'Vacant' },
-  { id: 'unit-5-b08', propertyId: 'prop-5', propertyName: 'Greenpark Athi River Homes', unitNumber: 'B-08', rentAmount: 95000, status: 'Vacant' },
-  { id: 'unit-5-c14', propertyId: 'prop-5', propertyName: 'Greenpark Athi River Homes', unitNumber: 'C-14', rentAmount: 125000, status: 'Vacant' },
-  { id: 'unit-6-f12', propertyId: 'prop-6', propertyName: 'Madaraka City Flats', unitNumber: 'F-12', rentAmount: 78000, status: 'Vacant' },
-  { id: 'unit-6-g03', propertyId: 'prop-6', propertyName: 'Madaraka City Flats', unitNumber: 'G-03', rentAmount: 88000, status: 'Vacant' },
-  { id: 'unit-7-a2', propertyId: 'prop-7', propertyName: 'Nyali Beach Apartments', unitNumber: 'A-2', rentAmount: 135000, status: 'Vacant' },
-  { id: 'unit-7-p1', propertyId: 'prop-7', propertyName: 'Nyali Beach Apartments', unitNumber: 'Penthouse 1', rentAmount: 260000, status: 'Vacant' },
-
-  { id: 'unit-8-1a', propertyId: 'prop-8', propertyName: 'Kileleshwa Court Apartments', unitNumber: '1A', rentAmount: 48000, status: 'Occupied', tenantName: 'Grace Wanjiru' },
-  { id: 'unit-8-2b', propertyId: 'prop-8', propertyName: 'Kileleshwa Court Apartments', unitNumber: '2B', rentAmount: 75000, status: 'Vacant' },
-  { id: 'unit-8-3c', propertyId: 'prop-8', propertyName: 'Kileleshwa Court Apartments', unitNumber: '3C', rentAmount: 110000, status: 'Vacant' },
-
-  { id: 'unit-9-a1', propertyId: 'prop-9', propertyName: 'Lavington Green Residences', unitNumber: 'A1', rentAmount: 85000, status: 'Vacant' },
-  { id: 'unit-9-b2', propertyId: 'prop-9', propertyName: 'Lavington Green Residences', unitNumber: 'B2', rentAmount: 135000, status: 'Occupied', tenantName: 'Daniel Otieno' },
-
-  { id: 'unit-10-house1', propertyId: 'prop-10', propertyName: 'Karen Manor Homes', unitNumber: 'House 1', rentAmount: 160000, status: 'Vacant' },
-  { id: 'unit-10-house2', propertyId: 'prop-10', propertyName: 'Karen Manor Homes', unitNumber: 'House 2', rentAmount: 210000, status: 'Vacant' },
-
-  { id: 'unit-11-a04', propertyId: 'prop-11', propertyName: 'South B Sunrise Apartments', unitNumber: 'A-04', rentAmount: 18000, status: 'Vacant' },
-  { id: 'unit-11-b12', propertyId: 'prop-11', propertyName: 'South B Sunrise Apartments', unitNumber: 'B-12', rentAmount: 32000, status: 'Occupied', tenantName: 'Peter Mwangi' },
-  { id: 'unit-11-c07', propertyId: 'prop-11', propertyName: 'South B Sunrise Apartments', unitNumber: 'C-07', rentAmount: 45000, status: 'Vacant' },
-
-  { id: 'unit-12-102', propertyId: 'prop-12', propertyName: 'Ruaka Riverside Apartments', unitNumber: '102', rentAmount: 22000, status: 'Vacant' },
-  { id: 'unit-12-205', propertyId: 'prop-12', propertyName: 'Ruaka Riverside Apartments', unitNumber: '205', rentAmount: 32000, status: 'Vacant' },
-  { id: 'unit-12-310', propertyId: 'prop-12', propertyName: 'Ruaka Riverside Apartments', unitNumber: '310', rentAmount: 38000, status: 'Occupied', tenantName: 'Faith Achieng' },
-
-  { id: 'unit-13-b01', propertyId: 'prop-13', propertyName: 'Kitengela Meadows', unitNumber: 'B-01', rentAmount: 9000, status: 'Vacant' },
-  { id: 'unit-13-b02', propertyId: 'prop-13', propertyName: 'Kitengela Meadows', unitNumber: 'B-02', rentAmount: 15000, status: 'Vacant' },
-
-  { id: 'unit-14-r10', propertyId: 'prop-14', propertyName: 'Ongata Rongai Heights', unitNumber: 'R-10', rentAmount: 11000, status: 'Vacant' },
-  { id: 'unit-14-r22', propertyId: 'prop-14', propertyName: 'Ongata Rongai Heights', unitNumber: 'R-22', rentAmount: 19000, status: 'Occupied', tenantName: 'Kevin Kiprop' },
-
-  { id: 'unit-15-t3', propertyId: 'prop-15', propertyName: 'Thika Road Business Suites', unitNumber: 'T-3', rentAmount: 8000, status: 'Vacant' },
-  { id: 'unit-15-t9', propertyId: 'prop-15', propertyName: 'Thika Road Business Suites', unitNumber: 'T-9', rentAmount: 14000, status: 'Vacant' },
-
-  { id: 'unit-16-cot2', propertyId: 'prop-16', propertyName: 'Bamburi Beach Cottages', unitNumber: 'Cottage 2', rentAmount: 26000, status: 'Vacant' },
-  { id: 'unit-16-cot5', propertyId: 'prop-16', propertyName: 'Bamburi Beach Cottages', unitNumber: 'Cottage 5', rentAmount: 38000, status: 'Occupied', tenantName: 'Amina Hassan' },
-
-  { id: 'unit-17-villa1', propertyId: 'prop-17', propertyName: 'Diani Palm Villas', unitNumber: 'Villa 1', rentAmount: 45000, status: 'Vacant' },
-  { id: 'unit-17-villa3', propertyId: 'prop-17', propertyName: 'Diani Palm Villas', unitNumber: 'Villa 3', rentAmount: 72000, status: 'Vacant' },
-
-  { id: 'unit-18-m14', propertyId: 'prop-18', propertyName: 'Kisumu Milimani Residences', unitNumber: 'M-14', rentAmount: 20000, status: 'Vacant' },
-  { id: 'unit-18-m21', propertyId: 'prop-18', propertyName: 'Kisumu Milimani Residences', unitNumber: 'M-21', rentAmount: 34000, status: 'Occupied', tenantName: 'Brian Onyango' },
-
-  { id: 'unit-19-n05', propertyId: 'prop-19', propertyName: 'Nakuru Milimani Apartments', unitNumber: 'N-05', rentAmount: 14000, status: 'Vacant' },
-  { id: 'unit-19-n18', propertyId: 'prop-19', propertyName: 'Nakuru Milimani Apartments', unitNumber: 'N-18', rentAmount: 24000, status: 'Vacant' },
-
-  { id: 'unit-20-e07', propertyId: 'prop-20', propertyName: 'Eldoret Elgon View Apartments', unitNumber: 'E-07', rentAmount: 12000, status: 'Vacant' },
-  { id: 'unit-20-e15', propertyId: 'prop-20', propertyName: 'Eldoret Elgon View Apartments', unitNumber: 'E-15', rentAmount: 20000, status: 'Occupied', tenantName: 'Ruth Chebet' },
-
-  { id: 'unit-21-cot1', propertyId: 'prop-21', propertyName: 'Naivasha Lake View Cottages', unitNumber: 'Cottage 1', rentAmount: 15000, status: 'Vacant' },
-  { id: 'unit-21-cot4', propertyId: 'prop-21', propertyName: 'Naivasha Lake View Cottages', unitNumber: 'Cottage 4', rentAmount: 22000, status: 'Vacant' }
-];
-
-const SEED_PAYMENTS: Payment[] = [
-  {
-    id: 'pay-1',
-    tenantName: 'Jane Doe',
-    unitNumber: 'Unit 1',
-    propertyName: 'Harbor View Villas',
-    date: 'Oct 12, 2023',
-    amount: 185000.00,
-    status: 'Paid',
-    paymentMethod: 'M-Pesa',
-    code: 'MPESA-OCT-JD88'
-  },
-  {
-    id: 'pay-2',
-    tenantName: 'Mark Smith',
-    unitNumber: 'Unit 2',
-    propertyName: 'Harbor View Villas',
-    date: 'Oct 11, 2023',
-    amount: 240000.00,
-    status: 'Paid',
-    paymentMethod: 'Card',
-    code: 'CARD-OCT-MS22'
-  },
-  {
-    id: 'pay-3',
-    tenantName: 'Lucia Rivera',
-    unitNumber: 'Unit 3',
-    propertyName: 'Harbor View Villas',
-    date: 'Oct 10, 2023',
-    amount: 160000.00,
-    status: 'Pending',
-    paymentMethod: 'M-Pesa',
-    code: 'MPESA-OCT-LR33'
-  },
-  {
-    id: 'pay-4',
-    tenantName: 'Tom Brown',
-    unitNumber: 'Suite A',
-    propertyName: 'The Landmark Plaza',
-    date: 'Oct 09, 2023',
-    amount: 125000.00,
-    status: 'Paid',
-    paymentMethod: 'Card',
-    code: 'CARD-OCT-TB05'
-  }
-];
-
-const SEED_MAINTENANCE_REQUESTS: MaintenanceRequest[] = [
-  {
-    id: 'req-1',
-    title: 'Leaking Kitchen Sink',
-    category: 'Plumbing',
-    urgency: 'High',
-    description: 'Water dripping from the main faucet gasket inside of the wood drawer under the sink.',
-    status: 'In Progress',
-    date: '2026-05-25',
-    photos: [
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuAMUjzaEq6ab_V_3MYMo4C6cZFsDjDbKIg_8Pat8Qld5o4TaYVhsmYYTTv0OmwgZ-4I8RGO3LgwQbmryvRw-JuQxSzRcimztLBcV-zJz6kl0MtiWfMS4IkNGZvo3yRxoALnLPBHHAsj8PmXMuQdx4lExUq6yqEyHjSqyVCrfKAqh3sKlD3ZhkMaYXItTe2XwFYBEknIP8pYnQgskVaBzn34fRnBlH2KL3P1Tph3-VjQ8taeHBuXdcS1q2xubjz3yb7Z-H2_bLb0ODzo'
-    ],
-    technicianName: 'Mark S.',
-    technicianEmail: 'mark@renziy.app',
-    technicianPhone: '0743991122',
-    technicianAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
-    arrivalTime: '2:00 PM',
-    propertyName: 'Oakwood Heights',
-    unitNumber: 'Apt 4B',
-    tenantName: 'Alex Smith'
-  },
-  {
-    id: 'req-2',
-    title: 'Filter Replacement',
-    category: 'HVAC',
-    urgency: 'Low',
-    description: 'Routine filter change requested for the central HVAC in the hallway.',
-    status: 'Submitted',
-    date: '2026-05-26',
-    photos: [],
-    propertyName: 'Oakwood Heights',
-    unitNumber: 'Apt 4B',
-    tenantName: 'Alex Smith'
-  },
-  {
-    id: 'req-3',
-    title: 'Hallway Light Flickering',
-    category: 'Electrical',
-    urgency: 'Med',
-    description: 'The overhead lights near the entrance are flickering on and off intermittently.',
-    status: 'Acknowledged',
-    date: '2026-05-24',
-    photos: [],
-    propertyName: 'Oakwood Heights',
-    unitNumber: 'Apt 201',
-    tenantName: 'Sarah Jenkins'
-  }
-];
-
-const SEED_NOTIFICATIONS: Notification[] = [
-  {
-    id: 'notif-lockout-alert',
-    title: 'Critical Door Lockout Warning',
-    message: 'Your rent payment of KES 145,000 is now overdue. Continued failure to settle this balance will result in your unit smart lock being engaged remotely.',
-    date: 'Just now',
-    type: 'payment',
-    unread: true
-  },
-  {
-    id: 'notif-1',
-    title: 'Maintenance Update',
-    message: 'A technician (Mark S.) has been assigned to your sink repair.',
-    date: '2 hours ago',
-    type: 'maintenance',
-    unread: true
-  },
-  {
-    id: 'notif-2',
-    title: 'Lease Document',
-    message: 'Your signed lease renewal is now available in your documents.',
-    date: 'Yesterday',
-    type: 'lease',
-    unread: true
-  }
-];
-
+// Bootstrap data - only the platform owner (admin) account is seeded
+// automatically on a fresh database. Everything else (properties, units,
+// tenants, landlords, workers, payments, maintenance requests) starts empty;
+// real accounts and data come from people actually signing up and using the
+// app, not from demo/sample records.
 const SEED_MEMBERS: PlatformMember[] = [
   {
     id: 'member-admin-owner',
@@ -948,48 +378,8 @@ const SEED_MEMBERS: PlatformMember[] = [
     specialty: 'Platform owner',
     joinDate: '2026-07-02',
     status: 'Active'
-  },
-  {
-    id: 'member-landlord-default',
-    role: 'landlord',
-    name: 'John Doe',
-    phone: '0743475247',
-    email: 'john@renziy.app',
-    password: seedAccountPassword,
-    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRxmlZiyPxhMA9KhxxEY-ZornwU45XOarKthi5rZwjaUXVYAzK1Rptwz3XSUMih-aX7N40cr2Ki-5KZvD7pUHT8xTTKjuQMyyucNGma4FaFJirfRO8Nmxdo7wvHhgJnJDxwkPMa5NOJdwGCIEP9IoZoEnvk7HAYZ8jfseOFIDZ7L5DKDb2LTYFaZymzBJ-SYm2ragI8Q_dxp6yzf6AjtEmLdC6yZGqnU2ZCun5dcEqufGWVNNfnsQoC1JyHXHZfKXLK1rfwMLmEMPm',
-    propertyName: 'Oakwood Heights',
-    joinDate: '2026-05-20',
-    status: 'Active'
-  },
-  {
-    id: 'member-tenant-default',
-    role: 'tenant',
-    name: 'Alex Smith',
-    phone: '0712456789',
-    email: 'alex@renziy.app',
-    password: seedAccountPassword,
-    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB',
-    propertyName: 'Oakwood Heights',
-    unitNumber: 'Apt 4B',
-    rentAmount: 145000,
-    joinDate: '2026-05-22',
-    status: 'Active'
-  },
-  {
-    id: 'member-worker-default',
-    role: 'worker',
-    name: 'Mark S.',
-    phone: '0743991122',
-    email: 'mark@renziy.app',
-    password: seedAccountPassword,
-    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb',
-    specialty: 'Plumbing and general repairs',
-    joinDate: '2026-05-23',
-    status: 'Active'
   }
 ];
-
-// rentalApplications has no seed data - the table just starts empty.
 
 const DEFAULT_TENANT_BALANCE = 145000;
 
@@ -1209,6 +599,18 @@ const migrateSchema = async () => {
       "settlementConfig" jsonb not null default '{}'::jsonb
     )
   `);
+  // Notifications had no recipient at all - every signed-in user saw the
+  // exact same platform-wide feed. Old, recipient-less rows are cleared out
+  // rather than kept unreadable-but-orphaned, since nobody could correctly
+  // own them retroactively.
+  const { rows: existingRecipientColumn } = await sql.query(
+    `select 1 from information_schema.columns where table_name = 'notifications' and column_name = 'recipientEmail'`
+  );
+  const isFirstBootOfThisRelease = existingRecipientColumn.length === 0;
+  if (isFirstBootOfThisRelease) {
+    await sql.query(`alter table notifications add column if not exists "recipientEmail" text`);
+    await sql.query(`delete from notifications where "recipientEmail" is null`);
+  }
 
   if (!hadBalanceColumn) {
     const settings = await selectOne<{ tenantBalance: number }>("app_settings", [["id", "=", "singleton"]]);
@@ -1216,12 +618,34 @@ const migrateSchema = async () => {
       await updateRows("units", { balance: settings.tenantBalance }, [["id", "=", "unit-1-4b"]]);
     }
   }
+
+  // One-time removal of the old hardcoded demo accounts (john/alex/mark and
+  // their sample properties/units/payments/maintenance tickets) plus this
+  // project's own throwaway @example.com test accounts created while
+  // auditing the app. Gated to the same first-boot signal as the
+  // notification migration above so it never runs again after this
+  // release - otherwise a real future landlord legitimately choosing
+  // john@renziy.app would get deleted on every subsequent restart.
+  if (isFirstBootOfThisRelease) {
+    const demoPropertyIds = Array.from({ length: 21 }, (_, i) => `prop-${i + 1}`);
+    await deleteRows("units", [["propertyId", "IN", demoPropertyIds]]);
+    await deleteRows("properties", [["id", "IN", demoPropertyIds]]);
+    await deleteRows("payments", [["id", "IN", ["pay-1", "pay-2", "pay-3", "pay-4"]]]);
+    await deleteRows("maintenance_requests", [["id", "IN", ["req-1", "req-2", "req-3"]]]);
+    await deleteRows("members", [["email", "IN", ["john@renziy.app", "alex@renziy.app", "mark@renziy.app"]]]);
+
+    // example.com is a reserved documentation domain (RFC 2606) - no real
+    // signup could ever land here, so this is safe to match broadly.
+    await sql.query(`delete from units where "propertyId" in (select id from properties where "ownerEmail" like '%@example.com')`);
+    await sql.query(`delete from properties where "ownerEmail" like '%@example.com'`);
+    await sql.query(`delete from rental_applications where "tenantEmail" like '%@example.com' or "ownerEmail" like '%@example.com'`);
+    await sql.query(`delete from members where email like '%@example.com'`);
+  }
 };
 
-// Inserts seed/demo rows into Postgres, but only where a row with that id
-// doesn't already exist (upsertIgnoreDuplicates is "insert if missing", not
-// an overwrite) - so re-running this on every cold start never clobbers real
-// data a user has since changed (e.g. a changed password hash).
+// Seeds only the platform owner account. upsertIgnoreDuplicates never
+// overwrites a row that already exists, so this is safe to run on every
+// cold start without clobbering a changed admin password.
 const ensureSeedData = async () => {
   const seedMembers: PlatformMember[] = SEED_MEMBERS.map(member => {
     const { password, ...rest } = member;
@@ -1229,11 +653,6 @@ const ensureSeedData = async () => {
   });
 
   await Promise.all([
-    upsertIgnoreDuplicates("properties", SEED_PROPERTIES, "id"),
-    upsertIgnoreDuplicates("units", SEED_UNITS, "id"),
-    upsertIgnoreDuplicates("payments", SEED_PAYMENTS, "id"),
-    upsertIgnoreDuplicates("maintenance_requests", SEED_MAINTENANCE_REQUESTS, "id"),
-    upsertIgnoreDuplicates("notifications", SEED_NOTIFICATIONS, "id"),
     upsertIgnoreDuplicates("members", seedMembers, "id"),
     upsertIgnoreDuplicates(
       "app_settings",
@@ -1348,6 +767,15 @@ const requireSession = (req: express.Request, res: express.Response) => requireR
 const findOwnMember = async (session: SessionPayload) => {
   const member = await selectOne<PlatformMember>("members", [["role", "=", session.role], ["email", "=", normalizeEmail(session.email)]]);
   return member ?? undefined;
+};
+
+// Several notification triggers only have a display name to go on (e.g. a
+// unit's tenantName) rather than an email - this resolves the actual
+// recipient address so the notification can be scoped to them.
+const findMemberEmailByName = async (role: PlatformMember['role'], name?: string): Promise<string | undefined> => {
+  if (!name) return undefined;
+  const member = await selectOne<{ email: string }>("members", [["role", "=", role], ["name", "=", name]]);
+  return member?.email;
 };
 
 const portfolioPropertyNames = async (email: string) => {
@@ -1540,7 +968,8 @@ const getSettlementConfigFor = async (ownerEmail: string | null): Promise<Settle
       message: `${member.name} joined Renziy as a ${member.role}.`,
       date: 'Just now',
       type: 'lease',
-      unread: true
+      unread: true,
+      recipientEmail: adminAccountEmail
     });
     const token = signSession({ email: member.email, role: member.role, exp: Date.now() + sessionTtlMs });
     res.json({ token, member: scrubMember(member) });
@@ -1786,16 +1215,20 @@ const getSettlementConfigFor = async (ownerEmail: string | null): Promise<Settle
 
     // Trigger a notification to the tenant
     if (updatedUnit.tenantName) {
-      await insertRow("notifications", {
-        id: `notif-${Date.now()}`,
-        title: isLocked ? 'Smart Lock Engaged' : 'Smart Lock Released',
-        message: isLocked
-          ? `Your unit ${updatedUnit.unitNumber} at ${updatedUnit.propertyName} has been locked by the landlord. Reason: ${updatedUnit.lockReason}. Settle your payments immediately to reactivate.`
-          : `Your unit ${updatedUnit.unitNumber} at ${updatedUnit.propertyName} has been unlocked. Thank you for your payment.`,
-        date: 'Just now',
-        type: 'payment',
-        unread: true
-      });
+      const tenantEmail = await findMemberEmailByName('tenant', updatedUnit.tenantName);
+      if (tenantEmail) {
+        await insertRow("notifications", {
+          id: `notif-${Date.now()}`,
+          title: isLocked ? 'Smart Lock Engaged' : 'Smart Lock Released',
+          message: isLocked
+            ? `Your unit ${updatedUnit.unitNumber} at ${updatedUnit.propertyName} has been locked by the landlord. Reason: ${updatedUnit.lockReason}. Settle your payments immediately to reactivate.`
+            : `Your unit ${updatedUnit.unitNumber} at ${updatedUnit.propertyName} has been unlocked. Thank you for your payment.`,
+          date: 'Just now',
+          type: 'payment',
+          unread: true,
+          recipientEmail: tenantEmail
+        });
+      }
     }
 
     res.json(updatedUnit);
@@ -1923,7 +1356,8 @@ const getSettlementConfigFor = async (ownerEmail: string | null): Promise<Settle
       message: `Your maintenance request "${title}" has been successfully logged.`,
       date: 'Just now',
       type: 'maintenance',
-      unread: true
+      unread: true,
+      recipientEmail: normalizeEmail(session.email)
     });
 
     res.json(newRequest);
@@ -1967,14 +1401,18 @@ const getSettlementConfigFor = async (ownerEmail: string | null): Promise<Settle
       return res.status(workerEmail ? 400 : 404).json({ error: workerEmail ? "Worker not found" : "Maintenance Request not found" });
     }
 
-    await insertRow("notifications", {
-      id: `notif-${Date.now()}`,
-      title: 'Repair Status Updated',
-      message: `Repair "${foundRequest.title}" for ${foundRequest.tenantName} is now marked as ${status}.`,
-      date: 'Just now',
-      type: 'maintenance',
-      unread: true
-    });
+    const repairTenantEmail = await findMemberEmailByName('tenant', foundRequest.tenantName);
+    if (repairTenantEmail) {
+      await insertRow("notifications", {
+        id: `notif-${Date.now()}`,
+        title: 'Repair Status Updated',
+        message: `Repair "${foundRequest.title}" for ${foundRequest.tenantName} is now marked as ${status}.`,
+        date: 'Just now',
+        type: 'maintenance',
+        unread: true,
+        recipientEmail: repairTenantEmail
+      });
+    }
 
     res.json(foundRequest);
   }));
@@ -2010,33 +1448,50 @@ const getSettlementConfigFor = async (ownerEmail: string | null): Promise<Settle
       return res.status(404).json({ error: "Maintenance Request not found" });
     }
 
-    await insertRow("notifications", {
-      id: `notif-worker-${Date.now()}`,
-      title: 'Worker Assigned',
-      message: `${worker.name} has been contacted for "${updatedRequest.title}" at ${updatedRequest.propertyName} (${updatedRequest.unitNumber}).`,
-      date: 'Just now',
-      type: 'maintenance',
-      unread: true
-    });
+    const assignedTenantEmail = await findMemberEmailByName('tenant', updatedRequest.tenantName);
+    await Promise.all([
+      insertRow("notifications", {
+        id: `notif-worker-${Date.now()}`,
+        title: 'Worker Assigned',
+        message: `${worker.name} has been contacted for "${updatedRequest.title}" at ${updatedRequest.propertyName} (${updatedRequest.unitNumber}).`,
+        date: 'Just now',
+        type: 'maintenance',
+        unread: true,
+        recipientEmail: worker.email
+      }),
+      ...(assignedTenantEmail ? [insertRow("notifications", {
+        id: `notif-worker-tenant-${Date.now()}`,
+        title: 'Technician Assigned',
+        message: `${worker.name} has been assigned to your repair request "${updatedRequest.title}".`,
+        date: 'Just now',
+        type: 'maintenance',
+        unread: true,
+        recipientEmail: assignedTenantEmail
+      })] : [])
+    ]);
 
     res.json(updatedRequest);
   }));
 
   app.get("/api/notifications", asyncHandler(async (req, res) => {
-    // NOTE: notifications aren't tagged with a recipient in the data model yet,
-    // so this can only gate on "is signed in", not filter to the caller's own
-    // notifications. Every signed-in user currently sees the same feed.
-    // Scoping this properly needs a recipientEmail/audience field added when
-    // each notification is created - tracked as follow-up work.
     const session = await requireSession(req, res);
     if (!session) return;
-    res.json(await selectRows("notifications", [], { orderBy: "createdAt", desc: true }));
+    // Admin keeps the unscoped platform-wide activity feed; everyone else
+    // only sees notifications actually addressed to them.
+    if (session.role === 'admin') {
+      return res.json(await selectRows("notifications", [], { orderBy: "createdAt", desc: true }));
+    }
+    res.json(await selectRows("notifications", [["recipientEmail", "=", normalizeEmail(session.email)]], { orderBy: "createdAt", desc: true }));
   }));
 
   app.post("/api/notifications/read", asyncHandler(async (req, res) => {
     const session = await requireRole(req, res, ['tenant', 'landlord', 'worker', 'admin']);
     if (!session) return;
-    await updateRows("notifications", { unread: false }, [["id", "!=", ""]]);
+    if (session.role === 'admin') {
+      await updateRows("notifications", { unread: false }, [["id", "!=", ""]]);
+    } else {
+      await updateRows("notifications", { unread: false }, [["recipientEmail", "=", normalizeEmail(session.email)]]);
+    }
     res.json({ success: true });
   }));
 
@@ -2157,7 +1612,8 @@ const getSettlementConfigFor = async (ownerEmail: string | null): Promise<Settle
       message: `${member.name} joined Renziy as a ${member.role}.`,
       date: 'Just now',
       type: 'lease',
-      unread: true
+      unread: true,
+      recipientEmail: adminAccountEmail
     });
 
     res.json(scrubMember(member));
@@ -2225,14 +1681,17 @@ const getSettlementConfigFor = async (ownerEmail: string | null): Promise<Settle
     ]);
     await insertRow("rental_applications", application);
 
-    await insertRow("notifications", {
-      id: `notif-rental-${Date.now()}`,
-      title: 'New House Request',
-      message: `${application.tenantName} requested ${application.propertyName} - Unit ${application.unitNumber}.`,
-      date: 'Just now',
-      type: 'lease',
-      unread: true
-    });
+    if (application.ownerEmail) {
+      await insertRow("notifications", {
+        id: `notif-rental-${Date.now()}`,
+        title: 'New House Request',
+        message: `${application.tenantName} requested ${application.propertyName} - Unit ${application.unitNumber}.`,
+        date: 'Just now',
+        type: 'lease',
+        unread: true,
+        recipientEmail: normalizeEmail(application.ownerEmail)
+      });
+    }
 
     res.json(application);
   }));
@@ -2277,14 +1736,17 @@ const getSettlementConfigFor = async (ownerEmail: string | null): Promise<Settle
       code: paidApplication.paymentCode || 'MPESA-HOLD'
     });
 
-    await insertRow("notifications", {
-      id: `notif-rental-paid-${Date.now()}`,
-      title: 'House Request Rent Paid',
-      message: `${paidApplication.tenantName} paid KES ${paidApplication.rentAmount.toLocaleString()} for ${paidApplication.propertyName} - Unit ${paidApplication.unitNumber}.`,
-      date: 'Just now',
-      type: 'payment',
-      unread: true
-    });
+    if (paidApplication.ownerEmail) {
+      await insertRow("notifications", {
+        id: `notif-rental-paid-${Date.now()}`,
+        title: 'House Request Rent Paid',
+        message: `${paidApplication.tenantName} paid KES ${paidApplication.rentAmount.toLocaleString()} for ${paidApplication.propertyName} - Unit ${paidApplication.unitNumber}.`,
+        date: 'Just now',
+        type: 'payment',
+        unread: true,
+        recipientEmail: normalizeEmail(paidApplication.ownerEmail)
+      });
+    }
 
     res.json(paidApplication);
   }));
@@ -2329,7 +1791,8 @@ const getSettlementConfigFor = async (ownerEmail: string | null): Promise<Settle
       message: `${approvedApplication.propertyName} - Unit ${approvedApplication.unitNumber} has been approved for ${approvedApplication.tenantName}.`,
       date: 'Just now',
       type: 'lease',
-      unread: true
+      unread: true,
+      recipientEmail: normalizeEmail(approvedApplication.tenantEmail)
     });
 
     res.json(approvedApplication);
@@ -2414,7 +1877,8 @@ const getSettlementConfigFor = async (ownerEmail: string | null): Promise<Settle
       message: `Successfully processed ${method} rent payment of KES ${originalAmount.toLocaleString()}.`,
       date: 'Just now',
       type: 'payment',
-      unread: true
+      unread: true,
+      recipientEmail: normalizeEmail(session.email)
     });
 
     res.json({ success: true, payment: newPayment, originalAmount });
