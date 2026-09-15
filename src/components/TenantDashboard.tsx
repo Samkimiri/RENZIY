@@ -56,6 +56,8 @@ export default function TenantDashboard({
     username,
     notifications,
     tenantBalance,
+    tenantDueDate,
+    tenantDaysOverdue,
     maintenanceRequests,
     markNotificationsAsRead,
     units,
@@ -76,6 +78,16 @@ export default function TenantDashboard({
   const alexTickets = maintenanceRequests.filter(
     r => r.tenantName === username || ((username === 'Alex' || username === 'Alex Smith') && (r.tenantName === 'Alex Smith' || r.tenantName === 'Alex'))
   );
+
+  const formattedDueDate = tenantDueDate
+    ? new Date(`${tenantDueDate}T00:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+    : null;
+  const formattedDueDateShort = tenantDueDate
+    ? new Date(`${tenantDueDate}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+    : null;
+  const daysUntilDue = tenantDueDate
+    ? Math.max(0, Math.ceil((new Date(`${tenantDueDate}T00:00:00Z`).getTime() - Date.now()) / 86_400_000))
+    : null;
 
   // Unread count
   const unreadCount = notifications.filter(n => n.unread).length;
@@ -317,7 +329,11 @@ export default function TenantDashboard({
                 <span className="text-2xl font-extrabold">Account Fully Paid!</span>
               </div>
             )}
-            <p className="text-xs text-[#87a7ce] font-medium mt-2">Due on June 1st, 2026. Auto-generated monthly billing.</p>
+            <p className="text-xs text-[#87a7ce] font-medium mt-2">
+              {tenantBalance > 0
+                ? `Was due ${formattedDueDate || 'this cycle'}. Auto-generated monthly billing.`
+                : 'Auto-generated monthly billing.'}
+            </p>
           </div>
 
           {tenantBalance > 0 ? (
@@ -334,7 +350,7 @@ export default function TenantDashboard({
           ) : (
             <div className="mt-8 pt-4 border-t border-white/10 flex justify-between items-center text-xs text-emerald-400/90 font-bold z-10">
               <span>Thank you for being a wonderful tenant!</span>
-              <span>Next cycle billing: Nov 1, 2026</span>
+              <span>Next cycle billing: {formattedDueDate || 'pending'}</span>
             </div>
           )}
         </div>
@@ -351,19 +367,22 @@ export default function TenantDashboard({
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-extrabold uppercase text-[#002645] tracking-wider">Due Countdown</h3>
             <span className="text-xs font-bold text-[#73777f] flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" /> June 1st
+              <Clock className="h-3.5 w-3.5" /> {formattedDueDateShort || 'Pending'}
             </span>
           </div>
 
           <div className="my-5 text-center flex flex-col items-center">
             <span className={`text-5xl font-extrabold font-sans tracking-tight ${tenantBalance > 0 ? 'text-red-500 animate-pulse' : 'text-emerald-600'}`}>
-              5
+              {tenantBalance > 0 ? tenantDaysOverdue : (daysUntilDue ?? '-')}
             </span>
-            <span className="text-[10px] uppercase font-black tracking-wider text-[#73777f] mt-1.5">Days left to Pay</span>
+            <span className="text-[10px] uppercase font-black tracking-wider text-[#73777f] mt-1.5">
+              {tenantBalance > 0 ? 'Days Overdue' : 'Days Until Next Bill'}
+            </span>
 
             {tenantBalance > 0 ? (
               <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-full border border-red-100 uppercase tracking-wide">
-                <AlertTriangle className="h-3 w-3 shrink-0" /> Overdue: 26 Days
+                <AlertTriangle className="h-3 w-3 shrink-0" />
+                {tenantDaysOverdue === 0 ? 'Due today' : `Overdue: ${tenantDaysOverdue} Day${tenantDaysOverdue === 1 ? '' : 's'}`}
               </span>
             ) : (
               <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 uppercase tracking-wide">

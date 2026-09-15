@@ -52,7 +52,10 @@ create table if not exists units (
   "tenantAvatar" text,
   "isLocked" boolean,
   "lockReason" text,
-  "balance" double precision not null default 0
+  "balance" double precision not null default 0,
+  -- First of the calendar month this unit's balance was last topped up for
+  -- by the recurring monthly billing pass. Null until first billed.
+  "lastBilledDate" date
 );
 create index if not exists units_property_id_idx on units ("propertyId");
 create index if not exists units_tenant_name_idx on units ("tenantName");

@@ -16,6 +16,8 @@ interface RenziyContextType {
   membersLoaded: boolean;
   rentalApplications: RentalApplication[];
   tenantBalance: number;
+  tenantDueDate: string | null;
+  tenantDaysOverdue: number;
   settlementConfig: SettlementConfig;
   addProperty: (property: Omit<Property, 'id'>) => Promise<void>;
   updatePropertyDetails: (propertyId: string, details: Partial<Property>) => Promise<void>;
@@ -87,6 +89,8 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [membersLoaded, setMembersLoaded] = useState(false);
   const [rentalApplications, setRentalApplications] = useState<RentalApplication[]>([]);
   const [tenantBalance, setTenantBalance] = useState<number>(0);
+  const [tenantDueDate, setTenantDueDate] = useState<string | null>(null);
+  const [tenantDaysOverdue, setTenantDaysOverdue] = useState<number>(0);
   const [settlementConfig, setSettlementConfig] = useState<SettlementConfig>({
     mpesaType: 'Paybill',
     mpesaDetails: '',
@@ -142,6 +146,8 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (balRes.ok) {
         const balData = await balRes.json();
         setTenantBalance(balData.tenantBalance);
+        setTenantDueDate(balData.dueDate ?? null);
+        setTenantDaysOverdue(balData.daysOverdue ?? 0);
       }
       if (settRes.ok) setSettlementConfig(await settRes.json());
     } catch (err) {
@@ -530,6 +536,8 @@ export const RenziyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         membersLoaded,
         rentalApplications,
         tenantBalance,
+        tenantDueDate,
+        tenantDaysOverdue,
         settlementConfig,
         addProperty,
         updatePropertyDetails,

@@ -33,6 +33,7 @@ export interface Unit {
   isLocked?: boolean;
   lockReason?: string;
   balance?: number;
+  lastBilledDate?: string | null;
 }
 
 export interface Tenant {

@@ -88,10 +88,10 @@ export default function LandlordDashboard({ onNavigate }: { onNavigate: (tab: st
     .filter(p => p.status === 'Paid')
     .reduce((sum, p) => sum + p.amount, 0);
 
-  // Outstanding rent (Pending/Overdue from payments database)
-  const totalOutstanding = portfolioPayments
-    .filter(p => p.status === 'Pending' || p.status === 'Overdue')
-    .reduce((sum, p) => sum + p.amount, 0);
+  // Outstanding rent - each occupied unit's own live balance (recurring
+  // monthly billing keeps this current), not the payments log, since a
+  // payment row only ever gets created once rent is actually paid.
+  const totalOutstanding = portfolioUnits.reduce((sum, u) => sum + (u.balance ?? 0), 0);
 
   // Maintenance metrics
   const activeRequests = portfolioMaintenanceRequests.filter(r => r.status !== 'Resolved');
