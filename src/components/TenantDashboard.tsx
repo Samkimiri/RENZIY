@@ -258,12 +258,18 @@ export default function TenantDashboard({
         <div className="flex items-center gap-5">
           {/* Tenant Avatar with interactive edit option */}
           <div className="relative group shrink-0">
-            <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-[#002645]/10 bg-slate-100 shadow-sm transition-all duration-300 group-hover:border-[#002645]/40 relative">
-              <img
-                src={myUnit?.tenantAvatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB'}
-                alt={username}
-                className="w-full h-full object-cover"
-              />
+            <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-[#002645]/10 bg-slate-100 shadow-sm transition-all duration-300 group-hover:border-[#002645]/40 relative flex items-center justify-center">
+              {myUnit?.tenantAvatar ? (
+                <img
+                  src={myUnit.tenantAvatar}
+                  alt={username}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-xl font-black text-[#002645]">
+                  {username.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]!.toUpperCase()).join('') || '?'}
+                </span>
+              )}
             </div>
             {/* Clickable camera badge overlay */}
             <button

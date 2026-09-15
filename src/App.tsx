@@ -14,9 +14,12 @@ import WorkerDashboard from './components/WorkerDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import { Building2, LayoutDashboard, Building, Wrench, CreditCard, LogOut, Bell, ArrowLeftRight, Lock, Coins, MapPin, HardHat, Camera, X, ShieldCheck } from 'lucide-react';
 
-const defaultTenantAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB';
-const defaultLandlordAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAMwnvNKfivoGNvNC9N5regRXFoTzJgjvygw0djDO-V3kLxr0Hy8prK6Rf3M7eqjVCcsY4Apprti87A1_xX0S9aIJUnk6pTxgqAHsoeDAdjAJ7elxN6Qy-ESwviqRsDX6d6JgEdcqtVRI5xDlnVAeMQTUI_xej9xSBYkSlgfc36PkFJ4ZuitjAA9R5PSRRVX9At_QfcjBLMS_Ux_m71L3CiwKnebuz0RO-Esm93lzAa_uC_pu6gvY1OJGjhmsKN0dNjOdLycbyWgiqE';
-const defaultWorkerAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgHGl0k6f2XkLYjCLHl8a48TXjgy-Id98ps78OnE0wYtLYeuNe_SA4yid2BdyFcW72NvvX3QTFMKW2S31QWeq59noa99dscfJozILMQreMZHQdsc0PHSXD0e5EIvb9TE7fmsbiuZuJjR6Lz4WECW4S19uS50wvYbdJbxdvgGDRylaTrJhQhFiwhN9nARa_9fL6xs8Z2tDwqsJYhESjTEQmF8aARejNImS_FH9kV5YbJu-Ve_Ikaz_vvgOX0gmzBZfj1AodlcycXiGb';
+// No default/stock avatar is used anywhere in this app - a profile picture
+// only ever appears if the account holder actually uploaded one. Anywhere
+// an avatarUrl is empty, the UI shows the person's initials instead.
+const initialsFor = (name: string) => (
+  name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]!.toUpperCase()).join('') || '?'
+);
 
 const resizeAvatarFile = (file: File) => new Promise<string>((resolve, reject) => {
   if (!file.type.startsWith('image/')) {
@@ -111,8 +114,9 @@ function AppContent() {
         activeMember?.unitNumber === u.unitNumber
       )) || units?.find(u => u.tenantName === username) || (username === 'Alex' || username === 'Alex Smith' ? units?.find(u => u.id === 'unit-1-4b') : undefined)
     : undefined;
-  const profileAvatar = activeMember?.avatarUrl
-    || (role === 'tenant' ? myUnitInfo?.tenantAvatar || defaultTenantAvatar : role === 'worker' ? defaultWorkerAvatar : defaultLandlordAvatar);
+  // Only a real, uploaded photo ever shows here - no stock/default image.
+  const profileAvatar = activeMember?.avatarUrl || (role === 'tenant' ? myUnitInfo?.tenantAvatar : undefined) || null;
+  const profileInitials = initialsFor(username);
   const firstName = username.trim().split(/\s+/)[0] || username;
   const personalizedNotifications = useMemo(() => (
     notifications.map(notification => ({
@@ -406,7 +410,11 @@ function AppContent() {
               className="sm:hidden relative w-9 h-9 rounded-full bg-[#002645]/10 overflow-hidden flex items-center justify-center shrink-0 border border-[#e4e2e4]"
               title="Change profile picture"
             >
-              <img alt={username} className="w-full h-full object-cover" src={profileAvatar} />
+              {profileAvatar ? (
+                <img alt={username} className="w-full h-full object-cover" src={profileAvatar} />
+              ) : (
+                <span className="w-full h-full flex items-center justify-center text-[10px] font-black text-[#002645]">{profileInitials}</span>
+              )}
               <span className="absolute -right-0.5 -bottom-0.5 w-4 h-4 rounded-full bg-[#002645] text-white flex items-center justify-center border border-white">
                 <Camera className="h-2.5 w-2.5" />
               </span>
@@ -420,11 +428,15 @@ function AppContent() {
                 className="relative w-8 h-8 rounded-full bg-[#002645]/10 overflow-hidden flex items-center justify-center shrink-0 border border-[#e4e2e4] cursor-pointer group"
                 title="Change profile picture"
               >
-                <img 
-                  alt={username} 
-                  className="w-full h-full object-cover" 
-                  src={profileAvatar} 
-                />
+                {profileAvatar ? (
+                  <img
+                    alt={username}
+                    className="w-full h-full object-cover"
+                    src={profileAvatar}
+                  />
+                ) : (
+                  <span className="w-full h-full flex items-center justify-center text-[10px] font-black text-[#002645]">{profileInitials}</span>
+                )}
                 <span className="absolute inset-0 bg-[#002645]/50 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                   <Camera className="h-3.5 w-3.5" />
                 </span>
@@ -470,8 +482,12 @@ function AppContent() {
               </div>
 
               <div className="flex flex-col items-center gap-3">
-                <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-[#E8F4FD] bg-slate-100 shadow-sm">
-                  <img src={avatarPreview || profileAvatar} alt={username} className="w-full h-full object-cover" />
+                <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-[#E8F4FD] bg-slate-100 shadow-sm flex items-center justify-center">
+                  {(avatarPreview || profileAvatar) ? (
+                    <img src={avatarPreview || profileAvatar!} alt={username} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-2xl font-black text-[#002645]">{profileInitials}</span>
+                  )}
                 </div>
                 <input
                   ref={avatarInputRef}

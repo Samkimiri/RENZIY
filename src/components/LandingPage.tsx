@@ -7,8 +7,6 @@ import { ArrowRight, BarChart3, Bell, Building2, CheckCircle2, Eye, EyeOff, Hard
 type AccountMode = 'signin' | 'signup' | 'reset';
 type AccountRole = 'admin' | 'landlord' | 'tenant' | 'worker';
 
-const defaultAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB';
-
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
 const accountRoleLabel = (role: AccountRole) => (
   role === 'admin' ? 'Owner' : role === 'tenant' ? 'Tenant' : role === 'landlord' ? 'Landlord' : 'Worker'
@@ -208,7 +206,6 @@ export default function LandingPage() {
         phone: phone || 'Pending',
         email: cleanEmail,
         password,
-        avatarUrl: defaultAvatar,
         propertyName: selectedRole === 'landlord' ? propertyName.trim() || 'New landlord portfolio' : undefined,
         unitNumber: undefined,
         rentAmount: undefined,

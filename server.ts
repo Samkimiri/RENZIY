@@ -377,7 +377,6 @@ const SEED_MEMBERS: PlatformMember[] = [
     phone: '0743475247',
     email: adminAccountEmail,
     password: adminAccountPassword,
-    avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=480&q=80',
     specialty: 'Platform owner',
     joinDate: '2026-07-02',
     status: 'Active'
@@ -681,6 +680,32 @@ const migrateSchema = async () => {
     await sql.query(`
       insert into app_settings (id, "testAccountsSweptAt") values ('singleton', now())
       on conflict (id) do update set "testAccountsSweptAt" = now()
+    `);
+  }
+
+  // One-time cleanup of the hardcoded stock avatar photos the app used to
+  // assign automatically (at signup, when a landlord linked a tenant to a
+  // unit, and on the seeded admin account) - nobody chose these, they just
+  // showed up. A real uploaded photo is always a data: URI (see
+  // resizeAvatarFile client-side), never one of these external stock URLs,
+  // so this can never touch an actual user-chosen picture.
+  const { rows: avatarMarkerColumn } = await sql.query(
+    `select 1 from information_schema.columns where table_name = 'app_settings' and column_name = 'stockAvatarsClearedAt'`
+  );
+  if (avatarMarkerColumn.length === 0) {
+    await sql.query(`alter table app_settings add column if not exists "stockAvatarsClearedAt" timestamptz`);
+    await sql.query(`
+      update members set "avatarUrl" = null
+      where "avatarUrl" like 'https://lh3.googleusercontent.com/aida-public/%'
+         or "avatarUrl" = 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=480&q=80'
+    `);
+    await sql.query(`
+      update units set "tenantAvatar" = null
+      where "tenantAvatar" like 'https://lh3.googleusercontent.com/aida-public/%'
+    `);
+    await sql.query(`
+      insert into app_settings (id, "stockAvatarsClearedAt") values ('singleton', now())
+      on conflict (id) do update set "stockAvatarsClearedAt" = now()
     `);
   }
 };
@@ -1202,8 +1227,9 @@ const getSettlementConfigFor = async (ownerEmail: string | null): Promise<Settle
 
     const updatedUnit = await updateOne<Unit>("units", {
       status: 'Occupied',
-      tenantName,
-      tenantAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB'
+      tenantName
+      // No tenantAvatar here - a profile picture only ever appears once the
+      // tenant (or landlord, via updateTenantAvatar) actually uploads one.
     }, [["id", "=", unitId]]);
 
     if (!updatedUnit) {
@@ -1239,8 +1265,10 @@ const getSettlementConfigFor = async (ownerEmail: string | null): Promise<Settle
       rentAmount: rentAmount !== undefined ? Number(rentAmount) : existingUnit.rentAmount,
       status: nextStatus,
       tenantName: shouldUpdateTenant ? (tenantName || null) : nextStatus === 'Vacant' ? null : existingUnit.tenantName,
+      // No stock fallback - keep whatever real photo was already there, or
+      // stay empty until the tenant (or landlord) uploads a real one.
       tenantAvatar: shouldUpdateTenant
-        ? (tenantName ? existingUnit.tenantAvatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOcbVtz4Nz5aTDAR2DZW9Pg9F6e65oPi6Td2jZ84CEwLXgn5HrvYocGZaVvLRdcS9eUaqLENJ27o2RqpElz14uBPV47JROuDd4JkbKG4lK3vapbE6KOkie8PQbaMTqlvURqdmEzyOUTLS-bssVrQp56st-qoqgO1NFNrdLvXPdL5SwnjZzSChp5a_s4toIffdm_8W02EPKg7MLqi3poWL6UDKib0nkwFBjpcLb7YMRsPtiVkMFt4jFzqbDf0SOuGuynYq7GjnWhyHB' : null)
+        ? (tenantName ? existingUnit.tenantAvatar || null : null)
         : nextStatus === 'Vacant' ? null : existingUnit.tenantAvatar
     }, [["id", "=", unitId]]);
 
