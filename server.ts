@@ -655,17 +655,33 @@ const migrateSchema = async () => {
     await deleteRows("members", [["email", "IN", ["john@renziy.app", "alex@renziy.app", "mark@renziy.app"]]]);
   }
 
-  // example.com (RFC 2606) and the .local TLD (RFC 6762) are reserved and
-  // never issuable to a real signup - safe to sweep on every boot, unlike
-  // the demo cleanup above, so any throwaway test account from developing
-  // or auditing this app never lingers.
-  for (const domainPattern of ["%@example.com", "%.local"]) {
-    await sql.query(`delete from units where "propertyId" in (select id from properties where "ownerEmail" like $1)`, [domainPattern]);
-    await sql.query(`delete from properties where "ownerEmail" like $1`, [domainPattern]);
-    await sql.query(`delete from rental_applications where "tenantEmail" like $1 or "ownerEmail" like $1`, [domainPattern]);
-    await sql.query(`delete from maintenance_requests where "tenantName" in (select name from members where email like $1)`, [domainPattern]);
-    await sql.query(`delete from payments where "tenantName" in (select name from members where email like $1)`, [domainPattern]);
-    await sql.query(`delete from members where email like $1`, [domainPattern]);
+  // One-time removal of throwaway @example.com / .local test accounts left
+  // over from developing and auditing this app. This must NOT run on every
+  // boot: Vercel's serverless functions cold-start on nearly every request
+  // under low traffic, so "every boot" in practice meant "moments after the
+  // account is created, on the very next request" - discovered when it wiped
+  // out a real verification account seconds after registering it in
+  // production. Gated behind its own one-time marker (independent of
+  // isFirstBootOfThisRelease above, which already fired on a prior deploy)
+  // so it runs exactly once more and never again - a real future user is
+  // free to use a .local-style email without it vanishing later.
+  const { rows: sweepMarkerColumn } = await sql.query(
+    `select 1 from information_schema.columns where table_name = 'app_settings' and column_name = 'testAccountsSweptAt'`
+  );
+  if (sweepMarkerColumn.length === 0) {
+    await sql.query(`alter table app_settings add column if not exists "testAccountsSweptAt" timestamptz`);
+    for (const domainPattern of ["%@example.com", "%.local"]) {
+      await sql.query(`delete from units where "propertyId" in (select id from properties where "ownerEmail" like $1)`, [domainPattern]);
+      await sql.query(`delete from properties where "ownerEmail" like $1`, [domainPattern]);
+      await sql.query(`delete from rental_applications where "tenantEmail" like $1 or "ownerEmail" like $1`, [domainPattern]);
+      await sql.query(`delete from maintenance_requests where "tenantName" in (select name from members where email like $1)`, [domainPattern]);
+      await sql.query(`delete from payments where "tenantName" in (select name from members where email like $1)`, [domainPattern]);
+      await sql.query(`delete from members where email like $1`, [domainPattern]);
+    }
+    await sql.query(`
+      insert into app_settings (id, "testAccountsSweptAt") values ('singleton', now())
+      on conflict (id) do update set "testAccountsSweptAt" = now()
+    `);
   }
 };
 
